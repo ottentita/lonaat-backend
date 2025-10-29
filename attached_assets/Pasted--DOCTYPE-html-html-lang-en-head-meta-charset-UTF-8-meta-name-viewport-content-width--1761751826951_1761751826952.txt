@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LONAAT Marketplace</title>
+<style>
+  body{font-family:Arial;background:#f4f6f8;margin:0;padding:20px;}
+  h1{color:#1f77b4;}
+  .product{background:white;border-radius:10px;padding:15px;margin:10px 0;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+  .product h3{margin:0 0 10px;}
+  .product a{color:#2ecc71;font-weight:bold;text-decoration:none;}
+  .product a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+  <h1>🛒 LONAAT AI Marketplace</h1>
+  <div id="marketplace"></div>
+
+<script>
+const API_URL = "https://YOUR_REPL_BACKEND_URL"; // e.g. https://lonaat-ai-backend.username.repl.co
+
+async function loadAds() {
+  const res = await fetch(${API_URL}/auto_generate_ads, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      affiliate_url: "https://example.com/affiliate-products"
+    })
+  });
+  const data = await res.json();
+  console.log(data.message);
+}
+
+async function fetchMarketplace() {
+  const res = await fetch(${API_URL}/auto_generate_ads, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      affiliate_url: "https://example.com/affiliate-products"
+    })
+  });
+  const data = await res.json();
+  console.log(data);
+}
+
+async function showAds() {
+  const res = await fetch(${API_URL}/auto_generate_ads, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ affiliate_url:"https://example.com" })
+  });
+  const data = await res.json();
+  console.log(data.message);
+  loadFromFirebase();
+}
+
+async function loadFromFirebase(){
+  // Example display: simulated fetch from backend marketplace endpoint
+  const res = await fetch(${API_URL}/);
+  const data = await res.json();
+  document.getElementById("marketplace").innerHTML = `
+    <p><strong>Backend Status:</strong> ${data.message}</p>
+    <p>Use dashboard to view products and balances.</p>
+  `;
+}
+showAds();
+</script>
+</body>
+</html>
