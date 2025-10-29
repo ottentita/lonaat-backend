@@ -35,15 +35,27 @@ def fetch_affiliate_products(affiliate_url):
         # Adjust selector based on the actual website structure
         for item in soup.select('.product')[:10]:
             try:
-                name = item.select_one('.title').get_text(strip=True)
-                price = item.select_one('.price').get_text(strip=True)
-                link = item.select_one('a')['href']
+                title_elem = item.select_one('.title')
+                price_elem = item.select_one('.price')
+                link_elem = item.select_one('a')
+                
+                # Skip if any required element is missing
+                if not title_elem or not price_elem or not link_elem:
+                    continue
+                
+                name = title_elem.get_text(strip=True)
+                price = price_elem.get_text(strip=True)
+                link = link_elem.get('href')
+                
+                if not link:
+                    continue
+                
                 products.append({
                     "name": name,
                     "price": price,
-                    "link": link
+                    "link": str(link)
                 })
-            except AttributeError:
+            except (AttributeError, TypeError):
                 continue
                 
         return products

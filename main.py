@@ -4,9 +4,16 @@ import firebase_admin
 from firebase_admin import credentials, db
 import os
 import json
+from typing import Optional, Any, Dict, List
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 
 app = Flask(__name__)
+
+# Initialize Firebase references and database with proper types
+users_ref: Optional[Any] = None
+transactions_ref: Optional[Any] = None
+database: Optional[Dict[str, Any]] = None
+firebase_enabled: bool = False
 
 # Initialize Firebase using environment variable
 firebase_creds = os.getenv('FIREBASE_SERVICE_ACCOUNT')
@@ -200,6 +207,64 @@ def generate_ad():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": "Failed to generate ad text"}), 500
+
+@app.route('/auto_generate_ads', methods=['POST'])
+def auto_generate_ads():
+    """Fully automated: Scrape products, generate AI ads, and save to Firebase"""
+    data = request.get_json()
+    affiliate_url = data.get('affiliate_url')
+    
+    if not affiliate_url:
+        return jsonify({"error": "affiliate_url is required"}), 400
+    
+    try:
+        # Step 1: Fetch new products from affiliate URL
+        products = fetch_affiliate_products(affiliate_url)
+        
+        if not products:
+            return jsonify({"message": "No products found at the provided URL", "count": 0})
+        
+        # Step 2: Generate ads and push to Firebase
+        successful_ads = 0
+        for p in products:
+            try:
+                # Generate AI-powered ad text
+                ad_text = generate_ad_text(p["name"], p["price"], p["link"])
+                
+                # Save to Firebase or in-memory database
+                product_data = {
+                    "name": p["name"],
+                    "price": p["price"],
+                    "link": p["link"],
+                    "ad_text": ad_text,
+                    "created_at": datetime.now().isoformat()
+                }
+                
+                if firebase_enabled:
+                    db.reference("marketplace").push(product_data)
+                else:
+                    # Fallback: store in memory
+                    if "marketplace" not in database:
+                        database["marketplace"] = []
+                    database["marketplace"].append(product_data)
+                
+                successful_ads += 1
+            except Exception as e:
+                print(f"Error processing product {p.get('name')}: {e}")
+                continue
+        
+        return jsonify({
+            "message": "AI ads created successfully",
+            "total_products": len(products),
+            "successful_ads": successful_ads,
+            "firebase_enabled": firebase_enabled
+        })
+    
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        print(f"Error in auto_generate_ads: {e}")
+        return jsonify({"error": "Failed to generate ads automatically"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

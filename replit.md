@@ -36,6 +36,7 @@ lonaat-backend/
 - 2025-10-29: Added affiliate product scraping functionality
 - 2025-10-29: Integrated OpenAI for AI-powered product descriptions
 - 2025-10-29: Added AI-powered ad text generation with call-to-action
+- 2025-10-29: Added full automation endpoint - scrape, generate ads, save to Firebase in one request
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
@@ -117,6 +118,7 @@ To use Firebase Realtime Database, add your Firebase service account credentials
 - **Product Descriptions**: Generate compelling marketing descriptions using OpenAI
 - **Product Analysis**: Enhance product data with AI-generated content
 - **Automated Marketing**: Create engaging content for affiliate products
+- **Full Automation**: One-click solution to scrape, generate ads, and save to Firebase
 
 ### Admin Panel
 Beautiful, responsive admin interface with:
@@ -162,6 +164,12 @@ Beautiful, responsive admin interface with:
   - Body: `{product: {name: "Product", price: "$99"}}`
   - Returns: Enhanced product with AI description
   - Requires: `OPENAI_API_KEY` in Replit Secrets
+
+- `POST /auto_generate_ads` - **FULL AUTOMATION**: Scrape, generate ads, and save to Firebase
+  - Body: `{affiliate_url: "https://example.com/products"}`
+  - Returns: Count of generated ads and status
+  - Requires: `OPENAI_API_KEY` in Replit Secrets
+  - **This endpoint automates everything**: Fetches products, generates AI ads, and saves to Firebase!
 
 ## Database Structure
 
@@ -217,6 +225,17 @@ curl -X POST http://localhost:5000/api/scrape_products \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com/products"}'
 ```
+
+### Full Automation - Generate Ads and Save to Firebase
+```bash
+curl -X POST http://localhost:5000/auto_generate_ads \
+  -H "Content-Type: application/json" \
+  -d '{"affiliate_url": "https://example.com/products"}'
+```
+This endpoint does everything automatically:
+1. Scrapes products from the affiliate URL
+2. Generates AI-powered ad text for each product
+3. Saves all ads to Firebase marketplace collection
 
 ## Future Enhancements
 - Add user authentication with Firebase Auth
