@@ -154,7 +154,11 @@ The ad should sound fun and persuasive.
             return response.choices[0].message.content.strip()
         return f"Check out {product_name} for just {product_price}! Get yours now: {link}"
     except Exception as e:
-        print(f"Error generating ad text: {e}")
+        # Detailed error logging for debugging
+        import traceback
+        print(f"Error generating ad text for {product_name}: {type(e).__name__}: {e}")
+        print(traceback.format_exc())
+        # Return a fallback ad text
         return f"Check out {product_name} for just {product_price}! Get yours now: {link}"
 
 def analyze_product_with_ai(product_data):

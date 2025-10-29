@@ -30,16 +30,49 @@ firebase_enabled: bool = False
 firebase_creds = os.getenv('FIREBASE_SERVICE_ACCOUNT')
 
 if firebase_creds:
-    # Parse JSON from environment variable
-    cred_dict = json.loads(firebase_creds)
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://lonaat-system-default-rtdb.firebaseio.com/'
-    })
-    firebase_enabled = True
-    users_ref = db.reference('users')
-    transactions_ref = db.reference('transactions')
-    marketplace_ref = db.reference('marketplace')
+    try:
+        # Clean and parse JSON from environment variable
+        firebase_creds = firebase_creds.strip()
+        
+        # If the credential is wrapped in extra quotes, remove them
+        if firebase_creds.startswith('"') and firebase_creds.endswith('"'):
+            firebase_creds = firebase_creds[1:-1]
+        
+        # Find the first '{' and last '}' to extract the actual JSON
+        start_idx = firebase_creds.find('{')
+        end_idx = firebase_creds.rfind('}')
+        
+        if start_idx != -1 and end_idx != -1:
+            firebase_creds = firebase_creds[start_idx:end_idx+1]
+        else:
+            # If no braces found, the JSON might be missing them - add them
+            if not firebase_creds.startswith('{'):
+                firebase_creds = '{' + firebase_creds
+            if not firebase_creds.endswith('}'):
+                firebase_creds = firebase_creds + '}'
+        
+        # Parse JSON from environment variable
+        cred_dict = json.loads(firebase_creds)
+        project_id = cred_dict.get('project_id', 'unknown')
+        database_url = f'https://{project_id}-default-rtdb.firebaseio.com/'
+        
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': database_url
+        })
+        firebase_enabled = True
+        users_ref = db.reference('users')
+        transactions_ref = db.reference('transactions')
+        marketplace_ref = db.reference('marketplace')
+        print(f"✅ Firebase initialized successfully! Database URL: {database_url}")
+    except json.JSONDecodeError as e:
+        firebase_enabled = False
+        print(f"⚠️  Firebase credentials invalid (JSON parse error): {e}")
+        print("⚠️  Using in-memory database. Please check your FIREBASE_SERVICE_ACCOUNT secret.")
+    except Exception as e:
+        firebase_enabled = False
+        print(f"⚠️  Firebase initialization failed: {e}")
+        print("⚠️  Using in-memory database.")
 else:
     # Fallback to in-memory database for development
     firebase_enabled = False
@@ -438,6 +471,38 @@ def get_network_setup():
     """Get setup instructions for all networks"""
     instructions = affiliate_manager.get_setup_instructions()
     return jsonify({"setup_instructions": instructions})
+
+@app.route('/test_firebase', methods=['GET'])
+def test_firebase():
+    """Test Firebase connection"""
+    if not firebase_enabled or marketplace_ref is None:
+        return jsonify({"error": "Firebase not enabled"}), 500
+    
+    try:
+        # Try to write test data
+        test_data = {"test": True, "timestamp": datetime.now().isoformat()}
+        result = marketplace_ref.push(test_data)  # type: ignore
+        
+        # Read it back
+        read_data = marketplace_ref.child(result.key).get()  # type: ignore
+        
+        # Clean up
+        marketplace_ref.child(result.key).delete()  # type: ignore
+        
+        return jsonify({
+            "success": True,
+            "message": "Firebase connection working!",
+            "test_key": result.key
+        })
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return jsonify({
+            "error": str(e), 
+            "type": type(e).__name__,
+            "details": "The Firebase Realtime Database may not exist. Please create it in the Firebase Console.",
+            "instructions": "Go to Firebase Console → Realtime Database → Create Database"
+        }), 500
 
 @app.route('/sync_affiliates', methods=['POST'])
 def sync_affiliates():
