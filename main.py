@@ -50,6 +50,10 @@ def admin():
 def dashboard():
     return render_template('dashboard.html')
 
+@app.route('/withdraw_page')
+def withdraw_page():
+    return render_template('withdraw.html')
+
 @app.route('/get_users')
 def get_users():
     if firebase_enabled:

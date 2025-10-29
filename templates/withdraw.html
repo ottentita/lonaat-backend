@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Withdraw Earnings - LONAAT</title>
+<style>
+body{font-family:Arial;background:#f1f5f9;padding:20px;}
+.card{background:white;border-radius:8px;padding:20px;max-width:400px;margin:auto;box-shadow:0 1px 3px rgba(0,0,0,0.1);}
+h3{color:#22c55e;margin-top:0;}
+input,button{width:100%;padding:12px;margin:8px 0;border-radius:6px;border:1px solid #ccc;box-sizing:border-box;}
+button{background:#22c55e;color:white;border:none;cursor:pointer;font-weight:bold;}
+button:hover{background:#16a34a;}
+#result{margin-top:15px;padding:10px;border-radius:6px;}
+.success{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;}
+.error{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>💸 Withdraw Your Commission</h3>
+  <input id="userId" placeholder="Your User ID" value="user123">
+  <input id="amount" type="number" placeholder="Amount (₦)" value="10">
+  <button onclick="withdraw()">Submit Withdrawal</button>
+  <div id="result"></div>
+</div>
+
+<script>
+const API_URL = window.location.origin;
+
+async function withdraw(){
+  const user_id = document.getElementById("userId").value;
+  const amount = parseFloat(document.getElementById("amount").value);
+  
+  if(!user_id || !amount){
+    document.getElementById("result").innerHTML = '<p class="error">Please fill in all fields</p>';
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_URL}/withdraw`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({user_id, amount})
+    });
+    const data = await res.json();
+    
+    const resultClass = data.error ? 'error' : 'success';
+    document.getElementById("result").innerHTML = 
+      `<p class="${resultClass}">${data.message || data.error}</p>`;
+  } catch(e) {
+    document.getElementById("result").innerHTML = 
+      `<p class="error">Error: ${e.message}</p>`;
+  }
+}
+</script>
+</body>
+</html>

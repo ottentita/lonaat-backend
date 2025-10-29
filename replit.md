@@ -137,6 +137,7 @@ Beautiful, responsive admin interface with:
 - `GET /` - Home page
 - `GET /admin` - Admin panel interface
 - `GET /dashboard` - User earnings dashboard (NEW!)
+- `GET /withdraw_page` - Withdrawal request page (NEW!)
 
 ### User Management Routes
 - `POST /register` - Register a new user
