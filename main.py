@@ -8,7 +8,7 @@ import json
 import random
 from typing import Dict, List, Any, Union, cast
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
-from affiliate_integration import AffiliateNetworkManager
+from affiliate_integration import AffiliateNetworkManager, sync_affiliate_products
 
 app = Flask(__name__)
 

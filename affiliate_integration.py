@@ -507,6 +507,73 @@ def get_affiliate_manager():
     return AffiliateNetworkManager()
 
 
+def sync_affiliate_products(clickbank_key: Optional[str] = None):
+    """
+    Sync affiliate products from ClickBank and Digistore24 to Firebase
+    Generates AI-powered ads for each product
+    
+    Args:
+        clickbank_key: ClickBank API key (optional)
+    
+    Returns:
+        Number of products synced
+    """
+    try:
+        from firebase_admin import db
+        from affiliate_scraper import generate_ad_text
+        from datetime import datetime
+        
+        marketplace_ref = db.reference("marketplace")
+        manager = AffiliateNetworkManager()
+        
+        # Fetch products from available networks
+        all_products = []
+        
+        # Fetch from ClickBank
+        if clickbank_key:
+            os.environ['CLICKBANK_API_KEY'] = clickbank_key
+            clickbank_products = manager.fetch_from_network('clickbank', max_results=10)
+            all_products.extend(clickbank_products)
+        
+        # Fetch from Digistore24 (always available)
+        digistore_products = manager.fetch_from_network('digistore24', max_results=10)
+        all_products.extend(digistore_products)
+        
+        print(f"Fetched {len(all_products)} products total.")
+        
+        # Generate AI ads and push to Firebase
+        synced_count = 0
+        for p in all_products:
+            try:
+                # Skip configuration messages
+                if 'Not Configured' in p.get('name', ''):
+                    continue
+                
+                ad_text = generate_ad_text(p["name"], p["price"], p["link"])
+                
+                product_data: Dict[str, str] = {
+                    "name": str(p["name"]),
+                    "price": str(p["price"]),
+                    "link": str(p["link"]),
+                    "ad_text": str(ad_text),
+                    "source": str(p.get("source", "Unknown")),
+                    "commission": str(p.get("commission", "N/A")),
+                    "created_at": datetime.now().isoformat()
+                }
+                marketplace_ref.push(product_data)  # type: ignore
+                synced_count += 1
+            except Exception as e:
+                print(f"Error syncing product {p.get('name')}: {e}")
+                continue
+        
+        print(f"Affiliate sync complete. Synced {synced_count} products.")
+        return synced_count
+        
+    except Exception as e:
+        print(f"Sync failed: {e}")
+        return 0
+
+
 if __name__ == "__main__":
     # Test the integrations
     manager = AffiliateNetworkManager()
