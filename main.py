@@ -62,6 +62,33 @@ def get_users():
     else:
         return jsonify(database['users'])
 
+@app.route('/api/admin_data')
+def admin_data():
+    """Get all data for admin dashboard"""
+    if firebase_enabled:
+        users = users_ref.get() or {}
+        transactions = transactions_ref.get() or {}
+        marketplace = db.reference('marketplace').get() or {}
+        return jsonify({
+            "firebase_enabled": True,
+            "users": users,
+            "transactions": transactions,
+            "marketplace": marketplace,
+            "total_users": len(users),
+            "total_transactions": len(transactions) if isinstance(transactions, dict) else 0,
+            "total_products": len(marketplace) if isinstance(marketplace, dict) else 0
+        })
+    else:
+        return jsonify({
+            "firebase_enabled": False,
+            "users": database.get('users', {}),
+            "transactions": database.get('transactions', []),
+            "marketplace": database.get('marketplace', []),
+            "total_users": len(database.get('users', {})),
+            "total_transactions": len(database.get('transactions', [])),
+            "total_products": len(database.get('marketplace', []))
+        })
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()

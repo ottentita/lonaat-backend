@@ -118,6 +118,18 @@
             <button onclick="processWithdrawal()">Process Withdrawal</button>
             <div id="withdrawMessage"></div>
         </div>
+        
+        <div class="panel">
+            <h2>📊 Firebase Data Viewer</h2>
+            <div style="margin-bottom:15px;">
+                <strong id="dbStatus">Database Status</strong><br>
+                Users: <span id="statsUsers">0</span> | 
+                Transactions: <span id="statsTransactions">0</span> | 
+                Products: <span id="statsProducts">0</span>
+            </div>
+            <button onclick="loadFirebaseData()">Load Firebase Data</button>
+            <pre id="dataOutput" style="background:rgba(0,0,0,0.3);padding:15px;border-radius:8px;margin-top:15px;overflow-x:auto;max-height:400px;overflow-y:auto;">Click "Load Firebase Data" to view all data</pre>
+        </div>
     </div>
     
     <script>
@@ -177,6 +189,17 @@
             
             const result = await response.json();
             showMessage('withdrawMessage', result.message || result.error, !result.error);
+        }
+        
+        async function loadFirebaseData() {
+            const response = await fetch('/api/admin_data');
+            const data = await response.json();
+            
+            document.getElementById('dataOutput').textContent = JSON.stringify(data, null, 2);
+            document.getElementById('dbStatus').textContent = data.firebase_enabled ? '✅ Firebase Connected' : '⚠️ In-Memory Mode';
+            document.getElementById('statsUsers').textContent = data.total_users;
+            document.getElementById('statsTransactions').textContent = data.total_transactions;
+            document.getElementById('statsProducts').textContent = data.total_products;
         }
     </script>
 </body>
