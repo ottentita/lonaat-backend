@@ -39,6 +39,7 @@ lonaat-backend/
 - 2025-10-29: Added full automation endpoint - scrape, generate ads, save to Firebase in one request
 - 2025-10-29: Added commission tracking system for affiliate link usage
 - 2025-10-29: Added enterprise-grade security headers for all API responses
+- 2025-10-29: Configured Replit AI Integrations for OpenAI (no API key required, billed to Replit credits)
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
@@ -68,27 +69,13 @@ To use Firebase Realtime Database, add your Firebase service account credentials
 
 ### OpenAI Setup (For AI Features)
 
-**You have TWO options for OpenAI:**
+✅ **ALREADY CONFIGURED!** Your backend is using **Replit AI Integrations** for OpenAI:
+- ✅ **No API key required** - Automatically managed by Replit
+- ✅ **Billed to your Replit credits** - No separate OpenAI billing
+- ✅ **Supports GPT-4o, GPT-4o-mini, GPT-5** and other latest models
+- ✅ **Environment variables set**: `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
 
-#### Option 1: Use Replit AI Integrations (Recommended)
-- **No API key needed**
-- **Billed to your Replit credits**
-- Supports GPT-4o, GPT-4o-mini, and other models
-- Contact me if you want to set this up
-
-#### Option 2: Use Your Own OpenAI API Key
-1. **Get OpenAI API Key**:
-   - Go to [OpenAI Platform](https://platform.openai.com/api-keys)
-   - Create a new API key
-
-2. **Add to Replit Secrets**:
-   - Open the **Secrets** tool in your Replit workspace
-   - Click **"Add new secret"**
-   - Key: `OPENAI_API_KEY`
-   - Value: Paste your OpenAI API key
-   - Click Save
-
-3. **Restart the Server**: AI features will now work
+**AI features are ready to use!** No additional setup needed.
 
 ### Database URLs
 - Firebase Realtime Database: `https://lonaat-system-default-rtdb.firebaseio.com/`
@@ -164,22 +151,22 @@ Beautiful, responsive admin interface with:
 - `POST /api/generate_description` - Generate AI description for a product
   - Body: `{product_name: "Product Name"}`
   - Returns: AI-generated marketing description
-  - Requires: `OPENAI_API_KEY` in Replit Secrets
+  - Uses: Replit AI Integrations (OpenAI)
 
 - `POST /api/generate_ad` - Generate AI-powered ad text for a product
   - Body: `{product_name: "Product Name", product_price: "$99", link: "https://example.com/product"}`
   - Returns: AI-generated ad copy with call to action
-  - Requires: `OPENAI_API_KEY` in Replit Secrets
+  - Uses: Replit AI Integrations (OpenAI)
 
 - `POST /api/analyze_product` - Analyze and enhance product data with AI
   - Body: `{product: {name: "Product", price: "$99"}}`
   - Returns: Enhanced product with AI description
-  - Requires: `OPENAI_API_KEY` in Replit Secrets
+  - Uses: Replit AI Integrations (OpenAI)
 
 - `POST /auto_generate_ads` - **FULL AUTOMATION**: Scrape, generate ads, and save to Firebase
   - Body: `{affiliate_url: "https://example.com/products"}`
   - Returns: Count of generated ads and status
-  - Requires: `OPENAI_API_KEY` in Replit Secrets
+  - Uses: Replit AI Integrations (OpenAI)
   - **This endpoint automates everything**: Fetches products, generates AI ads, and saves to Firebase!
 
 ## Database Structure

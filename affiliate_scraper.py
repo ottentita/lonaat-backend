@@ -1,5 +1,5 @@
 """
-Affiliate Product Scraper with OpenAI Integration
+Affiliate Product Scraper with OpenAI Integration via Replit AI Integrations
 """
 import requests
 from bs4 import BeautifulSoup
@@ -8,12 +8,24 @@ from openai import OpenAI
 
 def get_openai_client():
     """
-    Get OpenAI client with secure API key from environment variable
+    Get OpenAI client using Replit AI Integrations (no API key required)
+    Falls back to regular OpenAI API key if AI Integrations not available
     """
+    ai_integrations_api_key = os.getenv('AI_INTEGRATIONS_OPENAI_API_KEY')
+    ai_integrations_base_url = os.getenv('AI_INTEGRATIONS_OPENAI_BASE_URL')
+    
+    if ai_integrations_api_key and ai_integrations_base_url:
+        # Use Replit AI Integrations (managed by Replit, billed to credits)
+        return OpenAI(
+            api_key=ai_integrations_api_key,
+            base_url=ai_integrations_base_url
+        )
+    
+    # Fallback to regular OpenAI API key
     api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
         raise ValueError(
-            "OpenAI API key not found. Please add OPENAI_API_KEY to your Replit Secrets."
+            "OpenAI not configured. Using Replit AI Integrations (already set up) or add OPENAI_API_KEY to your Replit Secrets."
         )
     return OpenAI(api_key=api_key)
 
@@ -69,7 +81,7 @@ def generate_product_description(product_name, model="gpt-4o-mini"):
     
     Args:
         product_name: Name of the product
-        model: OpenAI model to use
+        model: OpenAI model to use (default: gpt-4o-mini)
         
     Returns:
         Generated description string
@@ -89,10 +101,13 @@ def generate_product_description(product_name, model="gpt-4o-mini"):
                     "content": f"Write a short, engaging product description for: {product_name}"
                 }
             ],
-            max_tokens=150
+            max_tokens=150,
+            temperature=0.7
         )
         
-        return response.choices[0].message.content.strip()
+        if response.choices[0].message.content:
+            return response.choices[0].message.content.strip()
+        return f"Great product: {product_name}"
     except Exception as e:
         print(f"Error generating description: {e}")
         return f"Great product: {product_name}"
@@ -105,7 +120,7 @@ def generate_ad_text(product_name, product_price, link, model="gpt-4o-mini"):
         product_name: Name of the product
         product_price: Price of the product
         link: Affiliate link to the product
-        model: OpenAI model to use
+        model: OpenAI model to use (default: gpt-4o-mini)
         
     Returns:
         Generated ad text string
@@ -131,10 +146,13 @@ The ad should sound fun and persuasive.
                     "content": prompt
                 }
             ],
-            max_tokens=200
+            max_tokens=200,
+            temperature=0.8
         )
         
-        return response.choices[0].message.content.strip()
+        if response.choices[0].message.content:
+            return response.choices[0].message.content.strip()
+        return f"Check out {product_name} for just {product_price}! Get yours now: {link}"
     except Exception as e:
         print(f"Error generating ad text: {e}")
         return f"Check out {product_name} for just {product_price}! Get yours now: {link}"
