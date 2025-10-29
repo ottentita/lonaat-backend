@@ -309,5 +309,15 @@ def auto_generate_ads():
         print(f"Error in auto_generate_ads: {e}")
         return jsonify({"error": "Failed to generate ads automatically"}), 500
 
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

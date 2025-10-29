@@ -38,6 +38,7 @@ lonaat-backend/
 - 2025-10-29: Added AI-powered ad text generation with call-to-action
 - 2025-10-29: Added full automation endpoint - scrape, generate ads, save to Firebase in one request
 - 2025-10-29: Added commission tracking system for affiliate link usage
+- 2025-10-29: Added enterprise-grade security headers for all API responses
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
@@ -210,6 +211,12 @@ Beautiful, responsive admin interface with:
 - Service account key is excluded from git via .gitignore
 - All sensitive data is managed through environment variables
 - Never commit API keys or credentials to version control
+- **Security Headers**: All responses include:
+  - X-Content-Type-Options: nosniff
+  - X-Frame-Options: DENY
+  - Content-Security-Policy: default-src 'self'
+  - X-XSS-Protection: 1; mode=block
+  - Strict-Transport-Security: max-age=31536000
 
 ## Usage Examples
 
