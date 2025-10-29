@@ -2,18 +2,24 @@ from flask import Flask, render_template, request, jsonify
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, db
+from firebase_admin.db import Reference
 import os
 import json
 import random
-from typing import Optional, Any, Dict, List
+from typing import Dict, List, Any, Union, cast
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 
 app = Flask(__name__)
 
 # Initialize Firebase references and database with proper types
-users_ref: Optional[Any] = None
-transactions_ref: Optional[Any] = None
-database: Optional[Dict[str, Any]] = None
+users_ref: Union[Reference, None] = None
+transactions_ref: Union[Reference, None] = None
+marketplace_ref: Union[Reference, None] = None
+database: Dict[str, Any] = {
+    "users": {},
+    "transactions": [],
+    "marketplace": []
+}
 firebase_enabled: bool = False
 
 # Initialize Firebase using environment variable
@@ -29,13 +35,10 @@ if firebase_creds:
     firebase_enabled = True
     users_ref = db.reference('users')
     transactions_ref = db.reference('transactions')
+    marketplace_ref = db.reference('marketplace')
 else:
     # Fallback to in-memory database for development
     firebase_enabled = False
-    database = {
-        "users": {},
-        "transactions": []
-    }
     print("⚠️  Firebase credentials not found. Using in-memory database.")
 
 @app.route('/')
@@ -56,7 +59,7 @@ def withdraw_page():
 
 @app.route('/get_users')
 def get_users():
-    if firebase_enabled:
+    if firebase_enabled and users_ref is not None:
         all_users = users_ref.get()
         return jsonify(all_users or {})
     else:
@@ -65,10 +68,10 @@ def get_users():
 @app.route('/api/admin_data')
 def admin_data():
     """Get all data for admin dashboard"""
-    if firebase_enabled:
+    if firebase_enabled and users_ref is not None and transactions_ref is not None and marketplace_ref is not None:
         users = users_ref.get() or {}
         transactions = transactions_ref.get() or {}
-        marketplace = db.reference('marketplace').get() or {}
+        marketplace = marketplace_ref.get() or {}
         return jsonify({
             "firebase_enabled": True,
             "users": users,
@@ -101,7 +104,7 @@ def register():
         "created_at": datetime.now().isoformat()
     }
     
-    if firebase_enabled:
+    if firebase_enabled and users_ref is not None:
         users_ref.child(user_id).set(user_data)
     else:
         database['users'][user_id] = user_data
@@ -114,12 +117,13 @@ def add_commission():
     user_id = data.get('user_id')
     amount = float(data.get('amount', 0))
     
-    if firebase_enabled:
+    if firebase_enabled and users_ref is not None and transactions_ref is not None:
         user = users_ref.child(user_id).get()
         if user:
-            new_balance = user['balance'] + amount
+            user_dict = cast(Dict[str, Any], user)
+            new_balance = user_dict['balance'] + amount
             users_ref.child(user_id).update({'balance': new_balance})
-            transactions_ref.push({
+            transactions_ref.push({  # type: ignore
                 "user_id": user_id,
                 "amount": amount,
                 "date": datetime.now().isoformat(),
@@ -147,20 +151,24 @@ def withdraw():
     user_id = data.get('user_id')
     amount = float(data.get('amount', 0))
     
-    if firebase_enabled:
+    if firebase_enabled and users_ref is not None and transactions_ref is not None:
         user = users_ref.child(user_id).get()
-        if user and user['balance'] >= amount:
-            new_balance = user['balance'] - amount
-            users_ref.child(user_id).update({'balance': new_balance})
-            transactions_ref.push({
-                "user_id": user_id,
-                "amount": -amount,
-                "date": datetime.now().isoformat(),
-                "status": "paid"
-            })
-            return jsonify({"message": f"₦{amount} withdrawal successful"})
+        if user:
+            user_dict = cast(Dict[str, Any], user)
+            if user_dict['balance'] >= amount:
+                new_balance = user_dict['balance'] - amount
+                users_ref.child(user_id).update({'balance': new_balance})
+                transactions_ref.push({  # type: ignore
+                    "user_id": user_id,
+                    "amount": -amount,
+                    "date": datetime.now().isoformat(),
+                    "status": "paid"
+                })
+                return jsonify({"message": f"₦{amount} withdrawal successful"})
+            else:
+                return jsonify({"error": "Insufficient funds"}), 400
         else:
-            return jsonify({"error": "Insufficient funds or user not found"}), 400
+            return jsonify({"error": "User not found"}), 400
     else:
         if user_id in database['users'] and database['users'][user_id]['balance'] >= amount:
             database['users'][user_id]['balance'] -= amount
@@ -187,12 +195,13 @@ def track_commission():
     # Simulate real-time affiliate commission tracking
     commission = round(random.uniform(0.5, 5.0), 2)
     
-    if firebase_enabled:
+    if firebase_enabled and users_ref is not None and transactions_ref is not None:
         user = users_ref.child(user_id).get()
         if user:
-            new_balance = user['balance'] + commission
+            user_dict = cast(Dict[str, Any], user)
+            new_balance = user_dict['balance'] + commission
             users_ref.child(user_id).update({'balance': new_balance})
-            transactions_ref.push({
+            transactions_ref.push({  # type: ignore
                 "user_id": user_id,
                 "product_link": product_link,
                 "amount": commission,
@@ -318,8 +327,8 @@ def auto_generate_ads():
                     "created_at": datetime.now().isoformat()
                 }
                 
-                if firebase_enabled:
-                    db.reference("marketplace").push(product_data)
+                if firebase_enabled and marketplace_ref is not None:
+                    marketplace_ref.push(product_data)  # type: ignore
                 else:
                     # Fallback: store in memory
                     if "marketplace" not in database:
