@@ -1,0 +1,148 @@
+from flask import Flask, jsonify, request
+from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, db
+import requests
+from bs4 import BeautifulSoup
+import openai, os, random
+from dotenv import load_dotenv
+
+load_dotenv()
+app = Flask(_name_)
+
+# Initialize Firebase
+cred = credentials.Certificate("firebase_key.json")
+firebase_admin.initialize_app(cred, {
+    "databaseURL": os.getenv("FIREBASE_DATABASE_URL")
+})
+
+users_ref = db.reference("users")
+transactions_ref = db.reference("transactions")
+marketplace_ref = db.reference("marketplace")
+
+# OpenAI setup
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# -----------------------------
+# 1️⃣ Fetch Affiliate Products
+# -----------------------------
+def fetch_affiliate_products(affiliate_url):
+    try:
+        response = requests.get(affiliate_url, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+        products = []
+        for item in soup.select('.product')[:10]:  # Change selector for your site
+            name = item.select_one('.title').get_text(strip=True)
+            price = item.select_one('.price').get_text(strip=True)
+            link = item.select_one('a')['href']
+            products.append({"name": name, "price": price, "link": link})
+        return products
+    except Exception as e:
+        print("Error fetching products:", e)
+        return []
+
+# -----------------------------
+# 2️⃣ Generate AI Ads
+# -----------------------------
+def generate_ad_text(product_name, product_price, link):
+    prompt = f"""
+    Write a short, catchy social media ad for {product_name} priced at {product_price}.
+    Include a strong call to action and mention this link: {link}.
+    """
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response["choices"][0]["message"]["content"]
+
+# -----------------------------
+# 3️⃣ Auto Generate Ads API
+# -----------------------------
+@app.route('/auto_generate_ads', methods=['POST'])
+def auto_generate_ads():
+    data = request.get_json()
+    affiliate_url = data.get('affiliate_url')
+    products = fetch_affiliate_products(affiliate_url)
+
+    for p in products:
+        ad_text = generate_ad_text(p["name"], p["price"], p["link"])
+        marketplace_ref.push({
+            "name": p["name"],
+            "price": p["price"],
+            "link": p["link"],
+            "ad_text": ad_text,
+            "created_at": datetime.now().isoformat()
+        })
+
+    return jsonify({"message": f"{len(products)} AI Ads Created Successfully"})
+
+# -----------------------------
+# 4️⃣ Real-Time Commission Tracker
+# -----------------------------
+@app.route('/track_commission', methods=['POST'])
+def track_commission():
+    data = request.get_json()
+    user_id = data.get("user_id")
+    product_link = data.get("product_link")
+
+    commission = round(random.uniform(0.5, 5.0), 2)  # simulate commission
+
+    user = users_ref.child(user_id).get()
+    if user:
+        new_balance = user.get("balance", 0) + commission
+        users_ref.child(user_id).update({"balance": new_balance})
+        transactions_ref.push({
+            "user_id": user_id,
+            "product_link": product_link,
+            "amount": commission,
+            "status": "earned",
+            "date": datetime.now().isoformat()
+        })
+        return jsonify({"message": f"₦{commission} added to {user_id}'s balance"})
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+# -----------------------------
+# 5️⃣ Bank Payment (Manual)
+# -----------------------------
+@app.route('/withdraw', methods=['POST'])
+def withdraw():
+    data = request.get_json()
+    user_id = data.get("user_id")
+    amount = data.get("amount")
+
+    user = users_ref.child(user_id).get()
+    if user and user.get("balance", 0) >= amount:
+        new_balance = user["balance"] - amount
+        users_ref.child(user_id).update({"balance": new_balance})
+        transactions_ref.push({
+            "user_id": user_id,
+            "amount": amount,
+            "status": "pending_bank_payment",
+            "date": datetime.now().isoformat()
+        })
+        return jsonify({"message": "Withdrawal request sent to admin for manual bank processing"})
+    return jsonify({"error": "Insufficient balance or invalid user"}), 400
+
+# -----------------------------
+# 6️⃣ Security: End-to-End Protection
+# -----------------------------
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    return response
+
+# -----------------------------
+# 7️⃣ Home
+# -----------------------------
+@app.route('/')
+def home():
+    return jsonify({
+        "message": "✅ LONAAT AI Backend Running",
+        "endpoints": ["/auto_generate_ads", "/track_commission", "/withdraw"]
+    })
+
+if _name_ == "_main_":
+    app.run(host="0.0.0.0", port=5000)
