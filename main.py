@@ -2,18 +2,32 @@ from flask import Flask, render_template, request, jsonify
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, db
+import os
+import json
 
 app = Flask(__name__)
 
-# Initialize Firebase
-cred = credentials.Certificate("serviceAccountKey.json")
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://lonaat-system-default-rtdb.firebaseio.com/'
-})
+# Initialize Firebase using environment variable
+firebase_creds = os.getenv('FIREBASE_SERVICE_ACCOUNT')
 
-# References
-users_ref = db.reference('users')
-transactions_ref = db.reference('transactions')
+if firebase_creds:
+    # Parse JSON from environment variable
+    cred_dict = json.loads(firebase_creds)
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': 'https://lonaat-system-default-rtdb.firebaseio.com/'
+    })
+    firebase_enabled = True
+    users_ref = db.reference('users')
+    transactions_ref = db.reference('transactions')
+else:
+    # Fallback to in-memory database for development
+    firebase_enabled = False
+    database = {
+        "users": {},
+        "transactions": []
+    }
+    print("⚠️  Firebase credentials not found. Using in-memory database.")
 
 @app.route('/')
 def home():
@@ -25,8 +39,11 @@ def admin():
 
 @app.route('/get_users')
 def get_users():
-    all_users = users_ref.get()
-    return jsonify(all_users or {})
+    if firebase_enabled:
+        all_users = users_ref.get()
+        return jsonify(all_users or {})
+    else:
+        return jsonify(database['users'])
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -39,7 +56,12 @@ def register():
         "bank_account": data.get('bank_account'),
         "created_at": datetime.now().isoformat()
     }
-    users_ref.child(user_id).set(user_data)
+    
+    if firebase_enabled:
+        users_ref.child(user_id).set(user_data)
+    else:
+        database['users'][user_id] = user_data
+    
     return jsonify({"message": "User registered successfully"})
 
 @app.route('/add_commission', methods=['POST'])
@@ -47,40 +69,66 @@ def add_commission():
     data = request.get_json()
     user_id = data.get('user_id')
     amount = float(data.get('amount', 0))
-    user = users_ref.child(user_id).get()
-
-    if user:
-        new_balance = user['balance'] + amount
-        users_ref.child(user_id).update({'balance': new_balance})
-        transactions_ref.push({
-            "user_id": user_id,
-            "amount": amount,
-            "date": datetime.now().isoformat(),
-            "status": "pending"
-        })
-        return jsonify({"message": "Commission added"})
+    
+    if firebase_enabled:
+        user = users_ref.child(user_id).get()
+        if user:
+            new_balance = user['balance'] + amount
+            users_ref.child(user_id).update({'balance': new_balance})
+            transactions_ref.push({
+                "user_id": user_id,
+                "amount": amount,
+                "date": datetime.now().isoformat(),
+                "status": "pending"
+            })
+            return jsonify({"message": "Commission added"})
+        else:
+            return jsonify({"error": "User not found"}), 404
     else:
-        return jsonify({"error": "User not found"}), 404
+        if user_id in database['users']:
+            database['users'][user_id]['balance'] += amount
+            database['transactions'].append({
+                "user_id": user_id,
+                "amount": amount,
+                "date": datetime.now().isoformat(),
+                "status": "pending"
+            })
+            return jsonify({"message": "Commission added"})
+        else:
+            return jsonify({"error": "User not found"}), 404
 
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
     data = request.get_json()
     user_id = data.get('user_id')
     amount = float(data.get('amount', 0))
-    user = users_ref.child(user_id).get()
-
-    if user and user['balance'] >= amount:
-        new_balance = user['balance'] - amount
-        users_ref.child(user_id).update({'balance': new_balance})
-        transactions_ref.push({
-            "user_id": user_id,
-            "amount": -amount,
-            "date": datetime.now().isoformat(),
-            "status": "paid"
-        })
-        return jsonify({"message": f"₦{amount} withdrawal successful"})
+    
+    if firebase_enabled:
+        user = users_ref.child(user_id).get()
+        if user and user['balance'] >= amount:
+            new_balance = user['balance'] - amount
+            users_ref.child(user_id).update({'balance': new_balance})
+            transactions_ref.push({
+                "user_id": user_id,
+                "amount": -amount,
+                "date": datetime.now().isoformat(),
+                "status": "paid"
+            })
+            return jsonify({"message": f"₦{amount} withdrawal successful"})
+        else:
+            return jsonify({"error": "Insufficient funds or user not found"}), 400
     else:
-        return jsonify({"error": "Insufficient funds or user not found"}), 400
+        if user_id in database['users'] and database['users'][user_id]['balance'] >= amount:
+            database['users'][user_id]['balance'] -= amount
+            database['transactions'].append({
+                "user_id": user_id,
+                "amount": -amount,
+                "date": datetime.now().isoformat(),
+                "status": "paid"
+            })
+            return jsonify({"message": f"₦{amount} withdrawal approved"})
+        else:
+            return jsonify({"error": "Insufficient funds or user not found"}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
