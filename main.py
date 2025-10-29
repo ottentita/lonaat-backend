@@ -46,6 +46,10 @@ def home():
 def admin():
     return render_template('admin.html')
 
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
 @app.route('/get_users')
 def get_users():
     if firebase_enabled:

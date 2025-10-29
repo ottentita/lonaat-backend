@@ -136,6 +136,7 @@ Beautiful, responsive admin interface with:
 ### Pages
 - `GET /` - Home page
 - `GET /admin` - Admin panel interface
+- `GET /dashboard` - User earnings dashboard (NEW!)
 
 ### User Management Routes
 - `POST /register` - Register a new user

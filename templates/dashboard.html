@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>LONAAT Dashboard</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f9fafb;padding:20px;max-width:800px;margin:0 auto;}
+h2{color:#2563eb;}
+.card{background:white;border-radius:8px;padding:20px;margin:15px 0;box-shadow:0 1px 3px rgba(0,0,0,0.1);}
+input,button{padding:10px;border-radius:6px;border:1px solid #ccc;margin:5px 0;}
+button{background:#2563eb;color:white;border:none;cursor:pointer;font-weight:bold;}
+button:hover{background:#1d4ed8;}
+input{width:calc(100% - 22px);}
+table{width:100%;border-collapse:collapse;background:white;}
+th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left;}
+th{background:#2563eb;color:white;}
+.success{color:#10b981;font-weight:bold;}
+.error{color:#ef4444;font-weight:bold;}
+</style>
+</head>
+<body>
+<h2>💰 LONAAT Earnings Dashboard</h2>
+
+<div class="card">
+  <h3>Track Commission</h3>
+  <input id="userId" placeholder="Enter your user ID" value="user123">
+  <input id="productLink" placeholder="Product link" value="https://example.com/product">
+  <button onclick="trackCommission()">Track Commission</button>
+  <div id="commissionResult" style="margin-top:10px;"></div>
+</div>
+
+<div class="card">
+  <h3>Register New User</h3>
+  <input id="regUserId" placeholder="User ID" value="user123">
+  <input id="regName" placeholder="Full Name" value="John Doe">
+  <input id="regEmail" placeholder="Email" value="john@example.com">
+  <input id="regBank" placeholder="Bank Account" value="1234567890">
+  <button onclick="registerUser()">Register</button>
+  <div id="registerResult" style="margin-top:10px;"></div>
+</div>
+
+<div class="card">
+  <h3>Generate AI Ads (Admin)</h3>
+  <input id="affiliateUrl" placeholder="Affiliate marketplace URL" value="https://www.jumia.cm/affiliate-products">
+  <button onclick="generateAds()">Auto Generate Ads</button>
+  <div id="adsResult" style="margin-top:10px;"></div>
+</div>
+
+<script>
+const API_URL = window.location.origin;
+
+async function trackCommission(){
+  const userId = document.getElementById("userId").value;
+  const productLink = document.getElementById("productLink").value;
+  
+  try {
+    const res = await fetch(`${API_URL}/track_commission`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ user_id: userId, product_link: productLink })
+    });
+    const data = await res.json();
+    document.getElementById("commissionResult").innerHTML = 
+      `<p class="${data.error ? 'error' : 'success'}">${data.message || data.error}</p>
+       ${data.commission ? `<p>Commission Earned: ₦${data.commission}</p>` : ''}`;
+  } catch(e) {
+    document.getElementById("commissionResult").innerHTML = `<p class="error">Error: ${e.message}</p>`;
+  }
+}
+
+async function registerUser(){
+  const userId = document.getElementById("regUserId").value;
+  const name = document.getElementById("regName").value;
+  const email = document.getElementById("regEmail").value;
+  const bank = document.getElementById("regBank").value;
+  
+  try {
+    const res = await fetch(`${API_URL}/register`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ user_id: userId, name, email, bank_account: bank })
+    });
+    const data = await res.json();
+    document.getElementById("registerResult").innerHTML = 
+      `<p class="${data.error ? 'error' : 'success'}">${data.message || data.error}</p>`;
+  } catch(e) {
+    document.getElementById("registerResult").innerHTML = `<p class="error">Error: ${e.message}</p>`;
+  }
+}
+
+async function generateAds(){
+  const url = document.getElementById("affiliateUrl").value;
+  
+  document.getElementById("adsResult").innerHTML = '<p>Generating AI ads... This may take a moment.</p>';
+  
+  try {
+    const res = await fetch(`${API_URL}/auto_generate_ads`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ affiliate_url: url })
+    });
+    const data = await res.json();
+    document.getElementById("adsResult").innerHTML = 
+      `<p class="success">${data.message}</p>
+       <p>Total Products: ${data.total_products}</p>
+       <p>Successful Ads: ${data.successful_ads}</p>
+       <p>Firebase Enabled: ${data.firebase_enabled}</p>`;
+  } catch(e) {
+    document.getElementById("adsResult").innerHTML = `<p class="error">Error: ${e.message}</p>`;
+  }
+}
+</script>
+</body>
+</html>
