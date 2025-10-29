@@ -8,8 +8,12 @@ import json
 import random
 from typing import Dict, List, Any, Union, cast
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
+from affiliate_integration import AffiliateNetworkManager
 
 app = Flask(__name__)
+
+# Initialize affiliate network manager
+affiliate_manager = AffiliateNetworkManager()
 
 # Initialize Firebase references and database with proper types
 users_ref: Union[Reference, None] = None
@@ -356,6 +360,78 @@ def auto_generate_ads():
     except Exception as e:
         print(f"Error in auto_generate_ads: {e}")
         return jsonify({"error": "Failed to generate ads automatically"}), 500
+
+@app.route('/api/networks/list', methods=['GET'])
+def list_networks():
+    """Get list of supported affiliate networks"""
+    return jsonify({
+        "networks": [
+            {
+                "id": "amazon",
+                "name": "Amazon Associates",
+                "description": "1-10% commission, millions of products",
+                "configured": bool(os.getenv('AMAZON_ACCESS_KEY'))
+            },
+            {
+                "id": "shareasale",
+                "name": "ShareASale",
+                "description": "Varies by merchant, 1M+ merchants",
+                "configured": bool(os.getenv('SHAREASALE_TOKEN'))
+            },
+            {
+                "id": "clickbank",
+                "name": "ClickBank",
+                "description": "30-75% commission, digital products",
+                "configured": bool(os.getenv('CLICKBANK_AFFILIATE_ID'))
+            },
+            {
+                "id": "partnerstack",
+                "name": "PartnerStack",
+                "description": "Up to 30% recurring, SaaS products",
+                "configured": bool(os.getenv('PARTNERSTACK_API_KEY'))
+            }
+        ]
+    })
+
+@app.route('/api/networks/<network_name>/products', methods=['GET'])
+def get_network_products(network_name):
+    """Fetch products from a specific affiliate network"""
+    max_results = request.args.get('max_results', 10, type=int)
+    
+    try:
+        products = affiliate_manager.fetch_from_network(network_name, max_results=max_results)
+        
+        return jsonify({
+            "network": network_name,
+            "products": products,
+            "count": len(products)
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch from {network_name}: {str(e)}"}), 500
+
+@app.route('/api/networks/all/products', methods=['GET'])
+def get_all_network_products():
+    """Fetch products from all configured networks"""
+    max_per_network = request.args.get('max_per_network', 5, type=int)
+    
+    try:
+        all_products = affiliate_manager.fetch_from_all(max_per_network=max_per_network)
+        
+        total_products = sum(len(products) for products in all_products.values())
+        
+        return jsonify({
+            "networks": all_products,
+            "total_products": total_products,
+            "network_count": len(all_products)
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch from networks: {str(e)}"}), 500
+
+@app.route('/api/networks/setup', methods=['GET'])
+def get_network_setup():
+    """Get setup instructions for all networks"""
+    instructions = affiliate_manager.get_setup_instructions()
+    return jsonify({"setup_instructions": instructions})
 
 @app.after_request
 def add_security_headers(response):

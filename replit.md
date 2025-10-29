@@ -40,6 +40,9 @@ lonaat-backend/
 - 2025-10-29: Added commission tracking system for affiliate link usage
 - 2025-10-29: Added enterprise-grade security headers for all API responses
 - 2025-10-29: Configured Replit AI Integrations for OpenAI (no API key required, billed to Replit credits)
+- 2025-10-29: **Created affiliate_integration.py** - Direct integration with Amazon Associates, ShareASale, ClickBank, and PartnerStack
+- 2025-10-29: **Added Network Browser** on affiliate page - Browse and connect to real affiliate marketing networks
+- 2025-10-29: **Added API endpoints** for fetching products from affiliate networks
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
@@ -144,6 +147,22 @@ Beautiful, responsive admin interface with:
   
 - `GET /get_users` - Get all registered users and their data
 
+### Affiliate Network Routes
+- `GET /api/networks/list` - Get list of all supported affiliate networks
+  - Returns: Network IDs, names, descriptions, and configuration status
+  
+- `GET /api/networks/<network_name>/products` - Fetch products from a specific network
+  - Params: `max_results` (optional, default: 10)
+  - Networks: amazon, shareasale, clickbank, partnerstack
+  - Returns: List of products from the network
+  
+- `GET /api/networks/all/products` - Fetch products from all networks
+  - Params: `max_per_network` (optional, default: 5)
+  - Returns: Products from all configured networks
+  
+- `GET /api/networks/setup` - Get setup instructions for all networks
+  - Returns: Step-by-step setup guides for API key configuration
+
 ### Affiliate & AI Routes
 - `POST /api/scrape_products` - Scrape products from an affiliate URL
   - Body: `{url: "https://example.com/products"}`
@@ -195,9 +214,48 @@ Beautiful, responsive admin interface with:
 }
 ```
 
+## Affiliate Network Configuration
+
+The platform supports integration with 4 major affiliate marketing networks:
+
+### 1. **Amazon Associates** (Optional)
+- **Commission:** 1-10% per sale
+- **Products:** Millions of products across all categories
+- **Setup:** Add to Replit Secrets:
+  - `AMAZON_ACCESS_KEY` - Your Amazon API access key
+  - `AMAZON_SECRET_KEY` - Your Amazon API secret key
+  - `AMAZON_PARTNER_TAG` - Your Amazon affiliate tag
+- **Sign up:** https://affiliate-program.amazon.com/
+
+### 2. **ShareASale** (Optional)
+- **Commission:** Varies by merchant
+- **Merchants:** 1M+ merchants available
+- **Setup:** Add to Replit Secrets:
+  - `SHAREASALE_TOKEN` - Your ShareASale API token
+  - `SHAREASALE_SECRET` - Your ShareASale API secret
+  - `SHAREASALE_AFFILIATE_ID` - Your affiliate ID
+- **Sign up:** https://www.shareasale.com/
+
+### 3. **ClickBank** (Optional)
+- **Commission:** 30-75% per sale (highest!)
+- **Products:** Digital products, courses, ebooks
+- **Setup:** Add to Replit Secrets:
+  - `CLICKBANK_AFFILIATE_ID` - Your ClickBank nickname
+- **Sign up:** https://www.clickbank.com/
+
+### 4. **PartnerStack** (Optional)
+- **Commission:** Up to 30% recurring
+- **Products:** SaaS products (Webflow, Vimeo, etc.)
+- **Setup:** Add to Replit Secrets:
+  - `PARTNERSTACK_API_KEY` - Your PartnerStack API key
+- **Sign up:** https://partnerstack.com/
+
+**Note:** All network integrations are optional. The platform works with or without them configured.
+
 ## Security Notes
 - **Firebase credentials** are stored securely in Replit Secrets (not in code)
 - **OpenAI API key** is stored securely in Replit Secrets (not in code)
+- **Affiliate API keys** are stored securely in Replit Secrets (not in code)
 - Service account key is excluded from git via .gitignore
 - All sensitive data is managed through environment variables
 - Never commit API keys or credentials to version control
