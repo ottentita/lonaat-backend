@@ -1,0 +1,86 @@
+import requests
+import openai
+from datetime import datetime
+from firebase_admin import db
+
+# === Helper: AI ad generator ===
+def generate_ad_text(product_name, product_price, link):
+    prompt = f"""
+    Create a short, catchy ad for {product_name} priced at {product_price}.
+    Include a call to action with the link {link}.
+    """
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role":"user","content":prompt}]
+        )
+        return response["choices"][0]["message"]["content"]
+    except Exception as e:
+        print("AI Ad Error:", e)
+        return f"Check out {product_name} for {product_price}! 👉 {link}"
+
+# === 1️⃣ ClickBank Integration ===
+def fetch_clickbank_products(api_key, category="E-Business & E-Marketing"):
+    try:
+        url = f"https://api.clickbank.com/rest/1.3/products/list?cat={category}"
+        headers = {"Authorization": api_key}
+        res = requests.get(url, headers=headers)
+        if res.status_code != 200:
+            print("ClickBank error:", res.text)
+            return []
+
+        data = res.json().get("products", [])
+        products = []
+        for p in data[:10]:
+            products.append({
+                "name": p.get("title", "Unknown"),
+                "price": p.get("price", "N/A"),
+                "link": f"https://{p.get('nickname')}.hop.clickbank.net",
+                "source": "ClickBank"
+            })
+        return products
+    except Exception as e:
+        print("ClickBank fetch failed:", e)
+        return []
+
+# === 2️⃣ Digistore24 Integration ===
+def fetch_digistore_products(category="Software"):
+    try:
+        url = f"https://www.digistore24.com/api/v1/marketplace/products?cat={category}"
+        res = requests.get(url)
+        data = res.json().get("data", [])
+        products = []
+        for p in data[:10]:
+            products.append({
+                "name": p.get("title"),
+                "price": p.get("price_text"),
+                "link": p.get("affiliate_link"),
+                "source": "Digistore24"
+            })
+        return products
+    except Exception as e:
+        print("Digistore24 fetch failed:", e)
+        return []
+
+# === 3️⃣ Push to Firebase + AI Ad Generation ===
+def sync_affiliate_products(clickbank_key):
+    marketplace_ref = db.reference("marketplace")
+
+    # Combine sources
+    clickbank_products = fetch_clickbank_products(clickbank_key)
+    digistore_products = fetch_digistore_products()
+
+    all_products = clickbank_products + digistore_products
+    print(f"Fetched {len(all_products)} products total.")
+
+    for p in all_products:
+        ad_text = generate_ad_text(p["name"], p["price"], p["link"])
+        marketplace_ref.push({
+            "name": p["name"],
+            "price": p["price"],
+            "link": p["link"],
+            "ad_text": ad_text,
+            "source": p["source"],
+            "created_at": datetime.now().isoformat()
+        })
+    print("Affiliate sync complete.")

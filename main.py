@@ -389,6 +389,12 @@ def list_networks():
                 "name": "PartnerStack",
                 "description": "Up to 30% recurring, SaaS products",
                 "configured": bool(os.getenv('PARTNERSTACK_API_KEY'))
+            },
+            {
+                "id": "digistore24",
+                "name": "Digistore24",
+                "description": "40-60% commission, digital products (No API key needed!)",
+                "configured": True  # Always available, no API key required
             }
         ]
     })

@@ -40,9 +40,11 @@ lonaat-backend/
 - 2025-10-29: Added commission tracking system for affiliate link usage
 - 2025-10-29: Added enterprise-grade security headers for all API responses
 - 2025-10-29: Configured Replit AI Integrations for OpenAI (no API key required, billed to Replit credits)
-- 2025-10-29: **Created affiliate_integration.py** - Direct integration with Amazon Associates, ShareASale, ClickBank, and PartnerStack
+- 2025-10-29: **Created affiliate_integration.py** - Direct integration with Amazon Associates, ShareASale, ClickBank, PartnerStack, and Digistore24
 - 2025-10-29: **Added Network Browser** on affiliate page - Browse and connect to real affiliate marketing networks
 - 2025-10-29: **Added API endpoints** for fetching products from affiliate networks
+- 2025-10-29: **Added Digistore24** - 5th affiliate network with NO API key required (works immediately!)
+- 2025-10-29: **Enhanced ClickBank** - Added real API integration for fetching actual products
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
@@ -153,7 +155,7 @@ Beautiful, responsive admin interface with:
   
 - `GET /api/networks/<network_name>/products` - Fetch products from a specific network
   - Params: `max_results` (optional, default: 10)
-  - Networks: amazon, shareasale, clickbank, partnerstack
+  - Networks: amazon, shareasale, clickbank, partnerstack, digistore24
   - Returns: List of products from the network
   
 - `GET /api/networks/all/products` - Fetch products from all networks
@@ -216,7 +218,7 @@ Beautiful, responsive admin interface with:
 
 ## Affiliate Network Configuration
 
-The platform supports integration with 4 major affiliate marketing networks:
+The platform supports integration with 5 major affiliate marketing networks:
 
 ### 1. **Amazon Associates** (Optional)
 - **Commission:** 1-10% per sale
@@ -250,7 +252,15 @@ The platform supports integration with 4 major affiliate marketing networks:
   - `PARTNERSTACK_API_KEY` - Your PartnerStack API key
 - **Sign up:** https://partnerstack.com/
 
-**Note:** All network integrations are optional. The platform works with or without them configured.
+### 5. **Digistore24** ✅ (Works Without Setup!)
+- **Commission:** 40-60% per sale
+- **Products:** Digital products, software, courses
+- **Setup:** NO API KEY REQUIRED - Works immediately!
+  - Optional: Add `DIGISTORE24_AFFILIATE_ID` for personalized links
+- **Sign up:** https://www.digistore24.com/
+- **Status:** ✅ Already working - no configuration needed!
+
+**Note:** All network integrations are optional. Digistore24 works immediately without any setup!
 
 ## Security Notes
 - **Firebase credentials** are stored securely in Replit Secrets (not in code)

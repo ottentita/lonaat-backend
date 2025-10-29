@@ -175,52 +175,89 @@ class ClickBankIntegration(AffiliateNetworkIntegration):
     
     Setup:
     1. Sign up at https://www.clickbank.com/
-    2. Get your affiliate nickname
+    2. Get your API credentials from Developer API
     3. Add to Replit Secrets:
-       - CLICKBANK_AFFILIATE_ID (your nickname)
+       - CLICKBANK_API_KEY - Your ClickBank API key
+       - CLICKBANK_AFFILIATE_ID - Your affiliate nickname
     """
     
     def __init__(self):
         super().__init__()
+        self.api_key = os.getenv('CLICKBANK_API_KEY')
         self.affiliate_id = os.getenv('CLICKBANK_AFFILIATE_ID', 'default')
-        self.marketplace_url = 'https://accounts.clickbank.com/marketplace.htm'
+        self.api_endpoint = 'https://api.clickbank.com/rest/1.3/products/list'
     
-    def fetch_products(self, max_results: int = 20, category: str = "all", **kwargs) -> List[Dict[str, Any]]:
+    def fetch_products(self, max_results: int = 20, category: str = "E-Business & E-Marketing", **kwargs) -> List[Dict[str, Any]]:
         """
-        Fetch products from ClickBank Marketplace
+        Fetch products from ClickBank API
         
         Args:
-            category: Product category (e-business, health, etc.)
+            category: Product category (default: E-Business & E-Marketing)
             max_results: Maximum products to return
         
         Returns:
-            List of digital products
+            List of digital products with real data from ClickBank API
         """
         if not self.affiliate_id or self.affiliate_id == 'default':
             return [{
                 "name": "ClickBank Not Configured",
                 "price": "N/A",
                 "link": "https://www.clickbank.com/",
-                "description": "Add CLICKBANK_AFFILIATE_ID to Replit Secrets (your ClickBank nickname)"
+                "description": "Add CLICKBANK_AFFILIATE_ID (and optionally CLICKBANK_API_KEY) to Replit Secrets"
             }]
         
         products = []
         
-        # ClickBank doesn't have a public REST API, but you can build affiliate links
+        # If API key is configured, use real API
+        if self.api_key:
+            try:
+                headers = {"Authorization": self.api_key}
+                params = {"cat": category}
+                response = self.session.get(self.api_endpoint, headers=headers, params=params, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json().get("products", [])
+                    for p in data[:max_results]:
+                        nickname = p.get('nickname', 'unknown')
+                        products.append({
+                            "name": p.get("title", "Unknown Product"),
+                            "price": f"${p.get('price', 'N/A')}",
+                            "link": f"https://{nickname}.hop.clickbank.net",
+                            "commission": f"{p.get('commission', 50)}%",
+                            "description": p.get("description", "ClickBank digital product"),
+                            "source": "ClickBank"
+                        })
+                    return products
+                else:
+                    print(f"ClickBank API Error: {response.status_code}")
+            except Exception as e:
+                print(f"ClickBank API Error: {e}")
+        
+        # Fallback to example products if API not configured or failed
         example_products = [
             {
                 "name": "Digital Marketing Course",
                 "price": "$97.00",
                 "link": f"https://hop.clickbank.net/?affiliate={self.affiliate_id}&vendor=example",
                 "commission": "50%",
-                "description": "Comprehensive digital marketing training"
+                "description": "Comprehensive digital marketing training",
+                "source": "ClickBank (Example)"
             },
             {
                 "name": "Weight Loss Program",
                 "price": "$47.00",
                 "link": f"https://hop.clickbank.net/?affiliate={self.affiliate_id}&vendor=example2",
                 "commission": "75%",
-                "description": "Proven weight loss system"
+                "description": "Proven weight loss system",
+                "source": "ClickBank (Example)"
+            },
+            {
+                "name": "Online Business Blueprint",
+                "price": "$197.00",
+                "link": f"https://hop.clickbank.net/?affiliate={self.affiliate_id}&vendor=example3",
+                "commission": "60%",
+                "description": "Complete online business system",
+                "source": "ClickBank (Example)"
             }
         ]
         
@@ -274,6 +311,94 @@ class PartnerStackIntegration(AffiliateNetworkIntegration):
         return products[:max_results]
 
 
+class Digistore24Integration(AffiliateNetworkIntegration):
+    """
+    Digistore24 Marketplace Integration
+    
+    Setup:
+    1. Sign up at https://www.digistore24.com/
+    2. No API key required - uses public marketplace
+    3. Optional: Add affiliate ID to Replit Secrets:
+       - DIGISTORE24_AFFILIATE_ID (optional)
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.affiliate_id = os.getenv('DIGISTORE24_AFFILIATE_ID')
+        self.api_endpoint = 'https://www.digistore24.com/api/v1/marketplace/products'
+    
+    def fetch_products(self, max_results: int = 20, category: str = "Software", **kwargs) -> List[Dict[str, Any]]:
+        """
+        Fetch products from Digistore24 Marketplace
+        
+        Args:
+            category: Product category (Software, Business, Health, etc.)
+            max_results: Maximum products to return
+        
+        Returns:
+            List of digital products from Digistore24
+        """
+        products = []
+        
+        try:
+            params = {"cat": category}
+            response = self.session.get(self.api_endpoint, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json().get("data", [])
+                for p in data[:max_results]:
+                    affiliate_link = p.get("affiliate_link", p.get("link", "#"))
+                    
+                    # Add affiliate ID if configured
+                    if self.affiliate_id and 'affid=' not in affiliate_link:
+                        separator = '&' if '?' in affiliate_link else '?'
+                        affiliate_link = f"{affiliate_link}{separator}affid={self.affiliate_id}"
+                    
+                    products.append({
+                        "name": p.get("title", "Unknown Product"),
+                        "price": p.get("price_text", "N/A"),
+                        "link": affiliate_link,
+                        "commission": f"{p.get('commission_percent', 50)}%",
+                        "description": p.get("description", "Digistore24 digital product"),
+                        "source": "Digistore24"
+                    })
+                return products
+            else:
+                print(f"Digistore24 API Error: {response.status_code}")
+        except Exception as e:
+            print(f"Digistore24 API Error: {e}")
+        
+        # Fallback to example products
+        example_products = [
+            {
+                "name": "Email Marketing Software",
+                "price": "$97/year",
+                "link": "https://www.digistore24.com/product/123456",
+                "commission": "50%",
+                "description": "Professional email marketing solution",
+                "source": "Digistore24 (Example)"
+            },
+            {
+                "name": "SEO Tools Suite",
+                "price": "$67",
+                "link": "https://www.digistore24.com/product/234567",
+                "commission": "40%",
+                "description": "Complete SEO optimization toolkit",
+                "source": "Digistore24 (Example)"
+            },
+            {
+                "name": "Social Media Manager",
+                "price": "$47/month",
+                "link": "https://www.digistore24.com/product/345678",
+                "commission": "60%",
+                "description": "Manage all social accounts in one place",
+                "source": "Digistore24 (Example)"
+            }
+        ]
+        
+        return example_products[:max_results]
+
+
 class AffiliateNetworkManager:
     """
     Central manager for all affiliate networks
@@ -285,7 +410,8 @@ class AffiliateNetworkManager:
             'amazon': AmazonAssociates(),
             'shareasale': ShareASaleIntegration(),
             'clickbank': ClickBankIntegration(),
-            'partnerstack': PartnerStackIntegration()
+            'partnerstack': PartnerStackIntegration(),
+            'digistore24': Digistore24Integration()
         }
     
     def get_network(self, network_name: str) -> Optional[AffiliateNetworkIntegration]:
@@ -363,6 +489,14 @@ class AffiliateNetworkManager:
                 3. Get API key from dashboard
                 4. Add to Replit Secrets:
                    - PARTNERSTACK_API_KEY
+            """,
+            'digistore24': """
+                Digistore24 Setup:
+                1. Sign up: https://www.digistore24.com/
+                2. No API key required - works immediately!
+                3. Optional: Add affiliate ID to Replit Secrets:
+                   - DIGISTORE24_AFFILIATE_ID (for personalized links)
+                Note: Digistore24 can work without configuration
             """
         }
 
@@ -380,7 +514,7 @@ if __name__ == "__main__":
     print("🎯 Testing Affiliate Network Integrations\n")
     
     # Test each network
-    for network_name in ['amazon', 'shareasale', 'clickbank', 'partnerstack']:
+    for network_name in ['amazon', 'shareasale', 'clickbank', 'partnerstack', 'digistore24']:
         print(f"\n📦 {network_name.upper()}:")
         products = manager.fetch_from_network(network_name, max_results=3)
         for product in products:
