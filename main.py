@@ -57,6 +57,10 @@ def dashboard():
 def withdraw_page():
     return render_template('withdraw.html')
 
+@app.route('/affiliate')
+def affiliate():
+    return render_template('affiliate.html')
+
 @app.route('/get_users')
 def get_users():
     if firebase_enabled and users_ref is not None:

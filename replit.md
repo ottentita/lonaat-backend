@@ -123,8 +123,9 @@ Beautiful, responsive admin interface with:
 ### Pages
 - `GET /` - Home page
 - `GET /admin` - Admin panel interface
-- `GET /dashboard` - User earnings dashboard (NEW!)
-- `GET /withdraw_page` - Withdrawal request page (NEW!)
+- `GET /dashboard` - User earnings dashboard
+- `GET /withdraw_page` - Withdrawal request page
+- `GET /affiliate` - Affiliate Marketing Hub (AI-powered features)
 
 ### User Management Routes
 - `POST /register` - Register a new user

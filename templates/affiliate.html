@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Affiliate Marketing - Lonaat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            opacity: 0.8;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            opacity: 1;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            opacity: 0.9;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h2 {
+            color: #a7f3d0;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        button {
+            background: linear-gradient(45deg, #10b981, #059669);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+        }
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+        }
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .product-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .product-card h3 {
+            color: #fbbf24;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .product-card p {
+            font-size: 14px;
+            opacity: 0.9;
+            margin: 4px 0;
+        }
+        .product-card .price {
+            color: #10b981;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .product-card .ad-text {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-style: italic;
+            font-size: 13px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+        }
+        #marketplaceProducts {
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Home</a>
+        <h1>🎯 Affiliate Marketing Hub</h1>
+        <p class="subtitle">AI-powered product scraping, ad generation, and marketplace management</p>
+        
+        <div class="panel">
+            <h2>🤖 Full Automation - Scrape & Generate Ads</h2>
+            <p style="font-size: 14px; opacity: 0.8; margin-bottom: 12px;">
+                Enter an affiliate marketplace URL to automatically scrape products, generate AI ads, and save to database
+            </p>
+            <input type="url" id="autoUrl" placeholder="https://example.com/products" />
+            <button onclick="runFullAutomation()">🚀 Run Full Automation</button>
+            <div id="autoMessage" class="message"></div>
+        </div>
+
+        <div class="panel">
+            <h2>🔍 Scrape Affiliate Products</h2>
+            <p style="font-size: 14px; opacity: 0.8; margin-bottom: 12px;">
+                Extract product data from affiliate marketplace URLs
+            </p>
+            <input type="url" id="scrapeUrl" placeholder="https://example.com/products" />
+            <button onclick="scrapeProducts()">Scrape Products</button>
+            <div id="scrapeMessage" class="message"></div>
+            <div id="scrapedProducts"></div>
+        </div>
+
+        <div class="panel">
+            <h2>✨ Generate AI Ad Text</h2>
+            <p style="font-size: 14px; opacity: 0.8; margin-bottom: 12px;">
+                Create compelling ad copy for any product using AI
+            </p>
+            <input type="text" id="adProductName" placeholder="Product Name" />
+            <input type="text" id="adProductPrice" placeholder="Price (e.g., $99.99)" />
+            <input type="url" id="adProductLink" placeholder="Affiliate Link" />
+            <button onclick="generateAd()">Generate Ad</button>
+            <div id="adMessage" class="message"></div>
+        </div>
+
+        <div class="panel">
+            <h2>📦 Marketplace Products</h2>
+            <p style="font-size: 14px; opacity: 0.8; margin-bottom: 12px;">
+                View all products with AI-generated ads in your marketplace
+            </p>
+            <button onclick="loadMarketplace()">Load Marketplace</button>
+            <div id="marketplaceMessage" class="message"></div>
+            <div id="marketplaceProducts"></div>
+        </div>
+    </div>
+
+    <script>
+        function showMessage(elementId, message, isSuccess) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = 'message ' + (isSuccess ? 'success' : 'error');
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        async function runFullAutomation() {
+            const url = document.getElementById('autoUrl').value;
+            if (!url) {
+                showMessage('autoMessage', 'Please enter a URL', false);
+                return;
+            }
+
+            showMessage('autoMessage', '🔄 Processing... This may take a moment...', true);
+
+            try {
+                const response = await fetch('/auto_generate_ads', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ affiliate_url: url })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage('autoMessage', 
+                        `✅ Success! Generated ${result.successful_ads} ads from ${result.total_products} products`, 
+                        true);
+                } else {
+                    showMessage('autoMessage', result.error || 'Failed to process', false);
+                }
+            } catch (error) {
+                showMessage('autoMessage', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function scrapeProducts() {
+            const url = document.getElementById('scrapeUrl').value;
+            if (!url) {
+                showMessage('scrapeMessage', 'Please enter a URL', false);
+                return;
+            }
+
+            showMessage('scrapeMessage', '🔄 Scraping products...', true);
+
+            try {
+                const response = await fetch('/api/scrape_products', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ url })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.products) {
+                    showMessage('scrapeMessage', `Found ${result.count} products`, true);
+                    displayScrapedProducts(result.products);
+                } else {
+                    showMessage('scrapeMessage', result.error || 'No products found', false);
+                }
+            } catch (error) {
+                showMessage('scrapeMessage', 'Error: ' + error.message, false);
+            }
+        }
+
+        function displayScrapedProducts(products) {
+            const container = document.getElementById('scrapedProducts');
+            if (products.length === 0) {
+                container.innerHTML = '<p class="loading">No products found</p>';
+                return;
+            }
+
+            container.innerHTML = '<div class="products-grid">' +
+                products.map(p => `
+                    <div class="product-card">
+                        <h3>${p.name}</h3>
+                        <p class="price">${p.price}</p>
+                        <p style="font-size: 12px; opacity: 0.7; word-break: break-all;">${p.link}</p>
+                    </div>
+                `).join('') +
+            '</div>';
+        }
+
+        async function generateAd() {
+            const name = document.getElementById('adProductName').value;
+            const price = document.getElementById('adProductPrice').value;
+            const link = document.getElementById('adProductLink').value;
+
+            if (!name || !price || !link) {
+                showMessage('adMessage', 'Please fill all fields', false);
+                return;
+            }
+
+            showMessage('adMessage', '🤖 Generating AI ad...', true);
+
+            try {
+                const response = await fetch('/api/generate_ad', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ product_name: name, product_price: price, link })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage('adMessage', '✅ Ad generated! See below:', true);
+                    document.getElementById('adMessage').innerHTML += 
+                        `<div class="ad-text" style="margin-top: 10px; background: rgba(0,0,0,0.3);">
+                            ${result.ad_text}
+                        </div>`;
+                    document.getElementById('adMessage').style.display = 'block';
+                } else {
+                    showMessage('adMessage', result.error || 'Failed to generate ad', false);
+                }
+            } catch (error) {
+                showMessage('adMessage', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function loadMarketplace() {
+            showMessage('marketplaceMessage', '📦 Loading marketplace...', true);
+            
+            try {
+                const response = await fetch('/api/admin_data');
+                const data = await response.json();
+                
+                const marketplace = data.marketplace || {};
+                const products = Object.values(marketplace);
+
+                if (products.length === 0) {
+                    document.getElementById('marketplaceProducts').innerHTML = 
+                        '<p class="loading">No products in marketplace yet. Use "Full Automation" to add products!</p>';
+                    showMessage('marketplaceMessage', 'Marketplace is empty', false);
+                    return;
+                }
+
+                showMessage('marketplaceMessage', `Found ${products.length} products`, true);
+                
+                document.getElementById('marketplaceProducts').innerHTML = 
+                    '<div class="products-grid">' +
+                    products.map(p => `
+                        <div class="product-card">
+                            <h3>${p.name || 'Unknown Product'}</h3>
+                            <p class="price">${p.price || 'N/A'}</p>
+                            <p style="font-size: 12px; opacity: 0.7; word-break: break-all;">${p.link || ''}</p>
+                            ${p.ad_text ? `<div class="ad-text">${p.ad_text}</div>` : ''}
+                            <p style="font-size: 11px; opacity: 0.5; margin-top: 8px;">Added: ${new Date(p.created_at).toLocaleString()}</p>
+                        </div>
+                    `).join('') +
+                    '</div>';
+            } catch (error) {
+                showMessage('marketplaceMessage', 'Error loading marketplace: ' + error.message, false);
+            }
+        }
+    </script>
+</body>
+</html>
