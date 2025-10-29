@@ -37,6 +37,7 @@ lonaat-backend/
 - 2025-10-29: Integrated OpenAI for AI-powered product descriptions
 - 2025-10-29: Added AI-powered ad text generation with call-to-action
 - 2025-10-29: Added full automation endpoint - scrape, generate ads, save to Firebase in one request
+- 2025-10-29: Added commission tracking system for affiliate link usage
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
@@ -101,8 +102,10 @@ To use Firebase Realtime Database, add your Firebase service account credentials
 
 ### Commission System
 - **Add Commissions**: Admin can add commission amounts to user accounts
+- **Track Commissions**: Automatically track and reward commissions when users share product links
+- **Real-time Earning**: Simulates affiliate commission tracking (₦0.5 - ₦5.0 per link click)
 - **Transaction History**: All commissions are logged with timestamps in Firebase
-- **Status Tracking**: Track pending and paid transactions
+- **Status Tracking**: Track pending, paid, and earned transactions
 
 ### Withdrawal Processing
 - **Withdrawal Requests**: Process withdrawal requests from users
@@ -139,6 +142,11 @@ Beautiful, responsive admin interface with:
   
 - `POST /add_commission` - Add commission to user account
   - Body: `{user_id, amount}`
+
+- `POST /track_commission` - Track affiliate commission from product link usage
+  - Body: `{user_id, product_link}`
+  - Returns: Earned commission amount (₦0.5 - ₦5.0)
+  - Automatically adds commission to user balance
   
 - `POST /withdraw` - Process withdrawal request
   - Body: `{user_id, amount}`

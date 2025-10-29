@@ -4,6 +4,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 import os
 import json
+import random
 from typing import Optional, Any, Dict, List
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 
@@ -137,6 +138,48 @@ def withdraw():
             return jsonify({"message": f"₦{amount} withdrawal approved"})
         else:
             return jsonify({"error": "Insufficient funds or user not found"}), 400
+
+@app.route('/track_commission', methods=['POST'])
+def track_commission():
+    """Track affiliate commission when a product link is used"""
+    data = request.get_json()
+    product_link = data.get('product_link')
+    user_id = data.get('user_id')
+    
+    if not product_link or not user_id:
+        return jsonify({"error": "product_link and user_id are required"}), 400
+    
+    # Simulate real-time affiliate commission tracking
+    commission = round(random.uniform(0.5, 5.0), 2)
+    
+    if firebase_enabled:
+        user = users_ref.child(user_id).get()
+        if user:
+            new_balance = user['balance'] + commission
+            users_ref.child(user_id).update({'balance': new_balance})
+            transactions_ref.push({
+                "user_id": user_id,
+                "product_link": product_link,
+                "amount": commission,
+                "date": datetime.now().isoformat(),
+                "status": "earned"
+            })
+            return jsonify({"message": f"₦{commission} commission earned", "commission": commission})
+        else:
+            return jsonify({"error": "User not found"}), 404
+    else:
+        if user_id in database['users']:
+            database['users'][user_id]['balance'] += commission
+            database['transactions'].append({
+                "user_id": user_id,
+                "product_link": product_link,
+                "amount": commission,
+                "date": datetime.now().isoformat(),
+                "status": "earned"
+            })
+            return jsonify({"message": f"₦{commission} commission earned", "commission": commission})
+        else:
+            return jsonify({"error": "User not found"}), 404
 
 @app.route('/api/scrape_products', methods=['POST'])
 def scrape_products():
