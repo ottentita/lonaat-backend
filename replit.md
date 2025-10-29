@@ -165,6 +165,11 @@ Beautiful, responsive admin interface with:
 - `GET /api/networks/setup` - Get setup instructions for all networks
   - Returns: Step-by-step setup guides for API key configuration
 
+- `POST /sync_affiliates` - Sync products from ClickBank and Digistore24 to Firebase
+  - Body: `{clickbank_key: "optional_api_key"}` (optional)
+  - Returns: Number of products synced and success message
+  - Generates AI ads automatically for all synced products
+
 ### Affiliate & AI Routes
 - `POST /api/scrape_products` - Scrape products from an affiliate URL
   - Body: `{url: "https://example.com/products"}`

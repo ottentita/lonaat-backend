@@ -439,6 +439,17 @@ def get_network_setup():
     instructions = affiliate_manager.get_setup_instructions()
     return jsonify({"setup_instructions": instructions})
 
+@app.route('/sync_affiliates', methods=['POST'])
+def sync_affiliates():
+    """Sync affiliate products from ClickBank and Digistore24 to Firebase"""
+    data = request.get_json()
+    clickbank_key = data.get("clickbank_key")
+    count = sync_affiliate_products(clickbank_key)
+    return jsonify({
+        "message": "Affiliate products synced successfully!",
+        "products_synced": count
+    })
+
 @app.after_request
 def add_security_headers(response):
     """Add security headers to all responses"""
