@@ -1,79 +1,108 @@
 # Lonaat Backend
 
 ## Overview
-A FastAPI-based backend service for the Lonaat application. This backend provides RESTful API endpoints, serves the mobile app download page, and handles file downloads for the LONAAT mobile app.
+A Flask-based backend service for the Lonaat affiliate marketing platform. This backend provides user registration, commission tracking, and withdrawal management with a simple in-memory database.
 
 ## Technology Stack
-- **Framework**: FastAPI
-- **Server**: Uvicorn
+- **Framework**: Flask
 - **Language**: Python 3.11+
 - **Package Manager**: UV
+- **Database**: In-memory (to be replaced with Firebase or Supabase)
 
 ## Project Structure
 ```
 lonaat-backend/
-├── main.py              # Main FastAPI application
-├── pyproject.toml       # Project configuration
-├── static/              # Static files (HTML, CSS, JS)
-│   └── download.html    # Mobile app download page
+├── main.py              # Main Flask application
+├── templates/           # HTML templates
+│   ├── index.html       # Home page
+│   └── admin.html       # Admin panel
+├── static/              # Static files (if needed)
 ├── downloads/           # APK files and downloadable assets
-│   └── README.md        # Instructions for adding files
 └── replit.md            # Project documentation
 ```
 
 ## Recent Changes
-- 2025-10-29: Initial project setup with FastAPI
-- 2025-10-29: Configured basic API endpoints (root, health check)
-- 2025-10-29: Added mobile app download page and file serving system
-- 2025-10-29: Implemented APK download endpoints and static file serving
+- 2025-10-29: Initial project setup with Flask
+- 2025-10-29: Implemented user registration system
+- 2025-10-29: Added commission tracking functionality
+- 2025-10-29: Created withdrawal processing system
+- 2025-10-29: Built admin panel interface
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
+Command: `python main.py`
+
+## Features
+
+### User Management
+- **User Registration**: Register users with ID, name, email, and bank account
+- **User Tracking**: Keep track of all registered users and their balances
+- **Balance Management**: Automatic balance updates with commissions and withdrawals
+
+### Commission System
+- **Add Commissions**: Admin can add commission amounts to user accounts
+- **Transaction History**: All commissions are logged with timestamps
+- **Status Tracking**: Track pending and paid transactions
+
+### Withdrawal Processing
+- **Withdrawal Requests**: Process withdrawal requests from users
+- **Balance Verification**: Ensure sufficient funds before processing
+- **Transaction Recording**: All withdrawals are logged with timestamps
+
+### Admin Panel
+Beautiful, responsive admin interface with:
+- User registration form
+- Commission addition panel
+- Withdrawal processing system
+- Real-time feedback messages
 
 ## API Endpoints
 
 ### Pages
-- `GET /` - Landing page with links to all features
-- `GET /download` - Mobile app download page
+- `GET /` - Home page
+- `GET /admin` - Admin panel interface
 
 ### API Routes
-- `GET /health` - Health check endpoint
-- `GET /api/files` - List all available downloadable files
-- `GET /api/download/apk` - Download the APK file (first .apk found in downloads/)
-- `GET /api/download/file/{filename}` - Download a specific file by name
-- `POST /api/upload/apk` - Get information about uploading APK files
+- `POST /register` - Register a new user
+  - Body: `{user_id, name, email, bank_account}`
+  
+- `POST /add_commission` - Add commission to user account
+  - Body: `{user_id, amount}`
+  
+- `POST /withdraw` - Process withdrawal request
+  - Body: `{user_id, amount}`
+  
+- `GET /get_users` - Get all registered users and their data
 
-### Documentation
-- `GET /docs` - FastAPI automatic interactive API documentation (Swagger UI)
-- `GET /redoc` - Alternative API documentation (ReDoc)
+## Database Structure
 
-## Features
+### Users
+```json
+{
+  "user_id": {
+    "name": "string",
+    "email": "string",
+    "balance": 0.0,
+    "bank_account": "string",
+    "created_at": "ISO timestamp"
+  }
+}
+```
 
-### Mobile App Download Page
-A beautiful, responsive HTML page that allows users to download the LONAAT mobile app APK. Includes:
-- Installation instructions
-- Feature highlights
-- Build information
-- QR code section (ready for integration)
-- Mobile-responsive design
+### Transactions
+```json
+{
+  "user_id": "string",
+  "amount": 0.0,
+  "date": "ISO timestamp",
+  "status": "pending|paid"
+}
+```
 
-### File Serving System
-Secure file serving with:
-- Path traversal protection
-- Support for any file type
-- Automatic file listing
-- Direct download links
-
-### Static File Support
-Serves static files (HTML, CSS, JS, images) from the `static/` directory.
-
-## Usage
-
-### Adding APK Files
-1. Place your `.apk` file in the `downloads/` directory
-2. The file will automatically be available at `/api/download/apk`
-3. Users can access the download page at `/download`
-
-### Accessing the Download Page
-- Direct URL: `http://your-domain/download`
-- From home: Click "Download Mobile App" button
+## Future Enhancements
+- Replace in-memory database with Firebase or Supabase
+- Add user authentication
+- Implement real payment gateway integration
+- Add email notifications
+- Create user dashboard for self-service
+- Add reporting and analytics
