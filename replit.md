@@ -35,6 +35,7 @@ lonaat-backend/
 - 2025-10-29: Added in-memory database fallback for development without Firebase
 - 2025-10-29: Added affiliate product scraping functionality
 - 2025-10-29: Integrated OpenAI for AI-powered product descriptions
+- 2025-10-29: Added AI-powered ad text generation with call-to-action
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
@@ -152,6 +153,11 @@ Beautiful, responsive admin interface with:
   - Returns: AI-generated marketing description
   - Requires: `OPENAI_API_KEY` in Replit Secrets
 
+- `POST /api/generate_ad` - Generate AI-powered ad text for a product
+  - Body: `{product_name: "Product Name", product_price: "$99", link: "https://example.com/product"}`
+  - Returns: AI-generated ad copy with call to action
+  - Requires: `OPENAI_API_KEY` in Replit Secrets
+
 - `POST /api/analyze_product` - Analyze and enhance product data with AI
   - Body: `{product: {name: "Product", price: "$99"}}`
   - Returns: Enhanced product with AI description
@@ -196,6 +202,13 @@ Beautiful, responsive admin interface with:
 curl -X POST http://localhost:5000/api/generate_description \
   -H "Content-Type: application/json" \
   -d '{"product_name": "Wireless Bluetooth Headphones"}'
+```
+
+### Generate Ad Text with Call-to-Action
+```bash
+curl -X POST http://localhost:5000/api/generate_ad \
+  -H "Content-Type: application/json" \
+  -d '{"product_name": "Smart Watch Pro", "product_price": "$199", "link": "https://affiliate.com/watch"}'
 ```
 
 ### Scrape Affiliate Products

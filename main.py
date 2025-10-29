@@ -4,7 +4,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 import os
 import json
-from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai
+from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 
 app = Flask(__name__)
 
@@ -176,6 +176,30 @@ def analyze_product():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": "Failed to analyze product"}), 500
+
+@app.route('/api/generate_ad', methods=['POST'])
+def generate_ad():
+    """Generate AI-powered ad text for a product"""
+    data = request.get_json()
+    product_name = data.get('product_name')
+    product_price = data.get('product_price')
+    link = data.get('link')
+    
+    if not all([product_name, product_price, link]):
+        return jsonify({"error": "product_name, product_price, and link are required"}), 400
+    
+    try:
+        ad_text = generate_ad_text(product_name, product_price, link)
+        return jsonify({
+            "product_name": product_name,
+            "product_price": product_price,
+            "link": link,
+            "ad_text": ad_text
+        })
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": "Failed to generate ad text"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

@@ -85,6 +85,48 @@ def generate_product_description(product_name, model="gpt-4o-mini"):
         print(f"Error generating description: {e}")
         return f"Great product: {product_name}"
 
+def generate_ad_text(product_name, product_price, link, model="gpt-4o-mini"):
+    """
+    Use AI to create ad captions automatically
+    
+    Args:
+        product_name: Name of the product
+        product_price: Price of the product
+        link: Affiliate link to the product
+        model: OpenAI model to use
+        
+    Returns:
+        Generated ad text string
+    """
+    try:
+        client = get_openai_client()
+        
+        prompt = f"""
+Write a short, catchy ad for {product_name} priced at {product_price}.
+Include a call to action and mention the link {link}.
+The ad should sound fun and persuasive.
+"""
+        
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a creative copywriter specializing in affiliate marketing ads."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_tokens=200
+        )
+        
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error generating ad text: {e}")
+        return f"Check out {product_name} for just {product_price}! Get yours now: {link}"
+
 def analyze_product_with_ai(product_data):
     """
     Use OpenAI to analyze and enhance product data
