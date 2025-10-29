@@ -1,0 +1,104 @@
+"""
+Affiliate Product Scraper with OpenAI Integration
+"""
+import requests
+from bs4 import BeautifulSoup
+import os
+from openai import OpenAI
+
+def get_openai_client():
+    """
+    Get OpenAI client with secure API key from environment variable
+    """
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError(
+            "OpenAI API key not found. Please add OPENAI_API_KEY to your Replit Secrets."
+        )
+    return OpenAI(api_key=api_key)
+
+def fetch_affiliate_products(affiliate_url):
+    """
+    Scrape or fetch product data from an affiliate marketplace
+    
+    Args:
+        affiliate_url: URL of the affiliate marketplace
+        
+    Returns:
+        List of product dictionaries with name, price, and link
+    """
+    try:
+        response = requests.get(affiliate_url, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        products = []
+        # Adjust selector based on the actual website structure
+        for item in soup.select('.product')[:10]:
+            try:
+                name = item.select_one('.title').get_text(strip=True)
+                price = item.select_one('.price').get_text(strip=True)
+                link = item.select_one('a')['href']
+                products.append({
+                    "name": name,
+                    "price": price,
+                    "link": link
+                })
+            except AttributeError:
+                continue
+                
+        return products
+    except Exception as e:
+        print(f"Error fetching products: {e}")
+        return []
+
+def generate_product_description(product_name, model="gpt-4o-mini"):
+    """
+    Generate marketing description for a product using OpenAI
+    
+    Args:
+        product_name: Name of the product
+        model: OpenAI model to use
+        
+    Returns:
+        Generated description string
+    """
+    try:
+        client = get_openai_client()
+        
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a marketing expert. Create compelling product descriptions for affiliate marketing."
+                },
+                {
+                    "role": "user",
+                    "content": f"Write a short, engaging product description for: {product_name}"
+                }
+            ],
+            max_tokens=150
+        )
+        
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error generating description: {e}")
+        return f"Great product: {product_name}"
+
+def analyze_product_with_ai(product_data):
+    """
+    Use OpenAI to analyze and enhance product data
+    
+    Args:
+        product_data: Dictionary with product information
+        
+    Returns:
+        Enhanced product data with AI-generated content
+    """
+    try:
+        description = generate_product_description(product_data.get('name', ''))
+        product_data['ai_description'] = description
+        return product_data
+    except Exception as e:
+        print(f"Error analyzing product: {e}")
+        return product_data

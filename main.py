@@ -4,6 +4,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 import os
 import json
+from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai
 
 app = Flask(__name__)
 
@@ -129,6 +130,52 @@ def withdraw():
             return jsonify({"message": f"₦{amount} withdrawal approved"})
         else:
             return jsonify({"error": "Insufficient funds or user not found"}), 400
+
+@app.route('/api/scrape_products', methods=['POST'])
+def scrape_products():
+    """Scrape products from an affiliate URL"""
+    data = request.get_json()
+    url = data.get('url')
+    
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+    
+    products = fetch_affiliate_products(url)
+    return jsonify({"products": products, "count": len(products)})
+
+@app.route('/api/generate_description', methods=['POST'])
+def generate_description():
+    """Generate AI description for a product"""
+    data = request.get_json()
+    product_name = data.get('product_name')
+    
+    if not product_name:
+        return jsonify({"error": "Product name is required"}), 400
+    
+    try:
+        description = generate_product_description(product_name)
+        return jsonify({"product_name": product_name, "description": description})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": "Failed to generate description"}), 500
+
+@app.route('/api/analyze_product', methods=['POST'])
+def analyze_product():
+    """Analyze and enhance product data with AI"""
+    data = request.get_json()
+    product_data = data.get('product')
+    
+    if not product_data:
+        return jsonify({"error": "Product data is required"}), 400
+    
+    try:
+        enhanced_product = analyze_product_with_ai(product_data)
+        return jsonify(enhanced_product)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": "Failed to analyze product"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

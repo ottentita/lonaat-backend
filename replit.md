@@ -1,7 +1,7 @@
 # Lonaat Backend
 
 ## Overview
-A Flask-based backend service for the Lonaat affiliate marketing platform. This backend provides user registration, commission tracking, and withdrawal management with Firebase Realtime Database integration and an in-memory fallback for development.
+A Flask-based backend service for the Lonaat affiliate marketing platform. This backend provides user registration, commission tracking, withdrawal management, affiliate product scraping, and AI-powered product descriptions using OpenAI integration.
 
 ## Technology Stack
 - **Framework**: Flask
@@ -9,17 +9,20 @@ A Flask-based backend service for the Lonaat affiliate marketing platform. This 
 - **Package Manager**: UV
 - **Database**: Firebase Realtime Database (with in-memory fallback)
 - **Authentication**: Firebase Admin SDK
+- **AI**: OpenAI API for product descriptions
+- **Web Scraping**: BeautifulSoup4
 
 ## Project Structure
 ```
 lonaat-backend/
-├── main.py              # Main Flask application with Firebase integration
-├── templates/           # HTML templates
-│   ├── index.html       # Home page
-│   └── admin.html       # Admin panel
-├── static/              # Static files
-├── downloads/           # APK files and downloadable assets
-└── replit.md            # Project documentation
+├── main.py                # Main Flask application with Firebase integration
+├── affiliate_scraper.py   # Affiliate product scraper with OpenAI integration
+├── templates/             # HTML templates
+│   ├── index.html         # Home page
+│   └── admin.html         # Admin panel
+├── static/                # Static files
+├── downloads/             # APK files and downloadable assets
+└── replit.md              # Project documentation
 ```
 
 ## Recent Changes
@@ -30,14 +33,16 @@ lonaat-backend/
 - 2025-10-29: Built admin panel interface
 - 2025-10-29: Integrated Firebase Admin SDK with secure environment variable credentials
 - 2025-10-29: Added in-memory database fallback for development without Firebase
+- 2025-10-29: Added affiliate product scraping functionality
+- 2025-10-29: Integrated OpenAI for AI-powered product descriptions
 
 ## Running the Project
 The backend runs on port 5000 and is accessible via the configured workflow.
 Command: `python main.py`
 
-## Firebase Setup
+## Setup Instructions
 
-### Adding Firebase Credentials (Secure Method)
+### Firebase Setup (For Persistent Data)
 
 To use Firebase Realtime Database, add your Firebase service account credentials to Replit Secrets:
 
@@ -55,11 +60,33 @@ To use Firebase Realtime Database, add your Firebase service account credentials
    - Value: Paste the entire contents of your Firebase service account JSON file
    - Click Save
 
-3. **Restart the Server**:
-   - The server will automatically detect the Firebase credentials
-   - You'll see "Firebase enabled" instead of the warning message
+3. **Restart the Server**: The server will automatically detect the Firebase credentials
 
-### Database URL
+### OpenAI Setup (For AI Features)
+
+**You have TWO options for OpenAI:**
+
+#### Option 1: Use Replit AI Integrations (Recommended)
+- **No API key needed**
+- **Billed to your Replit credits**
+- Supports GPT-4o, GPT-4o-mini, and other models
+- Contact me if you want to set this up
+
+#### Option 2: Use Your Own OpenAI API Key
+1. **Get OpenAI API Key**:
+   - Go to [OpenAI Platform](https://platform.openai.com/api-keys)
+   - Create a new API key
+
+2. **Add to Replit Secrets**:
+   - Open the **Secrets** tool in your Replit workspace
+   - Click **"Add new secret"**
+   - Key: `OPENAI_API_KEY`
+   - Value: Paste your OpenAI API key
+   - Click Save
+
+3. **Restart the Server**: AI features will now work
+
+### Database URLs
 - Firebase Realtime Database: `https://lonaat-system-default-rtdb.firebaseio.com/`
 
 ## Features
@@ -80,6 +107,16 @@ To use Firebase Realtime Database, add your Firebase service account credentials
 - **Balance Verification**: Ensure sufficient funds before processing
 - **Transaction Recording**: All withdrawals are logged with timestamps
 
+### Affiliate Product Scraping
+- **Product Scraping**: Extract product data from affiliate marketplace URLs
+- **Data Extraction**: Automatically extracts product name, price, and links
+- **Batch Processing**: Handle multiple products at once
+
+### AI-Powered Features
+- **Product Descriptions**: Generate compelling marketing descriptions using OpenAI
+- **Product Analysis**: Enhance product data with AI-generated content
+- **Automated Marketing**: Create engaging content for affiliate products
+
 ### Admin Panel
 Beautiful, responsive admin interface with:
 - User registration form
@@ -93,7 +130,7 @@ Beautiful, responsive admin interface with:
 - `GET /` - Home page
 - `GET /admin` - Admin panel interface
 
-### API Routes
+### User Management Routes
 - `POST /register` - Register a new user
   - Body: `{user_id, name, email, bank_account}`
   
@@ -104,6 +141,21 @@ Beautiful, responsive admin interface with:
   - Body: `{user_id, amount}`
   
 - `GET /get_users` - Get all registered users and their data
+
+### Affiliate & AI Routes
+- `POST /api/scrape_products` - Scrape products from an affiliate URL
+  - Body: `{url: "https://example.com/products"}`
+  - Returns: List of products with name, price, link
+
+- `POST /api/generate_description` - Generate AI description for a product
+  - Body: `{product_name: "Product Name"}`
+  - Returns: AI-generated marketing description
+  - Requires: `OPENAI_API_KEY` in Replit Secrets
+
+- `POST /api/analyze_product` - Analyze and enhance product data with AI
+  - Body: `{product: {name: "Product", price: "$99"}}`
+  - Returns: Enhanced product with AI description
+  - Requires: `OPENAI_API_KEY` in Replit Secrets
 
 ## Database Structure
 
@@ -131,9 +183,27 @@ Beautiful, responsive admin interface with:
 ```
 
 ## Security Notes
-- Firebase credentials are stored securely in Replit Secrets (not in code)
+- **Firebase credentials** are stored securely in Replit Secrets (not in code)
+- **OpenAI API key** is stored securely in Replit Secrets (not in code)
 - Service account key is excluded from git via .gitignore
 - All sensitive data is managed through environment variables
+- Never commit API keys or credentials to version control
+
+## Usage Examples
+
+### Generate Product Description
+```bash
+curl -X POST http://localhost:5000/api/generate_description \
+  -H "Content-Type: application/json" \
+  -d '{"product_name": "Wireless Bluetooth Headphones"}'
+```
+
+### Scrape Affiliate Products
+```bash
+curl -X POST http://localhost:5000/api/scrape_products \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/products"}'
+```
 
 ## Future Enhancements
 - Add user authentication with Firebase Auth
@@ -142,3 +212,5 @@ Beautiful, responsive admin interface with:
 - Create user dashboard for self-service
 - Add reporting and analytics
 - Implement data backup and recovery
+- Expand AI features with more models
+- Add product recommendation engine
