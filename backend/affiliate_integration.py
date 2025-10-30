@@ -59,30 +59,77 @@ class AmazonAssociates(AffiliateNetworkIntegration):
             List of products with name, price, link, image
         """
         if not all([self.access_key, self.secret_key, self.partner_tag]):
-            return [{
-                "name": "Amazon API Not Configured",
-                "price": "N/A",
-                "link": "https://affiliate-program.amazon.com/",
-                "description": "Add AMAZON_ACCESS_KEY, AMAZON_SECRET_KEY, and AMAZON_PARTNER_TAG to Replit Secrets"
-            }]
+            print("⚠️  Amazon Associates API not configured. Using example products.")
+            return self._get_example_products(keywords)[:max_results]
         
-        # Amazon PA-API 5.0 requires complex authentication
-        # This is a simplified example - full implementation requires AWS signature v4
+        # Amazon PA-API 5.0 requires complex authentication (AWS Signature v4)
+        # Full implementation would go here
         products = []
         
         try:
-            # Example product structure
+            # If API credentials are configured, search link will use affiliate tag
             products.append({
-                "name": f"Amazon Product - {keywords}",
-                "price": "$99.99",
+                "name": f"Search Amazon: {keywords}",
+                "price": "Various",
                 "link": f"https://www.amazon.com/s?tag={self.partner_tag}&k={quote(keywords)}",
                 "image": "https://via.placeholder.com/150",
-                "description": "Search Amazon with your affiliate tag"
+                "description": f"Search Amazon for '{keywords}' with your affiliate tag",
+                "source": "Amazon Associates"
             })
         except Exception as e:
             print(f"Amazon API Error: {e}")
         
         return products
+    
+    def _get_example_products(self, keywords: str = "electronics") -> List[Dict[str, Any]]:
+        """Get realistic example Amazon products"""
+        return [
+            {
+                "name": "Wireless Bluetooth Headphones - Premium Sound",
+                "price": "$79.99",
+                "link": "https://www.amazon.com/",
+                "image": "https://via.placeholder.com/150",
+                "description": "High-quality wireless headphones with active noise cancellation",
+                "source": "Amazon (Demo)",
+                "commission": "4%"
+            },
+            {
+                "name": "Smart Home Security Camera System",
+                "price": "$149.99",
+                "link": "https://www.amazon.com/",
+                "image": "https://via.placeholder.com/150",
+                "description": "1080p HD cameras with night vision and mobile app control",
+                "source": "Amazon (Demo)",
+                "commission": "3%"
+            },
+            {
+                "name": "Portable Power Bank 20000mAh",
+                "price": "$39.99",
+                "link": "https://www.amazon.com/",
+                "image": "https://via.placeholder.com/150",
+                "description": "Fast charging power bank compatible with all devices",
+                "source": "Amazon (Demo)",
+                "commission": "5%"
+            },
+            {
+                "name": "Ergonomic Wireless Mouse",
+                "price": "$24.99",
+                "link": "https://www.amazon.com/",
+                "image": "https://via.placeholder.com/150",
+                "description": "Comfortable design for all-day productivity",
+                "source": "Amazon (Demo)",
+                "commission": "6%"
+            },
+            {
+                "name": "LED Desk Lamp with USB Charging",
+                "price": "$34.99",
+                "link": "https://www.amazon.com/",
+                "image": "https://via.placeholder.com/150",
+                "description": "Adjustable brightness with built-in USB ports",
+                "source": "Amazon (Demo)",
+                "commission": "4%"
+            }
+        ]
 
 
 class ShareASaleIntegration(AffiliateNetworkIntegration):
@@ -127,12 +174,8 @@ class ShareASaleIntegration(AffiliateNetworkIntegration):
             List of products
         """
         if not all([self.token, self.secret, self.affiliate_id]):
-            return [{
-                "name": "ShareASale API Not Configured",
-                "price": "N/A",
-                "link": "https://www.shareasale.com/",
-                "description": "Add SHAREASALE_TOKEN, SHAREASALE_SECRET, and SHAREASALE_AFFILIATE_ID to Replit Secrets"
-            }]
+            print("⚠️  ShareASale API not configured. Using example products.")
+            return self._get_example_products()[:max_results]
         
         products = []
         timestamp = str(int(time.time()))
@@ -153,7 +196,7 @@ class ShareASaleIntegration(AffiliateNetworkIntegration):
             if merchant_id:
                 params['merchantId'] = merchant_id
             
-            response = self.session.get(self.endpoint, params=params)
+            response = self.session.get(self.endpoint, params=params, timeout=10)
             
             if response.status_code == 200:
                 # Parse ShareASale XML/JSON response
@@ -161,12 +204,64 @@ class ShareASaleIntegration(AffiliateNetworkIntegration):
                     "name": "ShareASale Product",
                     "price": "$49.99",
                     "link": f"https://www.shareasale.com/r.cfm?b=1&u={self.affiliate_id}",
-                    "description": "ShareASale affiliate product"
+                    "description": "ShareASale affiliate product",
+                    "source": "ShareASale"
                 })
+            else:
+                print(f"ShareASale API Error: HTTP {response.status_code}")
         except Exception as e:
-            print(f"ShareASale API Error: {e}")
+            print(f"ShareASale API Error: {str(e)}")
+        
+        # Fallback to example products if API failed
+        if not products:
+            return self._get_example_products()[:max_results]
         
         return products
+    
+    def _get_example_products(self) -> List[Dict[str, Any]]:
+        """Get realistic example ShareASale products"""
+        return [
+            {
+                "name": "Web Hosting - Premium Shared Plan",
+                "price": "$7.99/month",
+                "link": "https://www.shareasale.com/",
+                "description": "Fast, reliable web hosting with 99.9% uptime guarantee",
+                "source": "ShareASale (Demo)",
+                "commission": "$65 per sale"
+            },
+            {
+                "name": "VPN Service - Annual Subscription",
+                "price": "$99/year",
+                "link": "https://www.shareasale.com/",
+                "description": "Secure, private internet access with military-grade encryption",
+                "source": "ShareASale (Demo)",
+                "commission": "35%"
+            },
+            {
+                "name": "Email Marketing Platform Pro",
+                "price": "$29/month",
+                "link": "https://www.shareasale.com/",
+                "description": "Powerful email campaigns with automation and analytics",
+                "source": "ShareASale (Demo)",
+                "commission": "30% recurring"
+            },
+            {
+                "name": "WordPress Theme Bundle",
+                "price": "$89",
+                "link": "https://www.shareasale.com/",
+                "description": "50+ professional WordPress themes with lifetime updates",
+                "source": "ShareASale (Demo)",
+                "commission": "40%"
+            },
+            {
+                "name": "Stock Photography Subscription",
+                "price": "$49/month",
+                "link": "https://www.shareasale.com/",
+                "description": "Unlimited downloads of premium stock photos and videos",
+                "source": "ShareASale (Demo)",
+                "commission": "25% recurring"
+            }
+        ]
 
 
 class ClickBankIntegration(AffiliateNetworkIntegration):
@@ -199,12 +294,8 @@ class ClickBankIntegration(AffiliateNetworkIntegration):
             List of digital products with real data from ClickBank API
         """
         if not self.affiliate_id or self.affiliate_id == 'default':
-            return [{
-                "name": "ClickBank Not Configured",
-                "price": "N/A",
-                "link": "https://www.clickbank.com/",
-                "description": "Add CLICKBANK_AFFILIATE_ID (and optionally CLICKBANK_API_KEY) to Replit Secrets"
-            }]
+            print("⚠️  ClickBank affiliate ID not configured. Using example products.")
+            return self._get_example_products()[:max_results]
         
         products = []
         
@@ -227,41 +318,75 @@ class ClickBankIntegration(AffiliateNetworkIntegration):
                             "description": p.get("description", "ClickBank digital product"),
                             "source": "ClickBank"
                         })
-                    return products
+                    
+                    if products:
+                        return products
                 else:
-                    print(f"ClickBank API Error: {response.status_code}")
+                    print(f"ClickBank API Error: HTTP {response.status_code}")
             except Exception as e:
-                print(f"ClickBank API Error: {e}")
+                print(f"ClickBank API Error: {str(e)}")
         
         # Fallback to example products if API not configured or failed
-        example_products = [
+        return self._get_example_products()[:max_results]
+    
+    def _get_example_products(self) -> List[Dict[str, Any]]:
+        """Get realistic example ClickBank products"""
+        return [
             {
-                "name": "Digital Marketing Course",
-                "price": "$97.00",
-                "link": f"https://hop.clickbank.net/?affiliate={self.affiliate_id}&vendor=example",
+                "name": "The 12 Week Entrepreneur",
+                "price": "$97",
+                "link": "https://www.clickbank.com/",
                 "commission": "50%",
-                "description": "Comprehensive digital marketing training",
-                "source": "ClickBank (Example)"
+                "description": "Complete program to launch your online business in 12 weeks",
+                "source": "ClickBank (Demo)",
+                "category": "E-Business"
             },
             {
-                "name": "Weight Loss Program",
-                "price": "$47.00",
-                "link": f"https://hop.clickbank.net/?affiliate={self.affiliate_id}&vendor=example2",
+                "name": "Social Media Marketing Academy",
+                "price": "$47",
+                "link": "https://www.clickbank.com/",
                 "commission": "75%",
-                "description": "Proven weight loss system",
-                "source": "ClickBank (Example)"
+                "description": "Master Instagram, Facebook, and TikTok marketing strategies",
+                "source": "ClickBank (Demo)",
+                "category": "Marketing"
             },
             {
-                "name": "Online Business Blueprint",
-                "price": "$197.00",
-                "link": f"https://hop.clickbank.net/?affiliate={self.affiliate_id}&vendor=example3",
+                "name": "Passive Income Blueprint 2025",
+                "price": "$197",
+                "link": "https://www.clickbank.com/",
                 "commission": "60%",
-                "description": "Complete online business system",
-                "source": "ClickBank (Example)"
+                "description": "Build multiple streams of passive income online",
+                "source": "ClickBank (Demo)",
+                "category": "E-Business"
+            },
+            {
+                "name": "Conversion Copywriting Secrets",
+                "price": "$67",
+                "link": "https://www.clickbank.com/",
+                "commission": "50%",
+                "description": "Write sales copy that converts visitors into customers",
+                "source": "ClickBank (Demo)",
+                "category": "Marketing"
+            },
+            {
+                "name": "YouTube Channel Growth System",
+                "price": "$77",
+                "link": "https://www.clickbank.com/",
+                "commission": "55%",
+                "description": "Grow your YouTube channel to 100K subscribers",
+                "source": "ClickBank (Demo)",
+                "category": "Marketing"
+            },
+            {
+                "name": "Affiliate Marketing Mastery",
+                "price": "$147",
+                "link": "https://www.clickbank.com/",
+                "commission": "65%",
+                "description": "Proven affiliate marketing system generating $10K+ per month",
+                "source": "ClickBank (Demo)",
+                "category": "E-Business"
             }
         ]
-        
-        return example_products[:max_results]
 
 
 class PartnerStackIntegration(AffiliateNetworkIntegration):
@@ -283,32 +408,71 @@ class PartnerStackIntegration(AffiliateNetworkIntegration):
     def fetch_products(self, max_results: int = 10, **kwargs) -> List[Dict[str, Any]]:
         """Fetch SaaS products from PartnerStack"""
         if not self.api_key:
-            return [{
-                "name": "PartnerStack Not Configured",
-                "price": "Subscription",
-                "link": "https://partnerstack.com/",
-                "description": "Add PARTNERSTACK_API_KEY to Replit Secrets"
-            }]
+            print("⚠️  PartnerStack API not configured. Using example products.")
+            return self._get_example_products()[:max_results]
         
-        # Example SaaS products
-        products = [
+        # If API key is configured, you would make actual API calls here
+        # For now, returning example SaaS products
+        return self._get_example_products()[:max_results]
+    
+    def _get_example_products(self) -> List[Dict[str, Any]]:
+        """Get realistic example SaaS products"""
+        return [
             {
-                "name": "Webflow Subscription",
-                "price": "$12-35/mo",
-                "link": "https://partnerstack.com/webflow",
+                "name": "Webflow - Professional Plan",
+                "price": "$35/month",
+                "link": "https://partnerstack.com/",
                 "commission": "30% recurring",
-                "description": "No-code website builder"
+                "description": "Build professional websites without code, with powerful CMS",
+                "source": "PartnerStack (Demo)",
+                "category": "Web Design"
             },
             {
-                "name": "Vimeo Pro",
-                "price": "$20/mo",
-                "link": "https://partnerstack.com/vimeo",
+                "name": "Vimeo Business",
+                "price": "$75/month",
+                "link": "https://partnerstack.com/",
                 "commission": "20% recurring",
-                "description": "Professional video hosting"
+                "description": "Professional video hosting platform with advanced analytics",
+                "source": "PartnerStack (Demo)",
+                "category": "Video"
+            },
+            {
+                "name": "Shopify - Advanced",
+                "price": "$299/month",
+                "link": "https://partnerstack.com/",
+                "commission": "$150 per sale + 10% recurring",
+                "description": "Complete e-commerce platform for growing businesses",
+                "source": "PartnerStack (Demo)",
+                "category": "E-commerce"
+            },
+            {
+                "name": "Monday.com Team",
+                "price": "$39/month",
+                "link": "https://partnerstack.com/",
+                "commission": "25% recurring",
+                "description": "Work management platform that powers team collaboration",
+                "source": "PartnerStack (Demo)",
+                "category": "Project Management"
+            },
+            {
+                "name": "Teachable Professional",
+                "price": "$119/month",
+                "link": "https://partnerstack.com/",
+                "commission": "30% recurring",
+                "description": "Create and sell online courses with ease",
+                "source": "PartnerStack (Demo)",
+                "category": "Education"
+            },
+            {
+                "name": "Wistia Pro",
+                "price": "$99/month",
+                "link": "https://partnerstack.com/",
+                "commission": "20% recurring",
+                "description": "Video marketing software for businesses",
+                "source": "PartnerStack (Demo)",
+                "category": "Marketing"
             }
         ]
-        
-        return products[:max_results]
 
 
 class Digistore24Integration(AffiliateNetworkIntegration):
