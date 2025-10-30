@@ -1,0 +1,70 @@
+// e2ee.js
+// Usage:
+//   const encPayload = await e2ee.encryptObject({ account:"123", name:"John" }, "my passphrase")
+//   // send encPayload to server
+//   const plain = await e2ee.decryptObject(encPayload, "my passphrase")
+
+const e2ee = (() => {
+  const subtle = window.crypto.subtle;
+
+  function bufToBase64(buf) {
+    const b = new Uint8Array(buf);
+    let str = "";
+    for (let i=0;i<b.length;i++) str += String.fromCharCode(b[i]);
+    return btoa(str);
+  }
+  function base64ToBuf(b64) {
+    const str = atob(b64);
+    const buf = new Uint8Array(str.length);
+    for (let i=0;i<str.length;i++) buf[i] = str.charCodeAt(i);
+    return buf.buffer;
+  }
+
+  async function deriveKey(passphrase, salt, iterations=200000) {
+    const enc = new TextEncoder();
+    const passKey = await subtle.importKey('raw', enc.encode(passphrase), {name:'PBKDF2'}, false, ['deriveKey']);
+    return subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: iterations,
+        hash: 'SHA-256'
+      },
+      passKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt','decrypt']
+    );
+  }
+
+  async function encryptObject(obj, passphrase) {
+    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+    const iv = window.crypto.getRandomValues(new Uint8Array(12)); // AES-GCM 12 bytes
+    const key = await deriveKey(passphrase, salt.buffer);
+    const encoder = new TextEncoder();
+    const plaintext = encoder.encode(JSON.stringify(obj));
+    const ciphertext = await subtle.encrypt({name:'AES-GCM', iv: iv}, key, plaintext);
+    return {
+      ciphertext: bufToBase64(ciphertext),
+      iv: bufToBase64(iv.buffer),
+      salt: bufToBase64(salt.buffer),
+      kdf: {iterations:200000, hash:'SHA-256', algo:'PBKDF2'}
+    };
+  }
+
+  async function decryptObject({ciphertext, iv, salt}, passphrase) {
+    const ivBuf = base64ToBuf(iv);
+    const saltBuf = base64ToBuf(salt);
+    const key = await deriveKey(passphrase, saltBuf, 200000);
+    try {
+      const ctBuf = base64ToBuf(ciphertext);
+      const plainBuf = await subtle.decrypt({name:'AES-GCM', iv: ivBuf}, key, ctBuf);
+      const decoder = new TextDecoder();
+      return JSON.parse(decoder.decode(plainBuf));
+    } catch (e) {
+      throw new Error('Decryption failed — wrong passphrase or corrupted data');
+    }
+  }
+
+  return { encryptObject, decryptObject };
+})();
