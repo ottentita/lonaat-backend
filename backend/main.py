@@ -232,6 +232,10 @@ def require_admin():
 def home():
     return render_template('index.html')
 
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
 @app.route('/admin')
 def admin():
     return render_template('admin.html')
