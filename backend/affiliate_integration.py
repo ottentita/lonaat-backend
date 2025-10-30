@@ -4,13 +4,18 @@ Connects to major affiliate marketing networks to fetch real products and links
 """
 
 import requests
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 import hashlib
 import hmac
 import base64
 import time
+import threading
 from urllib.parse import quote
 import os
+
+# Module-level registry to track warnings shown (persists across instance creation)
+_shown_warnings: Set[str] = set()
+_warnings_lock = threading.Lock()
 
 class AffiliateNetworkIntegration:
     """Base class for affiliate network integrations"""
@@ -24,6 +29,14 @@ class AffiliateNetworkIntegration:
     def fetch_products(self, max_results: int = 10, **kwargs) -> List[Dict[str, Any]]:
         """Fetch products from the network - to be implemented by subclasses"""
         raise NotImplementedError
+    
+    def _warn_once(self, message: str) -> None:
+        """Print warning message only once per server run (thread-safe)"""
+        warning_key = f"{self.__class__.__name__}:{message}"
+        with _warnings_lock:
+            if warning_key not in _shown_warnings:
+                print(message)
+                _shown_warnings.add(warning_key)
 
 
 class AmazonAssociates(AffiliateNetworkIntegration):
@@ -59,7 +72,7 @@ class AmazonAssociates(AffiliateNetworkIntegration):
             List of products with name, price, link, image
         """
         if not all([self.access_key, self.secret_key, self.partner_tag]):
-            print("⚠️  Amazon Associates API not configured. Using example products.")
+            self._warn_once("⚠️  Amazon Associates API not configured. Using example products.")
             return self._get_example_products(keywords)[:max_results]
         
         # Amazon PA-API 5.0 requires complex authentication (AWS Signature v4)
@@ -174,7 +187,7 @@ class ShareASaleIntegration(AffiliateNetworkIntegration):
             List of products
         """
         if not all([self.token, self.secret, self.affiliate_id]):
-            print("⚠️  ShareASale API not configured. Using example products.")
+            self._warn_once("⚠️  ShareASale API not configured. Using example products.")
             return self._get_example_products()[:max_results]
         
         products = []
@@ -294,7 +307,7 @@ class ClickBankIntegration(AffiliateNetworkIntegration):
             List of digital products with real data from ClickBank API
         """
         if not self.affiliate_id or self.affiliate_id == 'default':
-            print("⚠️  ClickBank affiliate ID not configured. Using example products.")
+            self._warn_once("⚠️  ClickBank affiliate ID not configured. Using example products.")
             return self._get_example_products()[:max_results]
         
         products = []
@@ -409,7 +422,7 @@ class PartnerStackIntegration(AffiliateNetworkIntegration):
     def fetch_products(self, max_results: int = 10, **kwargs) -> List[Dict[str, Any]]:
         """Fetch SaaS products from PartnerStack"""
         if not self.api_key:
-            print("⚠️  PartnerStack API not configured. Using example products.")
+            self._warn_once("⚠️  PartnerStack API not configured. Using example products.")
             return self._get_example_products()[:max_results]
         
         # If API key is configured, you would make actual API calls here
@@ -508,7 +521,7 @@ class Digistore24Integration(AffiliateNetworkIntegration):
             List of digital products from Digistore24
         """
         if not self.api_key:
-            print("⚠️  Digistore24 API key not configured. Using example products.")
+            self._warn_once("⚠️  Digistore24 API key not configured. Using example products.")
             return self._get_example_products()[:max_results]
         
         products = []
