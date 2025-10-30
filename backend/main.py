@@ -1011,13 +1011,150 @@ def audit_log():
     
     return jsonify(audit_ref.get() or {})
 
+@app.route('/get_affiliate_stats/<user_id>', methods=['GET'])
+def get_affiliate_stats(user_id):
+    """Get affiliate stats for Turbo Mode dashboard"""
+    if firebase_enabled and users_ref is not None:
+        user_data = users_ref.child(user_id).get()
+        if user_data:
+            settings = user_data.get("affiliate_settings", {})
+            
+            # Count active platforms (networks)
+            active_platforms = len(affiliate_manager.networks)
+            
+            # Calculate traffic boost based on user's product count
+            transactions = transactions_ref.get() or {} if transactions_ref else {}
+            user_transactions = [t for t in transactions.values() if t.get("user_id") == user_id]
+            traffic_boost = min(len(user_transactions) * 5, 100)
+            
+            return jsonify({
+                "product_limit": "∞" if settings.get("ai_enabled", False) else "100",
+                "traffic_boost": traffic_boost,
+                "content_speed": "AI Turbo" if settings.get("ai_enabled", False) else "Standard",
+                "active_platforms": active_platforms
+            })
+    
+    # Default stats for new/demo users
+    return jsonify({
+        "product_limit": "100",
+        "traffic_boost": 0,
+        "content_speed": "Standard",
+        "active_platforms": 5
+    })
+
+@app.route('/get_affiliate_settings/<user_id>', methods=['GET'])
+def get_affiliate_settings(user_id):
+    """Get affiliate settings for Turbo Mode dashboard"""
+    if firebase_enabled and users_ref is not None:
+        user_data = users_ref.child(user_id).get()
+        if user_data and "affiliate_settings" in user_data:
+            return jsonify(user_data["affiliate_settings"])
+    
+    # Default settings
+    return jsonify({
+        "ai_enabled": False,
+        "auto_schedule": False
+    })
+
+@app.route('/update_affiliate_setting', methods=['POST'])
+def update_affiliate_setting():
+    """Update affiliate settings for Turbo Mode dashboard"""
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    settings = data.get("settings", {})
+    
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+    
+    if firebase_enabled and users_ref is not None:
+        # Get or create user
+        user_data = users_ref.child(user_id).get() or {}
+        
+        # Update settings
+        user_data["affiliate_settings"] = settings
+        user_data["last_updated"] = now_iso()
+        
+        users_ref.child(user_id).set(user_data)
+        write_audit("update_affiliate_setting", actor=user_id, meta={"settings": settings})
+        
+        return jsonify({"message": "Settings updated successfully"})
+    else:
+        # Fallback for in-memory database
+        if user_id not in database["users"]:
+            database["users"][user_id] = {"user_id": user_id, "balance": 0}
+        
+        database["users"][user_id]["affiliate_settings"] = settings
+        return jsonify({"message": "Settings updated successfully (in-memory)"})
+
+@app.route('/transfer_products', methods=['POST'])
+def transfer_products():
+    """Transfer products from all affiliate networks to marketplace"""
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+    
+    try:
+        total_transferred = 0
+        
+        # Sync products from all networks
+        for network_name in affiliate_manager.networks.keys():
+            try:
+                products = affiliate_manager.fetch_products(network_name, limit=20)
+                
+                if firebase_enabled and marketplace_ref is not None:
+                    for product in products:
+                        # Add to marketplace with AI-generated description if enabled
+                        product_data = {
+                            "name": product.get("name", ""),
+                            "price": product.get("price", ""),
+                            "link": product.get("link", ""),
+                            "network": network_name,
+                            "added_by": user_id,
+                            "added_date": now_iso()
+                        }
+                        
+                        # Check if AI is enabled for this user
+                        user_data = users_ref.child(user_id).get() if users_ref else {}
+                        settings = user_data.get("affiliate_settings", {}) if user_data else {}
+                        
+                        if settings.get("ai_enabled", False):
+                            try:
+                                # Generate AI description
+                                ai_description = generate_product_description(product.get("name", ""))
+                                product_data["ai_description"] = ai_description
+                            except Exception as e:
+                                print(f"AI generation failed for product: {e}")
+                        
+                        marketplace_ref.push(product_data)
+                        total_transferred += 1
+                else:
+                    # In-memory fallback
+                    database["marketplace"].extend(products)
+                    total_transferred += len(products)
+                    
+            except Exception as e:
+                print(f"Failed to sync {network_name}: {e}")
+                continue
+        
+        write_audit("transfer_products", actor=user_id, meta={"count": total_transferred})
+        
+        return jsonify({
+            "message": f"✅ Transferred {total_transferred} products from {len(affiliate_manager.networks)} networks",
+            "count": total_transferred
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.after_request
 def add_security_headers(response):
     """Add security headers to all responses"""
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    # Updated CSP to allow inline styles and scripts for admin dashboard
-    response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    # Updated CSP to allow inline styles/scripts and CDN resources for TailwindCSS/AlpineJS
+    response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
