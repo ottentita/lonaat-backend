@@ -154,11 +154,12 @@ python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).dec
 
 **1. Automated Deployment**
 
-This repository includes `render.yaml` for one-click deployment:
+This repository includes `render.yaml` (copied to root for Render auto-detection) with `rootDir: backend` configuration:
 
 ```bash
 # Run the GitHub setup script
-./setup_github.sh
+cd backend
+./scripts/setup_github.sh
 
 # Follow the prompts to:
 # - Initialize git repository
@@ -181,13 +182,14 @@ This repository includes `render.yaml` for one-click deployment:
 
 ```bash
 # Run pre-deployment verification
-python verify_deployment.py
+cd backend
+python scripts/verify_deployment.py
 
 # Test the deployed app
 curl https://your-app.onrender.com/
 ```
 
-📖 **Full deployment guide:** [DEPLOYMENT.md](DEPLOYMENT.md)
+📖 **Full deployment guide:** `backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md`
 
 ---
 
@@ -338,7 +340,7 @@ Lonaat uses **AES-256-GCM** encryption for sensitive payout data:
 }
 ```
 
-📖 **Full encryption documentation:** [ENCRYPTION_SECURITY.md](ENCRYPTION_SECURITY.md)
+📖 **Full encryption documentation:** [backend/docs/ENCRYPTION_SECURITY.md](backend/docs/ENCRYPTION_SECURITY.md)
 
 ### Firebase Security Rules
 
@@ -350,7 +352,7 @@ Production-ready security rules included in `firebase_rules.json`:
 - ✅ Data validation rules
 - ✅ Indexed queries for performance
 
-📖 **Firebase setup guide:** [FIREBASE_SETUP.md](FIREBASE_SETUP.md)
+📖 **Firebase setup guide:** [backend/docs/FIREBASE_SETUP.md](backend/docs/FIREBASE_SETUP.md)
 
 ---
 
@@ -409,11 +411,14 @@ lonaat-app/
 ### Running Tests
 
 ```bash
+# Navigate to backend
+cd backend
+
 # Verify deployment readiness
-python verify_deployment.py
+python scripts/verify_deployment.py
 
 # Test Gunicorn locally
-./test_deployment.sh
+./scripts/test_deployment.sh
 
 # Test specific endpoint
 curl http://localhost:5000/get_affiliate_products
@@ -507,7 +512,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Documentation:** See `DEPLOYMENT.md`, `FIREBASE_SETUP.md`, `ENCRYPTION_SECURITY.md`
+- **Documentation:** See `backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md`, `backend/docs/FIREBASE_SETUP.md`, `backend/docs/ENCRYPTION_SECURITY.md`
 - **Issues:** Open an issue on GitHub
 - **Email:** support@lonaat.com (if applicable)
 
@@ -539,6 +544,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Made with ❤️ for affiliate marketers worldwide**
 
 🚀 **Ready to deploy?** 
-- **GitHub:** See [docs/GITHUB_SETUP_SUMMARY.md](docs/GITHUB_SETUP_SUMMARY.md) for automated deployment
-- **Quick Start:** See [docs/QUICKSTART.md](docs/QUICKSTART.md) for 5-minute setup
-- **Full Guide:** See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for comprehensive instructions
+- **GitHub:** See [backend/docs/GITHUB_SETUP_SUMMARY.md](backend/docs/GITHUB_SETUP_SUMMARY.md) for automated deployment
+- **Quick Start:** See [backend/docs/QUICKSTART.md](backend/docs/QUICKSTART.md) for 5-minute setup
+- **Full Guide:** See [backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md](backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md) for comprehensive instructions
