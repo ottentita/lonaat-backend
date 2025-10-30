@@ -1,0 +1,122 @@
+# commission_blueprint.py
+import os, io, csv, json, time
+from datetime import datetime
+from flask import Blueprint, request, jsonify, session, Response, redirect
+import firebase_admin
+from firebase_admin import credentials, db
+
+bp = Blueprint('commission', _name_)
+
+# init firebase if not already
+if not firebase_admin._apps:
+    cred = credentials.Certificate("firebase_key.json")
+    firebase_admin.initialize_app(cred, {
+        "databaseURL": os.getenv("FIREBASE_DATABASE_URL")
+    })
+
+users_ref = db.reference("users")
+transactions_ref = db.reference("transactions")
+payouts_ref = db.reference("payouts")
+audit_ref = db.reference("audit_log")
+
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "strongpassword")
+
+def now_iso():
+    return datetime.utcnow().isoformat()
+
+def write_audit(action, actor="system", meta=None):
+    audit_ref.push({"action":action,"actor":actor,"meta":meta or {},"timestamp":now_iso()})
+
+def require_admin():
+    return session.get("admin_logged_in", False)
+
+@bp.route('/admin_login', methods=['POST'])
+def admin_login():
+    data = request.get_json() or {}
+    username = data.get("username")
+    password = data.get("password")
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        session['admin_logged_in'] = True
+        write_audit("admin_login", actor=username)
+        return jsonify({"success": True})
+    return jsonify({"success": False}), 401
+
+@bp.route('/admin_logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect('/admin.html')
+
+@bp.route('/get_commission_stats', methods=['GET'])
+def get_commission_stats():
+    if not require_admin(): return jsonify({"error":"unauthorized"}), 403
+    transactions = transactions_ref.get() or {}
+    total_earned = total_paid = total_pending = 0.0
+    by_day = {}
+    for tid,t in (transactions.items() if isinstance(transactions, dict) else []):
+        amount = float(t.get("amount",0) or 0)
+        status = t.get("status","earned")
+        date = t.get("date","")
+        if status == "earned": total_earned += amount
+        if status in ("paid","payout_paid"): total_paid += amount
+        if status == "pending": total_pending += amount
+        d = date.split("T")[0] if "T" in date else date
+        if d:
+            by_day.setdefault(d,0.0)
+            by_day[d] += amount
+    clicks_node = db.reference("clicks").get() or []
+    total_clicks = len(clicks_node) if isinstance(clicks_node, list) else sum(1 for _ in clicks_node)
+    return jsonify({"total_earned":round(total_earned,2),"total_paid":round(total_paid,2),"total_pending":round(total_pending,2),"total_clicks":total_clicks,"by_day":by_day})
+
+@bp.route('/get_commissions', methods=['GET'])
+def get_commissions():
+    if not require_admin(): return jsonify({"error":"unauthorized"}), 403
+    # same filtering/pagination logic as before (copy over if needed)
+    transactions = transactions_ref.get() or {}
+    items=[]
+    for tid,t in (transactions.items() if isinstance(transactions, dict) else []):
+        rec = dict(t); rec["_id"]=tid; items.append(rec)
+    items.sort(key=lambda x:x.get("date",""), reverse=True)
+    return jsonify({"total":len(items),"page":1,"per_page":len(items),"items":items})
+
+@bp.route('/get_user_commissions/<user_id>', methods=['GET'])
+def get_user_commissions(user_id):
+    user_node = users_ref.child(user_id).get()
+    txns = transactions_ref.order_by_child("user_id").equal_to(user_id).get() or {}
+    return jsonify({"user":user_node,"transactions":txns})
+
+@bp.route('/register_payout', methods=['POST'])
+def register_payout():
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    # Accept either plaintext fields or encrypted object under "encrypted"
+    if "encrypted" in data:
+        payouts_ref.child(user_id).set({
+            "encrypted": data["encrypted"],
+            "status":"requested",
+            "request_date": now_iso()
+        })
+    else:
+        payouts_ref.child(user_id).set({
+            "bank_name": data.get("bank_name"),
+            "account_number": data.get("account_number"),
+            "account_name": data.get("account_name"),
+            "amount": data.get("amount",0),
+            "status":"requested",
+            "request_date": now_iso()
+        })
+    write_audit("register_payout", actor=user_id, meta={"user":user_id})
+    return jsonify({"message":"payout requested"})
+
+@bp.route('/mark_payout_paid', methods=['POST'])
+def mark_payout_paid():
+    if not require_admin(): return jsonify({"error":"unauthorized"}), 403
+    data = request.get_json() or {}
+    payout_id = data.get("payout_id")
+    # find payout by key and update
+    payouts = payouts_ref.get() or {}
+    if payout_id not in payouts:
+        return jsonify({"error":"payout not found"}), 404
+    payouts_ref.child(payout_id).update({"status":"paid","paid_at":now_iso(),"paid_by":session.get("admin_user","admin")})
+    write_audit("mark_payout_paid", actor=session.get("admin_user","admin"), meta={"payout_id":payout_id})
+    return jsonify({"message":"payout marked paid"})
