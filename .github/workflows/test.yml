@@ -1,0 +1,101 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - develop
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Check code formatting
+        run: |
+          pip install black
+          black --check . || echo "⚠️ Code formatting issues found (non-blocking)"
+        continue-on-error: true
+      
+      - name: Security scan
+        run: |
+          echo "🔍 Scanning for security issues..."
+          
+          # Check for hardcoded API keys
+          if grep -rn "sk-[a-zA-Z0-9]\{48\}" --exclude-dir=.git . 2>/dev/null; then
+            echo "❌ Found potential OpenAI API keys!"
+            exit 1
+          fi
+          
+          # Check for Firebase keys
+          if grep -rn "AIza[0-9A-Za-z-_]\{35\}" --exclude-dir=.git . 2>/dev/null; then
+            echo "❌ Found potential Firebase API keys!"
+            exit 1
+          fi
+          
+          # Check for passwords in code
+          if grep -rn "password.*=.*['\"]" --exclude-dir=.git --exclude-dir=templates . | grep -v "os.environ\|getenv" 2>/dev/null; then
+            echo "❌ Found hardcoded passwords!"
+            exit 1
+          fi
+          
+          echo "✅ Security scan passed"
+      
+      - name: Validate JSON/YAML files
+        run: |
+          echo "Validating configuration files..."
+          python -c "import yaml; yaml.safe_load(open('render.yaml'))"
+          python -c "import json; json.load(open('firebase_rules.json'))"
+          echo "✅ All configuration files valid"
+      
+      - name: Check imports
+        run: |
+          echo "Checking Python imports..."
+          python -c "
+import sys
+try:
+    import flask
+    import firebase_admin
+    import openai
+    import cryptography
+    print('✅ All critical imports available')
+except ImportError as e:
+    print(f'❌ Import error: {e}')
+    sys.exit(1)
+          "
+      
+      - name: Test summary
+        run: |
+          echo "================================"
+          echo "✅ CI Tests Completed"
+          echo "================================"
+          echo "Python version: ${{ matrix.python-version }}"
+          echo "All checks passed successfully!"

@@ -367,10 +367,21 @@ lonaat-backend/
 │   ├── test_deployment.sh      # Local deployment testing
 │   └── verify_deployment.py    # Pre-deployment verification
 │
+├── .github/                     # GitHub automation
+│   ├── workflows/              # GitHub Actions
+│   │   ├── render-deploy.yml  # Auto-deploy validation
+│   │   ├── deploy.yml         # Main deployment pipeline
+│   │   ├── test.yml          # CI testing
+│   │   └── security-scan.yml # Weekly security audit
+│   ├── ISSUE_TEMPLATE/        # Issue templates
+│   ├── dependabot.yml         # Auto dependency updates
+│   └── GITHUB_DEPLOYMENT.md   # GitHub deployment guide
+│
 └── docs/                        # Documentation
     ├── QUICKSTART.md           # 5-minute quick start
     ├── DEPLOYMENT.md           # Full deployment guide
     ├── DEPLOYMENT_SUMMARY.md   # Current deployment status
+    ├── GITHUB_SETUP_SUMMARY.md # GitHub deployment summary
     ├── FIREBASE_SETUP.md       # Firebase configuration
     └── ENCRYPTION_SECURITY.md  # Encryption details
 ```
@@ -507,4 +518,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for affiliate marketers worldwide**
 
-🚀 **Ready to deploy?** See [docs/QUICKSTART.md](docs/QUICKSTART.md) for 5-minute setup or [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full guide
+🚀 **Ready to deploy?** 
+- **GitHub:** See [docs/GITHUB_SETUP_SUMMARY.md](docs/GITHUB_SETUP_SUMMARY.md) for automated deployment
+- **Quick Start:** See [docs/QUICKSTART.md](docs/QUICKSTART.md) for 5-minute setup
+- **Full Guide:** See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for comprehensive instructions
