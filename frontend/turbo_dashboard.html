@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LONAAT – Affiliate Marketing Turbo Mode</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+<body class="bg-slate-900 text-white" x-data="affiliateDashboard()">
+  <div class="p-4">
+    <h1 class="text-2xl font-bold mb-4">
+      🚀 LONAAT – Affiliate Marketing Turbo Mode
+    </h1>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-slate-800 p-4 rounded">
+        <p>Product Limit</p>
+        <h2 class="text-xl font-bold" x-text="stats.product_limit"></h2>
+      </div>
+      <div class="bg-slate-800 p-4 rounded">
+        <p>Traffic Boost</p>
+        <h2 class="text-xl font-bold" x-text="stats.traffic_boost + '%'"></h2>
+      </div>
+      <div class="bg-slate-800 p-4 rounded">
+        <p>Content Speed</p>
+        <h2 class="text-xl font-bold" x-text="stats.content_speed"></h2>
+      </div>
+      <div class="bg-slate-800 p-4 rounded">
+        <p>Active Platforms</p>
+        <h2 class="text-xl font-bold" x-text="stats.active_platforms"></h2>
+      </div>
+    </div>
+
+    <div class="mt-6 space-y-2">
+      <label class="flex items-center space-x-2">
+        <input type="checkbox" x-model="settings.ai_enabled" class="accent-green-500">
+        <span>AI Content Enabled</span>
+      </label>
+
+      <label class="flex items-center space-x-2">
+        <input type="checkbox" x-model="settings.auto_schedule" class="accent-green-500">
+        <span>Auto Schedule</span>
+      </label>
+
+      <button @click="saveSettings"
+        class="mt-4 bg-green-600 px-4 py-2 rounded hover:bg-green-700">Save Settings</button>
+    </div>
+
+    <div class="mt-8">
+      <button @click="transferProducts"
+        class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">Transfer All Products</button>
+      <p class="mt-2 text-sm opacity-70" x-text="status"></p>
+    </div>
+  </div>
+
+<script>
+const API = "https://lonaat-backend.onrender.com";
+function affiliateDashboard(){
+  return {
+    user_id: localStorage.getItem("user_id") || "demo_user",
+    stats: {product_limit:"∞",traffic_boost:0,content_speed:"-",active_platforms:0},
+    settings:{ai_enabled:false,auto_schedule:false},
+    status:"",
+
+    async init(){
+      const res = await fetch(`${API}/get_affiliate_stats/${this.user_id}`);
+      this.stats = await res.json();
+      const conf = await fetch(`${API}/get_affiliate_settings/${this.user_id}`);
+      this.settings = await conf.json();
+    },
+
+    async saveSettings(){
+      await fetch(`${API}/update_affiliate_setting`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({user_id:this.user_id,settings:this.settings})
+      });
+      this.status="✅ Settings saved";
+    },
+
+    async transferProducts(){
+      this.status="Transferring products...";
+      const res = await fetch(`${API}/transfer_products`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({user_id:this.user_id})
+      });
+      const data = await res.json();
+      this.status=data.message || "Done";
+    }
+  }
+}
+</script>
+</body>
+</html>
