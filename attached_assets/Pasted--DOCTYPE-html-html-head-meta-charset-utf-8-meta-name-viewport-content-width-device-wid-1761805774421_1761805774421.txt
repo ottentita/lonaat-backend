@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>My Commissions - LONAAT</title>
+<style>
+body{font-family:Arial;padding:20px;background:#f4f6f8}
+.card{background:white;padding:16px;border-radius:8px;max-width:700px;margin:auto}
+input,button{padding:10px;margin:8px 0;border-radius:6px;border:1px solid #ccc;width:100%}
+button{background:#1f8ef1;color:#fff;border:none;cursor:pointer}
+.txn{background:#fff;padding:10px;border-radius:6px;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>My Commission</h2>
+  <input id="userId" placeholder="Enter your User ID (example: user123)">
+  <button onclick="loadUser()">Load My Balance</button>
+  <div id="balance"></div>
+
+  <h3>Request Payout</h3>
+  <input id="p_amount" placeholder="Amount">
+  <input id="bank_name" placeholder="Bank Name">
+  <input id="acc_name" placeholder="Account Name">
+  <input id="acc_number" placeholder="Account Number">
+  <button onclick="requestPayout()">Request Payout</button>
+  <p id="p_result"></p>
+
+  <h3>Transactions</h3>
+  <div id="txs"></div>
+</div>
+
+<script>
+const API = location.origin; // or backend URL
+async function loadUser(){
+  const uid = document.getElementById('userId').value;
+  const res = await fetch(API + '/get_user_commissions/' + uid);
+  const j = await res.json();
+  if(j.user){
+    document.getElementById('balance').innerHTML = '<h3>Balance: ₦' + (j.user.balance || 0) + '</h3>';
+    const txs = j.transactions || {};
+    const keys = Object.keys(txs).reverse();
+    let html = '';
+    for(const k of keys){
+      const t = txs[k];
+      html += <div class="txn"><b>${t.type||t.status}</b> - ₦${(t.amount||0).toFixed(2)} <br> ${t.date||''}</div>;
+    }
+    document.getElementById('txs').innerHTML = html;
+  } else {
+    document.getElementById('balance').textContent = 'User not found';
+  }
+}
+
+async function requestPayout(){
+  const user_id = document.getElementById('userId').value;
+  const amount = parseFloat(document.getElementById('p_amount').value || 0);
+  const bank_name = document.getElementById('bank_name').value;
+  const account_name = document.getElementById('acc_name').value;
+  const account_number = document.getElementById('acc_number').value;
+
+  const res = await fetch(API + '/register_payout', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id, amount, bank_name, account_name, account_number })
+  });
+  const j = await res.json();
+  document.getElementById('p_result').textContent = j.message || j.error;
+}
+</script>
+</body>
+</html>
