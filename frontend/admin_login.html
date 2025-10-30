@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Lonaat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Admin Login</h1>
+            <a href="index.html" class="back-link">← Back to Marketplace</a>
+        </header>
+
+        <section class="login-form">
+            <form id="adminLoginForm" class="form-card">
+                <h3>Administrator Access</h3>
+                
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="Enter admin username" required autocomplete="username" />
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="Enter admin password" required autocomplete="current-password" />
+                </div>
+
+                <button type="submit" class="btn-primary">Login</button>
+            </form>
+
+            <div id="responseMessage" class="message-box" style="display: none;"></div>
+        </section>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://lonaat-backend.onrender.com';
+
+        document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                alert('Please enter both username and password');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin_login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+                const messageBox = document.getElementById('responseMessage');
+                messageBox.style.display = 'block';
+
+                if (response.ok && data.success) {
+                    messageBox.className = 'message-box success';
+                    messageBox.innerHTML = `
+                        <h4>✅ Login Successful!</h4>
+                        <p>Redirecting to admin dashboard...</p>
+                    `;
+                    
+                    // Store admin session (basic client-side only)
+                    sessionStorage.setItem('adminLoggedIn', 'true');
+                    sessionStorage.setItem('adminUsername', username);
+                    
+                    // Redirect to admin dashboard after 1 second
+                    setTimeout(() => {
+                        window.location.href = 'admin_commission.html';
+                    }, 1000);
+                } else {
+                    messageBox.className = 'message-box error';
+                    messageBox.innerHTML = `
+                        <h4>❌ Login Failed</h4>
+                        <p>${data.error || 'Invalid username or password'}</p>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Error during login:', error);
+                const messageBox = document.getElementById('responseMessage');
+                messageBox.style.display = 'block';
+                messageBox.className = 'message-box error';
+                messageBox.innerHTML = `
+                    <h4>❌ Error</h4>
+                    <p>Unable to connect to server. Please try again.</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

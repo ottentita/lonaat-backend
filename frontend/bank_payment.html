@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Payout - Lonaat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Request Payout</h1>
+            <a href="index.html" class="back-link">← Back to Marketplace</a>
+        </header>
+
+        <section class="payout-form">
+            <div class="balance-check">
+                <h3>Check Your Balance</h3>
+                <input type="text" id="userId" placeholder="Enter your User ID" />
+                <button onclick="checkBalance()" class="btn-secondary">Check Balance</button>
+                <p id="balanceDisplay" class="balance-display"></p>
+            </div>
+
+            <form id="payoutForm" class="form-card">
+                <h3>Payout Request Form</h3>
+                
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="payoutUserId" placeholder="e.g., user123" required />
+                </div>
+
+                <div class="form-group">
+                    <label>Amount (₦)</label>
+                    <input type="number" id="amount" placeholder="Enter amount" min="1" step="0.01" required />
+                </div>
+
+                <div class="form-group">
+                    <label>Bank Name</label>
+                    <input type="text" id="bankName" placeholder="e.g., First Bank of Nigeria" required />
+                </div>
+
+                <div class="form-group">
+                    <label>Account Name</label>
+                    <input type="text" id="accountName" placeholder="Full name on bank account" required />
+                </div>
+
+                <div class="form-group">
+                    <label>Account Number</label>
+                    <input type="text" id="accountNumber" placeholder="10-digit account number" pattern="[0-9]{10}" required />
+                </div>
+
+                <div class="security-notice">
+                    <p>🔒 Your bank details are encrypted with AES-256-GCM before transmission</p>
+                </div>
+
+                <button type="submit" class="btn-primary">Submit Payout Request</button>
+            </form>
+
+            <div id="responseMessage" class="message-box" style="display: none;"></div>
+        </section>
+    </div>
+
+    <script src="e2ee.js"></script>
+    <script>
+        const BACKEND_URL = 'https://lonaat-backend.onrender.com';
+
+        async function checkBalance() {
+            const userId = document.getElementById('userId').value.trim();
+            
+            if (!userId) {
+                alert('Please enter your User ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/get_user_commissions/${userId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    document.getElementById('balanceDisplay').innerHTML = 
+                        `<span class="error">Error: ${data.error}</span>`;
+                    return;
+                }
+
+                document.getElementById('balanceDisplay').innerHTML = 
+                    `<span class="success">Your Balance: <strong>₦${data.balance.toFixed(2)}</strong></span>`;
+                
+                // Auto-fill user ID in payout form
+                document.getElementById('payoutUserId').value = userId;
+
+            } catch (error) {
+                console.error('Error checking balance:', error);
+                document.getElementById('balanceDisplay').innerHTML = 
+                    '<span class="error">Unable to check balance. Please try again.</span>';
+            }
+        }
+
+        document.getElementById('payoutForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userId = document.getElementById('payoutUserId').value.trim();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const bankName = document.getElementById('bankName').value.trim();
+            const accountName = document.getElementById('accountName').value.trim();
+            const accountNumber = document.getElementById('accountNumber').value.trim();
+
+            if (!userId || !amount || !bankName || !accountName || !accountNumber) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Validate account number format
+            if (!/^\d{10}$/.test(accountNumber)) {
+                alert('Please enter a valid 10-digit account number');
+                return;
+            }
+
+            try {
+                // Encrypt bank details using e2ee.js
+                const encryptedData = await encryptBankDetails({
+                    bank_name: bankName,
+                    account_name: accountName,
+                    account_number: accountNumber
+                });
+
+                // Send payout request to backend
+                const response = await fetch(`${BACKEND_URL}/register_payout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        amount: amount,
+                        encrypted_data: encryptedData.encrypted_data,
+                        iv: encryptedData.iv,
+                        salt: encryptedData.salt
+                    })
+                });
+
+                const data = await response.json();
+                const messageBox = document.getElementById('responseMessage');
+                messageBox.style.display = 'block';
+
+                if (response.ok) {
+                    messageBox.className = 'message-box success';
+                    messageBox.innerHTML = `
+                        <h4>✅ Payout Request Submitted!</h4>
+                        <p>Transaction ID: ${data.payout_id}</p>
+                        <p>Your payout request for ₦${amount.toFixed(2)} has been submitted.</p>
+                        <p>You'll be notified once it's processed.</p>
+                    `;
+                    
+                    // Reset form
+                    document.getElementById('payoutForm').reset();
+                } else {
+                    messageBox.className = 'message-box error';
+                    messageBox.innerHTML = `
+                        <h4>❌ Request Failed</h4>
+                        <p>${data.error || 'Unable to process your request'}</p>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Error submitting payout:', error);
+                const messageBox = document.getElementById('responseMessage');
+                messageBox.style.display = 'block';
+                messageBox.className = 'message-box error';
+                messageBox.innerHTML = `
+                    <h4>❌ Error</h4>
+                    <p>Unable to submit payout request. Please try again.</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

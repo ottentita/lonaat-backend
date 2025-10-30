@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard - Lonaat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 My Dashboard</h1>
+            <a href="index.html" class="back-link">← Back to Marketplace</a>
+        </header>
+
+        <section class="user-input">
+            <h3>Enter Your User ID</h3>
+            <input type="text" id="userId" placeholder="e.g., user123" />
+            <button onclick="loadDashboard()" class="btn-primary">Load Dashboard</button>
+        </section>
+
+        <section id="dashboardContent" class="dashboard-content" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Current Balance</h4>
+                    <p class="stat-value" id="balance">₦0.00</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Earned</h4>
+                    <p class="stat-value" id="totalEarned">₦0.00</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Withdrawn</h4>
+                    <p class="stat-value" id="totalWithdrawn">₦0.00</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Pending Payouts</h4>
+                    <p class="stat-value" id="pendingPayouts">0</p>
+                </div>
+            </div>
+
+            <div class="user-info">
+                <h3>User Information</h3>
+                <p><strong>Name:</strong> <span id="userName"></span></p>
+                <p><strong>Email:</strong> <span id="userEmail"></span></p>
+                <p><strong>User ID:</strong> <span id="displayUserId"></span></p>
+            </div>
+
+            <div class="quick-actions">
+                <h3>Quick Actions</h3>
+                <a href="user_commission.html" class="action-btn">💵 View Commissions</a>
+                <a href="bank_payment.html" class="action-btn">💰 Request Payout</a>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://lonaat-backend.onrender.com';
+
+        async function loadDashboard() {
+            const userId = document.getElementById('userId').value.trim();
+            
+            if (!userId) {
+                alert('Please enter your User ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/get_user_commissions/${userId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // Show dashboard content
+                document.getElementById('dashboardContent').style.display = 'block';
+
+                // Update balance
+                document.getElementById('balance').textContent = `₦${data.balance.toFixed(2)}`;
+                document.getElementById('displayUserId').textContent = userId;
+
+                // Update user info if available
+                if (data.user_info) {
+                    document.getElementById('userName').textContent = data.user_info.name || 'N/A';
+                    document.getElementById('userEmail').textContent = data.user_info.email || 'N/A';
+                }
+
+                // Calculate stats from transactions
+                let totalEarned = 0;
+                let totalWithdrawn = 0;
+                let pendingCount = 0;
+
+                data.transactions.forEach(tx => {
+                    if (tx.type === 'commission' || tx.type === 'add') {
+                        totalEarned += parseFloat(tx.amount);
+                    } else if (tx.type === 'withdrawal' && tx.status === 'paid') {
+                        totalWithdrawn += parseFloat(tx.amount);
+                    }
+                    if (tx.status === 'pending') {
+                        pendingCount++;
+                    }
+                });
+
+                document.getElementById('totalEarned').textContent = `₦${totalEarned.toFixed(2)}`;
+                document.getElementById('totalWithdrawn').textContent = `₦${totalWithdrawn.toFixed(2)}`;
+                document.getElementById('pendingPayouts').textContent = pendingCount;
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                alert('Unable to load dashboard. Please try again.');
+            }
+        }
+
+        // Auto-load if userId in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const userIdParam = urlParams.get('userId');
+        if (userIdParam) {
+            document.getElementById('userId').value = userIdParam;
+            loadDashboard();
+        }
+    </script>
+</body>
+</html>
