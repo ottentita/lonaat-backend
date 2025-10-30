@@ -1,0 +1,329 @@
+# commission_server.py
+import os
+import json
+import csv
+import time
+import io
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify, session, Response, send_file, redirect
+from flask_cors import CORS
+import firebase_admin
+from firebase_admin import credentials, db
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = Flask(_name_)
+CORS(app)
+app.secret_key = os.getenv("FLASK_SECRET", "change_me_now")
+
+# Initialize Firebase Admin
+if not firebase_admin._apps:
+    cred = credentials.Certificate("firebase_key.json")
+    firebase_admin.initialize_app(cred, {
+        "databaseURL": os.getenv("FIREBASE_DATABASE_URL")
+    })
+
+# Database refs
+users_ref = db.reference("users")
+transactions_ref = db.reference("transactions")     # each transaction = commission event or payout record
+marketplace_ref = db.reference("marketplace")
+payouts_ref = db.reference("payouts")
+audit_ref = db.reference("audit_log")
+
+# Admin credentials (move to env in production)
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "strongpassword")  # change in env
+
+# --------- Helper functions ----------
+def now_iso():
+    return datetime.utcnow().isoformat()
+
+def write_audit(action, actor="system", meta=None):
+    entry = {
+        "action": action,
+        "actor": actor,
+        "meta": meta or {},
+        "timestamp": now_iso()
+    }
+    audit_ref.push(entry)
+
+def require_admin():
+    return session.get("admin_logged_in", False)
+
+# --------- Admin auth ----------
+@app.route('/admin_login', methods=['POST'])
+def admin_login():
+    data = request.get_json() or {}
+    username = data.get("username")
+    password = data.get("password")
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        session['admin_logged_in'] = True
+        write_audit("admin_login", actor=username)
+        return jsonify({"success": True})
+    return jsonify({"success": False}), 401
+
+@app.route('/admin_logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect('/admin.html')
+
+# --------- Commission & transactions endpoints ----------
+@app.route('/get_commission_stats', methods=['GET'])
+def get_commission_stats():
+    """
+    Returns KPI summary:
+    - total_earned (sum of all earned commissions)
+    - total_paid (sum of payouts marked paid)
+    - total_pending (sum of pending commissions / payouts)
+    - total_clicks (sum of clicks stored under marketplace or clicks node)
+    """
+    # require admin
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+
+    transactions = transactions_ref.get() or {}
+    total_earned = 0.0
+    total_paid = 0.0
+    total_pending = 0.0
+    by_day = {}
+
+    for tid, t in transactions.items():
+        amount = float(t.get("amount", 0) or 0)
+        status = t.get("status", "earned")
+        date = t.get("date")
+        if status in ("earned", "pending"):
+            total_pending += amount if status == "pending" else 0
+        if status == "earned":
+            total_earned += amount
+        if status in ("paid","paid_manually","payout_paid"):
+            total_paid += amount
+
+        # by day aggregation
+        try:
+            d = date.split("T")[0]
+        except Exception:
+            d = "unknown"
+        by_day.setdefault(d, 0.0)
+        by_day[d] += amount
+
+    # clicks: try to read clicks node if exists
+    clicks_node = db.reference("clicks").get() or []
+    total_clicks = len(clicks_node) if isinstance(clicks_node, list) else sum(1 for _ in clicks_node)
+
+    res = {
+        "total_earned": round(total_earned, 2),
+        "total_paid": round(total_paid, 2),
+        "total_pending": round(total_pending, 2),
+        "total_clicks": total_clicks,
+        "by_day": by_day
+    }
+    return jsonify(res)
+
+@app.route('/get_commissions', methods=['GET'])
+def get_commissions():
+    """
+    Returns transactions with optional filters:
+    query params:
+      - status (earned/pending/paid)
+      - from (YYYY-MM-DD)
+      - to (YYYY-MM-DD)
+      - affiliate (user_id)
+      - page, per_page
+      - product_id
+    """
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+
+    q_status = request.args.get("status")
+    q_aff = request.args.get("affiliate")
+    q_product = request.args.get("product_id")
+    q_from = request.args.get("from")
+    q_to = request.args.get("to")
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 50))
+
+    transactions = transactions_ref.get() or {}
+    items = []
+    for tid, t in transactions.items():
+        t_copy = dict(t)
+        t_copy["_id"] = tid
+        # basic filtering
+        if q_status and t_copy.get("status") != q_status:
+            continue
+        if q_aff and t_copy.get("user_id") != q_aff:
+            continue
+        if q_product and t_copy.get("product_id") != q_product:
+            continue
+        if q_from:
+            try:
+                if t_copy.get("date", "") < q_from:
+                    continue
+            except: pass
+        if q_to:
+            try:
+                if t_copy.get("date", "") > q_to:
+                    continue
+            except: pass
+        items.append(t_copy)
+
+    # sort by date desc
+    items.sort(key=lambda x: x.get("date",""), reverse=True)
+    total = len(items)
+    start = (page-1)*per_page
+    end = start + per_page
+    paged = items[start:end]
+
+    return jsonify({"total": total, "page": page, "per_page": per_page, "items": paged})
+
+@app.route('/get_user_commissions/<user_id>', methods=['GET'])
+def get_user_commissions(user_id):
+    """Return that user's transactions and balance"""
+    # user pages can call this; does not require admin
+    user_node = users_ref.child(user_id).get()
+    txns = transactions_ref.order_by_child("user_id").equal_to(user_id).get() or {}
+    return jsonify({"user": user_node, "transactions": txns})
+
+@app.route('/mark_commission_paid', methods=['POST'])
+def mark_commission_paid():
+    """
+    Mark a specific commission transaction as paid
+    body: { "transaction_id": "...", "admin": "adminUser" }
+    """
+    if not require_admin():
+        return jsonify({"error": "unauthorized"}), 403
+
+    data = request.get_json() or {}
+    tid = data.get("transaction_id")
+    admin = data.get("admin", "admin")
+    tx = transactions_ref.child(tid).get()
+    if not tx:
+        return jsonify({"error":"transaction not found"}), 404
+
+    transactions_ref.child(tid).update({"status":"paid", "paid_at": now_iso(), "paid_by": admin})
+    # audit
+    write_audit("mark_commission_paid", actor=admin, meta={"transaction_id": tid})
+    return jsonify({"message":"marked paid"})
+
+@app.route('/mark_payout_paid', methods=['POST'])
+def mark_payout_paid():
+    """Mark a payout request as paid; update payouts node and transactions"""
+    if not require_admin():
+        return jsonify({"error":"unauthorized"}), 403
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    payout_id = data.get("payout_id")
+    admin = data.get("admin","admin")
+
+    payout_node = payouts_ref.child(payout_id).get()
+    if not payout_node:
+        return jsonify({"error":"payout not found"}), 404
+
+    # update status
+    payouts_ref.child(payout_id).update({"status":"paid", "paid_at": now_iso(), "paid_by": admin})
+    # create transaction record for historical record if not exists
+    transactions_ref.push({
+        "user_id": user_id,
+        "amount": float(payout_node.get("amount", 0)),
+        "status": "payout_paid",
+        "type": "payout",
+        "date": now_iso()
+    })
+    write_audit("mark_payout_paid", actor=admin, meta={"payout_id": payout_id, "user_id": user_id})
+    return jsonify({"message":"payout marked paid"})
+
+# --------- Export CSV ----------
+@app.route('/export_commissions', methods=['GET'])
+def export_commissions():
+    if not require_admin():
+        return jsonify({"error":"unauthorized"}), 403
+
+    # reuse get_commissions logic by calling it via args
+    # collect all (no pagination) and stream CSV
+    transactions = transactions_ref.get() or {}
+    rows = []
+    for tid, t in transactions.items():
+        rows.append({
+            "transaction_id": tid,
+            "user_id": t.get("user_id", ""),
+            "product_id": t.get("product_id", ""),
+            "amount": t.get("amount", 0),
+            "status": t.get("status", ""),
+            "date": t.get("date", "")
+        })
+
+    # generate CSV in memory
+    si = io.StringIO()
+    cw = csv.DictWriter(si, fieldnames=["transaction_id","user_id","product_id","amount","status","date"])
+    cw.writeheader()
+    cw.writerows(rows)
+    output = si.getvalue().encode('utf-8')
+    filename = f"commissions_export_{int(time.time())}.csv"
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename={filename}"}
+    )
+
+# --------- SSE for real-time updates ----------
+@app.route('/sse/commissions')
+def sse_commissions():
+    # SSE endpoint; admin or user can connect to receive new transaction events
+    def event_stream():
+        last_check = datetime.utcnow()
+        while True:
+            time.sleep(2)
+            # naive polling of transactions node — in production use pub/sub / worker
+            txs = transactions_ref.order_by_child("date").get() or {}
+            # prepare small heartbeat
+            yield f"data: {json.dumps({'message':'heartbeat','time': now_iso()})}\n\n"
+            # This is a simple example — implement more fine-grained push in production
+    return Response(event_stream(), mimetype="text/event-stream")
+
+# --------- Payout registration ----------
+@app.route('/register_payout', methods=['POST'])
+def register_payout():
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    amount = float(data.get("amount",0))
+    bank_name = data.get("bank_name")
+    account_number = data.get("account_number")
+    account_name = data.get("account_name")
+
+    if not user_id:
+        return jsonify({"error":"user_id required"}), 400
+
+    # create payout request
+    payout = {
+        "user_id": user_id,
+        "amount": amount,
+        "bank_name": bank_name,
+        "account_number": account_number,
+        "account_name": account_name,
+        "status": "requested",
+        "request_date": now_iso()
+    }
+    new_id = payouts_ref.push(payout).key
+    write_audit("register_payout", actor=user_id, meta={"payout_id":new_id, "amount":amount})
+    return jsonify({"message":"payout requested", "payout_id": new_id})
+
+@app.route('/get_payouts', methods=['GET'])
+def get_payouts():
+    if not require_admin():
+        return jsonify({"error":"unauthorized"}), 403
+    return jsonify(payouts_ref.get() or {})
+
+# --------- Audit log read ----------
+@app.route('/audit_log', methods=['GET'])
+def audit_log():
+    if not require_admin():
+        return jsonify({"error":"unauthorized"}), 403
+    return jsonify(audit_ref.get() or {})
+
+# --------- Admin simple home ----------
+@app.route('/')
+def home():
+    return jsonify({"status":"commission server running"})
+
+if _name_ == "_main_":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT",5001)))
