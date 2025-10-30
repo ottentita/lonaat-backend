@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin Login - LONAAT</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;background:#0b1220;color:#e6eef8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+  .box{background:#071226;padding:28px;border-radius:10px;width:320px;box-shadow:0 6px 20px rgba(0,0,0,0.4)}
+  h2{margin:0 0 12px;color:#7bd389}
+  input{width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #123}
+  button{width:100%;padding:10px;background:#1f8ef1;border:none;border-radius:6px;color:white;cursor:pointer}
+  #status{margin-top:10px;color:#ffcc00}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h2>🔒 Admin Login</h2>
+    <input id="username" placeholder="Username" autocomplete="username"/>
+    <input id="password" placeholder="Password" type="password" autocomplete="current-password"/>
+    <button id="loginBtn">Login</button>
+    <p id="status"></p>
+  </div>
+
+<script>
+const API = ''; // empty uses same origin; set to full backend URL if different
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+  if (!username || !password) { document.getElementById('status').textContent = 'Enter credentials'; return; }
+  document.getElementById('status').textContent = 'Signing in...';
+
+  try {
+    const res = await fetch(API + '/admin_login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password })
+    });
+    const j = await res.json();
+    if (res.ok && j.success) {
+      document.getElementById('status').textContent = 'Login successful — redirecting...';
+      // give session cookie time to set, then redirect to admin dashboard
+      setTimeout(() => window.location.href = '/admin_commission.html', 600);
+    } else {
+      document.getElementById('status').textContent = 'Invalid credentials';
+    }
+  } catch (err) {
+    console.error(err);
+    document.getElementById('status').textContent = 'Network error';
+  }
+});
+</script>
+</body>
+</html>
