@@ -121,15 +121,20 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.*.local
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+.pythonlibs/
 
-# Firebase credentials
+# Firebase credentials (NEVER commit these!)
 serviceAccountKey.json
+firebase_key.json
+*-firebase-adminsdk-*.json
 
 # Spyder project settings
 .spyderproject

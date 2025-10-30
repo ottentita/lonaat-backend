@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: lonaat-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 main:app
+    envVars:
+      - key: FLASK_SECRET
+        generateValue: true
+      - key: FIREBASE_DATABASE_URL
+        value: https://lonaat-93a89-default-rtdb.firebaseio.com
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
