@@ -211,7 +211,7 @@ def decrypt_sensitive_data(encrypted: dict) -> dict:
         print(f"⚠️  Decryption failed: {type(e).__name__}")
         raise
 
-def write_audit(action, actor="system", meta=None):
+def write_audit(action: str, actor: str = "system", meta: Any = None) -> None:
     if firebase_enabled and audit_ref is not None:
         try:
             entry = {
@@ -220,7 +220,7 @@ def write_audit(action, actor="system", meta=None):
                 "meta": meta or {},
                 "timestamp": now_iso()
             }
-            audit_ref.push(entry)
+            audit_ref.push(entry)  # type: ignore
         except Exception as e:
             print(f"⚠️  Audit log write failed (Firebase DB may not exist): {e}")
 
@@ -692,7 +692,7 @@ def admin_login():
     password = data.get("password")
     if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
         session['admin_logged_in'] = True
-        write_audit("admin_login", actor=username)
+        write_audit("admin_login", actor=str(username))
         return jsonify({"success": True})
     return jsonify({"success": False}), 401
 
@@ -710,13 +710,13 @@ def get_commission_stats():
     if not firebase_enabled or transactions_ref is None:
         return jsonify({"error": "Firebase not enabled"}), 500
 
-    transactions = transactions_ref.get() or {}
+    transactions = transactions_ref.get() or {}  # type: ignore
     total_earned = 0.0
     total_paid = 0.0
     total_pending = 0.0
     by_day = {}
 
-    for tid, t in transactions.items():
+    for tid, t in transactions.items():  # type: ignore
         amount = float(t.get("amount", 0) or 0)
         status = t.get("status", "earned")
         date = t.get("date")
@@ -768,9 +768,9 @@ def get_commissions():
     page = int(request.args.get("page", 1))
     per_page = int(request.args.get("per_page", 50))
 
-    transactions = transactions_ref.get() or {}
+    transactions = transactions_ref.get() or {}  # type: ignore
     items = []
-    for tid, t in transactions.items():
+    for tid, t in transactions.items():  # type: ignore
         t_copy = dict(t)
         t_copy["_id"] = tid
         # basic filtering
@@ -845,16 +845,16 @@ def mark_payout_paid():
     payout_id = data.get("payout_id")
     admin = data.get("admin","admin")
 
-    payout_node = payouts_ref.child(payout_id).get()
+    payout_node = payouts_ref.child(payout_id).get()  # type: ignore
     if not payout_node:
         return jsonify({"error":"payout not found"}), 404
 
     # update status
     payouts_ref.child(payout_id).update({"status":"paid", "paid_at": now_iso(), "paid_by": admin})
     # create transaction record for historical record if not exists
-    transactions_ref.push({
+    transactions_ref.push({  # type: ignore
         "user_id": user_id,
-        "amount": float(payout_node.get("amount", 0)),
+        "amount": float(payout_node.get("amount", 0)),  # type: ignore
         "status": "payout_paid",
         "type": "payout",
         "date": now_iso()
@@ -871,9 +871,9 @@ def export_commissions():
     if not firebase_enabled or transactions_ref is None:
         return jsonify({"error": "Firebase not enabled"}), 500
 
-    transactions = transactions_ref.get() or {}
+    transactions = transactions_ref.get() or {}  # type: ignore
     rows = []
-    for tid, t in transactions.items():
+    for tid, t in transactions.items():  # type: ignore
         rows.append({
             "transaction_id": tid,
             "user_id": t.get("user_id", ""),
@@ -942,8 +942,8 @@ def register_payout():
         "status": "requested",
         "request_date": now_iso()
     }
-    new_id = payouts_ref.push(payout).key
-    write_audit("register_payout", actor=user_id, meta={"payout_id":new_id, "amount":amount})
+    new_id = payouts_ref.push(payout).key  # type: ignore
+    write_audit("register_payout", actor=str(user_id), meta={"payout_id":new_id, "amount":amount})
     return jsonify({"message":"payout requested", "payout_id": new_id})
 
 @app.route('/get_payouts', methods=['GET'])
@@ -955,11 +955,11 @@ def get_payouts():
     if not firebase_enabled or payouts_ref is None:
         return jsonify({"error": "Firebase not enabled"}), 500
     
-    payouts = payouts_ref.get() or {}
+    payouts = payouts_ref.get() or {}  # type: ignore
     
     # Decrypt sensitive data for admin viewing
     decrypted_payouts = {}
-    for payout_id, payout_data in payouts.items():
+    for payout_id, payout_data in payouts.items():  # type: ignore
         if "encrypted" in payout_data:
             try:
                 # Decrypt bank details
@@ -1019,16 +1019,16 @@ def audit_log():
 def get_affiliate_stats(user_id):
     """Get affiliate stats for Turbo Mode dashboard"""
     if firebase_enabled and users_ref is not None:
-        user_data = users_ref.child(user_id).get()
+        user_data = users_ref.child(user_id).get()  # type: ignore
         if user_data:
-            settings = user_data.get("affiliate_settings", {})
+            settings = user_data.get("affiliate_settings", {})  # type: ignore
             
             # Count active platforms (networks)
             active_platforms = len(affiliate_manager.networks)
             
             # Calculate traffic boost based on user's product count
-            transactions = transactions_ref.get() or {} if transactions_ref else {}
-            user_transactions = [t for t in transactions.values() if t.get("user_id") == user_id]
+            transactions = transactions_ref.get() or {} if transactions_ref else {}  # type: ignore
+            user_transactions = [t for t in transactions.values() if t.get("user_id") == user_id]  # type: ignore
             traffic_boost = min(len(user_transactions) * 5, 100)
             
             return jsonify({
@@ -1050,9 +1050,9 @@ def get_affiliate_stats(user_id):
 def get_affiliate_settings(user_id):
     """Get affiliate settings for Turbo Mode dashboard"""
     if firebase_enabled and users_ref is not None:
-        user_data = users_ref.child(user_id).get()
+        user_data = users_ref.child(user_id).get()  # type: ignore
         if user_data and "affiliate_settings" in user_data:
-            return jsonify(user_data["affiliate_settings"])
+            return jsonify(user_data["affiliate_settings"])  # type: ignore
     
     # Default settings
     return jsonify({
@@ -1072,14 +1072,14 @@ def update_affiliate_setting():
     
     if firebase_enabled and users_ref is not None:
         # Get or create user
-        user_data = users_ref.child(user_id).get() or {}
+        user_data = users_ref.child(user_id).get() or {}  # type: ignore
         
         # Update settings
-        user_data["affiliate_settings"] = settings
-        user_data["last_updated"] = now_iso()
+        user_data["affiliate_settings"] = settings  # type: ignore
+        user_data["last_updated"] = now_iso()  # type: ignore
         
         users_ref.child(user_id).set(user_data)
-        write_audit("update_affiliate_setting", actor=user_id, meta={"settings": settings})
+        write_audit("update_affiliate_setting", actor=str(user_id), meta={"settings": settings})
         
         return jsonify({"message": "Settings updated successfully"})
     else:
@@ -1120,8 +1120,8 @@ def transfer_products():
                         }
                         
                         # Check if AI is enabled for this user
-                        user_data = users_ref.child(user_id).get() if users_ref else {}
-                        settings = user_data.get("affiliate_settings", {}) if user_data else {}
+                        user_data = users_ref.child(user_id).get() if users_ref else {}  # type: ignore
+                        settings = user_data.get("affiliate_settings", {}) if user_data else {}  # type: ignore
                         
                         if settings.get("ai_enabled", False):
                             try:
@@ -1131,7 +1131,7 @@ def transfer_products():
                             except Exception as e:
                                 print(f"AI generation failed for product: {e}")
                         
-                        marketplace_ref.push(product_data)
+                        marketplace_ref.push(product_data)  # type: ignore
                         total_transferred += 1
                 else:
                     # In-memory fallback
@@ -1142,7 +1142,7 @@ def transfer_products():
                 print(f"Failed to sync {network_name}: {e}")
                 continue
         
-        write_audit("transfer_products", actor=user_id, meta={"count": total_transferred})
+        write_audit("transfer_products", actor=str(user_id), meta={"count": total_transferred})
         
         return jsonify({
             "message": f"✅ Transferred {total_transferred} products from {len(affiliate_manager.networks)} networks",
