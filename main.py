@@ -1033,4 +1033,6 @@ def daily_sync():
 threading.Thread(target=daily_sync, daemon=True).start()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    # Use PORT environment variable for Render deployment, fallback to 5000 for local
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
