@@ -11,7 +11,13 @@ import threading
 import time
 import csv
 import io
+import base64
+import hashlib
 from typing import Dict, List, Any, Union, cast
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.backends import default_backend
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 from affiliate_integration import AffiliateNetworkManager, sync_affiliate_products
 from dotenv import load_dotenv
@@ -112,6 +118,96 @@ else:
 # --------- Helper functions for commission tracking ----------
 def now_iso():
     return datetime.utcnow().isoformat()
+
+# --------- Encryption helpers for sensitive data ----------
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+
+if not ENCRYPTION_KEY:
+    print("⚠️  WARNING: ENCRYPTION_KEY not set. Generating temporary key (NOT FOR PRODUCTION)")
+    ENCRYPTION_KEY = base64.urlsafe_b64encode(os.urandom(32)).decode()
+    print(f"⚠️  Set this in your environment: ENCRYPTION_KEY={ENCRYPTION_KEY}")
+
+def encrypt_sensitive_data(data: dict) -> dict:
+    """
+    Encrypt sensitive dictionary data using AES-256-GCM.
+    Returns encrypted object with ciphertext, IV, salt, and KDF parameters.
+    """
+    try:
+        # Generate salt and IV
+        salt = os.urandom(16)
+        iv = os.urandom(12)
+        
+        # Derive encryption key using PBKDF2
+        kdf = PBKDF2(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=200000,
+            backend=default_backend()
+        )
+        key = kdf.derive(ENCRYPTION_KEY.encode())
+        
+        # Encrypt data
+        cipher = Cipher(
+            algorithms.AES(key),
+            modes.GCM(iv),
+            backend=default_backend()
+        )
+        encryptor = cipher.encryptor()
+        
+        plaintext = json.dumps(data).encode()
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+        
+        return {
+            "ciphertext": base64.b64encode(ciphertext).decode(),
+            "iv": base64.b64encode(iv).decode(),
+            "salt": base64.b64encode(salt).decode(),
+            "tag": base64.b64encode(encryptor.tag).decode(),
+            "kdf": {
+                "algorithm": "PBKDF2",
+                "hash": "SHA256",
+                "iterations": 200000
+            }
+        }
+    except Exception as e:
+        print(f"⚠️  Encryption failed: {e}")
+        raise
+
+def decrypt_sensitive_data(encrypted: dict) -> dict:
+    """
+    Decrypt sensitive data encrypted with encrypt_sensitive_data.
+    Returns original dictionary.
+    """
+    try:
+        # Decode components
+        ciphertext = base64.b64decode(encrypted["ciphertext"])
+        iv = base64.b64decode(encrypted["iv"])
+        salt = base64.b64decode(encrypted["salt"])
+        tag = base64.b64decode(encrypted["tag"])
+        
+        # Derive decryption key
+        kdf = PBKDF2(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=encrypted["kdf"]["iterations"],
+            backend=default_backend()
+        )
+        key = kdf.derive(ENCRYPTION_KEY.encode())
+        
+        # Decrypt data
+        cipher = Cipher(
+            algorithms.AES(key),
+            modes.GCM(iv, tag),
+            backend=default_backend()
+        )
+        decryptor = cipher.decryptor()
+        
+        plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+        return json.loads(plaintext.decode())
+    except Exception as e:
+        print(f"⚠️  Decryption failed: {e}")
+        raise
 
 def write_audit(action, actor="system", meta=None):
     if firebase_enabled and audit_ref is not None:
@@ -806,7 +902,7 @@ def sse_commissions():
 
 @app.route('/register_payout', methods=['POST'])
 def register_payout():
-    """Register a payout request"""
+    """Register a payout request with encrypted bank details"""
     if not firebase_enabled or payouts_ref is None:
         return jsonify({"error": "Firebase not enabled"}), 500
 
@@ -820,13 +916,23 @@ def register_payout():
     if not user_id:
         return jsonify({"error":"user_id required"}), 400
 
-    # create payout request
+    # Encrypt sensitive bank details
+    sensitive_data = {
+        "bank_name": bank_name,
+        "account_number": account_number,
+        "account_name": account_name
+    }
+    
+    try:
+        encrypted_data = encrypt_sensitive_data(sensitive_data)
+    except Exception as e:
+        return jsonify({"error": "Encryption failed"}), 500
+
+    # Store payout request with encrypted bank details
     payout = {
         "user_id": user_id,
         "amount": amount,
-        "bank_name": bank_name,
-        "account_number": account_number,
-        "account_name": account_name,
+        "encrypted": encrypted_data,
         "status": "requested",
         "request_date": now_iso()
     }
@@ -836,14 +942,45 @@ def register_payout():
 
 @app.route('/get_payouts', methods=['GET'])
 def get_payouts():
-    """Get all payout requests (admin only)"""
+    """Get all payout requests with decrypted bank details (admin only)"""
     if not require_admin():
         return jsonify({"error":"unauthorized"}), 403
     
     if not firebase_enabled or payouts_ref is None:
         return jsonify({"error": "Firebase not enabled"}), 500
     
-    return jsonify(payouts_ref.get() or {})
+    payouts = payouts_ref.get() or {}
+    
+    # Decrypt sensitive data for admin viewing
+    decrypted_payouts = {}
+    for payout_id, payout_data in payouts.items():
+        if "encrypted" in payout_data:
+            try:
+                # Decrypt bank details
+                decrypted_bank = decrypt_sensitive_data(payout_data["encrypted"])
+                # Return payout with decrypted details
+                decrypted_payouts[payout_id] = {
+                    "user_id": payout_data.get("user_id"),
+                    "amount": payout_data.get("amount"),
+                    "bank_name": decrypted_bank.get("bank_name"),
+                    "account_number": decrypted_bank.get("account_number"),
+                    "account_name": decrypted_bank.get("account_name"),
+                    "status": payout_data.get("status"),
+                    "request_date": payout_data.get("request_date"),
+                    "paid_date": payout_data.get("paid_date")
+                }
+            except Exception as e:
+                print(f"⚠️  Failed to decrypt payout {payout_id}: {e}")
+                # Return payout with encrypted flag if decryption fails
+                decrypted_payouts[payout_id] = {
+                    **payout_data,
+                    "decryption_error": True
+                }
+        else:
+            # Legacy payout without encryption (backward compatibility)
+            decrypted_payouts[payout_id] = payout_data
+    
+    return jsonify(decrypted_payouts)
 
 @app.route('/audit_log', methods=['GET'])
 def audit_log():
