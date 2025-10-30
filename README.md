@@ -1,6 +1,6 @@
-# Lonaat Backend
+# 🚀 Lonaat - AI-Powered Affiliate Marketing Platform
 
-**AI-Powered Affiliate Marketing Dashboard with Enterprise-Grade Security**
+**Lonaat** is a comprehensive affiliate marketing platform that combines Flask backend, Firebase storage, and OpenAI-powered content generation. It provides commission tracking, secure payout management, and multi-network product integration.
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com)
 
@@ -8,7 +8,7 @@
 
 ## 🚀 Overview
 
-Lonaat is a comprehensive Flask-based backend service for affiliate marketing platforms. It combines **AI-powered content generation**, **multi-network affiliate integration**, and **bank-grade encryption** to provide a secure, scalable solution for affiliate marketers.
+Lonaat is a full-stack affiliate marketing platform split into two parts: a Flask backend API deployed on Render and a static HTML/CSS/JS frontend deployed on Firebase Hosting. It combines **AI-powered content generation**, **multi-network affiliate integration**, and **bank-grade encryption** to provide a secure, scalable solution for affiliate marketers.
 
 ### Key Features
 
@@ -68,10 +68,11 @@ Lonaat is a comprehensive Flask-based backend service for affiliate marketing pl
 
 ### Local Development
 
+**Backend:**
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/lonaat-backend.git
-cd lonaat-backend
+git clone https://github.com/YOUR_USERNAME/lonaat-app.git
+cd lonaat-app/backend
 
 # Install dependencies
 pip install -r requirements.txt
@@ -87,7 +88,20 @@ export FLASK_SECRET="your_secret_key"
 python main.py
 ```
 
-Visit: `http://localhost:5000`
+Visit backend: `http://localhost:5000`
+
+**Frontend:**
+```bash
+cd ../frontend
+
+# Serve static files
+python -m http.server 8000
+
+# Or using Node.js
+npx serve .
+```
+
+Visit frontend: `http://localhost:8000`
 
 ---
 
@@ -96,16 +110,18 @@ Visit: `http://localhost:5000`
 ### Method 1: Local Development
 
 ```bash
-# Install Python dependencies
+# Install backend dependencies
+cd backend
 pip install -r requirements.txt
 
 # Verify installation
 python -c "import flask, firebase_admin, openai; print('✅ All dependencies installed')"
 ```
 
-### Method 2: Production (Render)
+### Method 2: Production Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment guide.
+- **Backend (Render):** See `backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md`
+- **Frontend (Firebase):** See `frontend/README.md`
 
 ---
 
@@ -343,47 +359,51 @@ Production-ready security rules included in `firebase_rules.json`:
 ### Project Structure
 
 ```
-lonaat-backend/
-├── main.py                      # Main Flask application
-├── affiliate_integration.py     # Affiliate network scraping
-├── requirements.txt             # Python dependencies
-├── render.yaml                  # Render deployment config
-├── firebase_rules.json          # Firebase security rules
-├── .gitignore                   # Git ignore rules
-├── NEW_ENCRYPTION_KEY.txt       # New encryption key (update in Secrets)
+lonaat-app/
 │
-├── templates/                   # HTML templates
-│   ├── index.html              # Homepage
-│   ├── admin_login.html        # Admin login
-│   ├── admin_panel.html        # Admin dashboard
-│   ├── my_commissions.html     # User dashboard
-│   ├── withdrawal.html         # Withdrawal page
-│   └── affiliate_hub.html      # Affiliate marketing hub
+├── backend/                        # 🔧 Flask API + Firebase + AI (Deployed to Render)
+│   ├── main.py                     # Main Flask application
+│   ├── affiliate_integration.py    # Affiliate network integration
+│   ├── affiliate_scraper.py        # Product scraping utilities
+│   ├── requirements.txt            # Python dependencies
+│   ├── render.yaml                 # Render deployment config
+│   ├── firebase_rules.json         # Firebase security rules
+│   ├── NEW_ENCRYPTION_KEY.txt      # Encryption key backup
+│   ├── pyproject.toml              # UV package config
+│   ├── uv.lock                     # UV lock file
+│   │
+│   ├── templates/                  # Flask HTML templates (legacy)
+│   │   ├── index.html              # Homepage
+│   │   ├── admin.html              # Admin panel
+│   │   ├── my_commissions.html     # User commissions
+│   │   ├── withdraw_page.html      # Withdrawal page
+│   │   └── affiliate.html          # Affiliate hub
+│   │
+│   ├── docs/                       # Deployment documentation
+│   │   ├── QUICKSTART.md
+│   │   ├── DEPLOYMENT.md
+│   │   ├── RENDER_DEPLOYMENT_CHECKLIST.md
+│   │   ├── RENDER_TROUBLESHOOTING.md
+│   │   └── GITHUB_SETUP_SUMMARY.md
+│   │
+│   └── scripts/                    # Setup & deployment scripts
+│       ├── setup_github.sh
+│       ├── test_deployment.sh
+│       └── verify_deployment.py
 │
-├── static/                      # Static assets (if any)
+├── frontend/                       # 🎨 Static HTML/CSS/JS (Deployed to Firebase Hosting)
+│   ├── index.html                  # Marketplace homepage
+│   ├── dashboard.html              # User dashboard
+│   ├── user_commission.html        # Commission history
+│   ├── bank_payment.html           # Payout request form
+│   ├── admin_login.html            # Admin authentication
+│   ├── admin_commission.html       # Admin dashboard
+│   ├── e2ee.js                     # Client-side AES-256 encryption
+│   ├── style.css                   # Global styles
+│   ├── firebase.json               # Firebase Hosting config
+│   └── README.md                   # Frontend deployment guide
 │
-├── scripts/                     # Deployment & testing scripts
-│   ├── setup_github.sh         # GitHub repository setup
-│   ├── test_deployment.sh      # Local deployment testing
-│   └── verify_deployment.py    # Pre-deployment verification
-│
-├── .github/                     # GitHub automation
-│   ├── workflows/              # GitHub Actions
-│   │   ├── render-deploy.yml  # Auto-deploy validation
-│   │   ├── deploy.yml         # Main deployment pipeline
-│   │   ├── test.yml          # CI testing
-│   │   └── security-scan.yml # Weekly security audit
-│   ├── ISSUE_TEMPLATE/        # Issue templates
-│   ├── dependabot.yml         # Auto dependency updates
-│   └── GITHUB_DEPLOYMENT.md   # GitHub deployment guide
-│
-└── docs/                        # Documentation
-    ├── QUICKSTART.md           # 5-minute quick start
-    ├── DEPLOYMENT.md           # Full deployment guide
-    ├── DEPLOYMENT_SUMMARY.md   # Current deployment status
-    ├── GITHUB_SETUP_SUMMARY.md # GitHub deployment summary
-    ├── FIREBASE_SETUP.md       # Firebase configuration
-    └── ENCRYPTION_SECURITY.md  # Encryption details
+└── README.md                       # This file
 ```
 
 ### Running Tests
