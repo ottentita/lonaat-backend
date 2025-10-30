@@ -310,10 +310,11 @@ class ClickBankIntegration(AffiliateNetworkIntegration):
                     data = response.json().get("products", [])
                     for p in data[:max_results]:
                         nickname = p.get('nickname', 'unknown')
+                        # ClickBank HopLink format: https://{affiliate}.{vendor}.hop.clickbank.net
                         products.append({
                             "name": p.get("title", "Unknown Product"),
                             "price": f"${p.get('price', 'N/A')}",
-                            "link": f"https://{nickname}.hop.clickbank.net",
+                            "link": f"https://{self.affiliate_id}.{nickname}.hop.clickbank.net",
                             "commission": f"{p.get('commission', 50)}%",
                             "description": p.get("description", "ClickBank digital product"),
                             "source": "ClickBank"
