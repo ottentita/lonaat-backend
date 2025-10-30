@@ -1,0 +1,187 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    
+    "users": {
+      ".read": "auth != null",
+      ".indexOn": ["username", "email"],
+      
+      "$userId": {
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).exists())",
+        ".validate": "newData.hasChildren(['username', 'balance', 'total_earned'])",
+        
+        "username": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+        },
+        "email": {
+          ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$/i)"
+        },
+        "balance": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "total_earned": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "clicks": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "created_at": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    
+    "transactions": {
+      ".read": "auth != null",
+      ".indexOn": ["user_id", "type", "timestamp"],
+      
+      "$transactionId": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).exists()",
+        ".validate": "newData.hasChildren(['user_id', 'type', 'amount', 'timestamp'])",
+        
+        "user_id": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "type": {
+          ".validate": "newData.isString() && (newData.val() === 'commission' || newData.val() === 'withdrawal' || newData.val() === 'click')"
+        },
+        "amount": {
+          ".validate": "newData.isNumber()"
+        },
+        "timestamp": {
+          ".validate": "newData.isString() || newData.isNumber()"
+        },
+        "description": {
+          ".validate": "newData.isString()"
+        },
+        "status": {
+          ".validate": "newData.isString() && (newData.val() === 'pending' || newData.val() === 'completed' || newData.val() === 'failed')"
+        }
+      }
+    },
+    
+    "payout_requests": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+      ".indexOn": ["user_id", "status", "timestamp"],
+      
+      "$requestId": {
+        ".write": "auth != null && (!data.exists() || root.child('admins').child(auth.uid).exists())",
+        ".validate": "newData.hasChildren(['user_id', 'amount', 'timestamp'])",
+        
+        "user_id": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "amount": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "timestamp": {
+          ".validate": "newData.isString() || newData.isNumber()"
+        },
+        "status": {
+          ".validate": "newData.isString() && (newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'rejected')"
+        },
+        "encrypted_bank_details": {
+          ".validate": "newData.hasChildren(['ciphertext', 'iv', 'salt', 'tag'])",
+          
+          "ciphertext": {
+            ".validate": "newData.isString()"
+          },
+          "iv": {
+            ".validate": "newData.isString()"
+          },
+          "salt": {
+            ".validate": "newData.isString()"
+          },
+          "tag": {
+            ".validate": "newData.isString()"
+          },
+          "kdf": {
+            ".validate": "newData.hasChildren(['algorithm', 'hash', 'iterations'])"
+          }
+        }
+      }
+    },
+    
+    "affiliate_products": {
+      ".read": true,
+      ".indexOn": ["network", "category", "created_at"],
+      
+      "$productId": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).exists()",
+        ".validate": "newData.hasChildren(['name', 'network', 'link'])",
+        
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
+        },
+        "network": {
+          ".validate": "newData.isString() && (newData.val() === 'Amazon Associates' || newData.val() === 'ShareASale' || newData.val() === 'ClickBank' || newData.val() === 'PartnerStack' || newData.val() === 'Digistore24')"
+        },
+        "link": {
+          ".validate": "newData.isString() && newData.val().matches(/^https?:\\/\\/.+/)"
+        },
+        "price": {
+          ".validate": "newData.isString() || newData.isNumber()"
+        },
+        "description": {
+          ".validate": "newData.isString() && newData.val().length <= 2000"
+        },
+        "ad_text": {
+          ".validate": "newData.isString() && newData.val().length <= 1000"
+        },
+        "category": {
+          ".validate": "newData.isString()"
+        },
+        "commission_rate": {
+          ".validate": "newData.isString() || newData.isNumber()"
+        },
+        "image_url": {
+          ".validate": "newData.isString() && newData.val().matches(/^https?:\\/\\/.+/)"
+        },
+        "created_at": {
+          ".validate": "newData.isString() || newData.isNumber()"
+        }
+      }
+    },
+    
+    "admins": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+      
+      "$adminId": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).exists()",
+        ".validate": "newData.hasChildren(['username', 'created_at'])",
+        
+        "username": {
+          ".validate": "newData.isString()"
+        },
+        "email": {
+          ".validate": "newData.isString()"
+        },
+        "created_at": {
+          ".validate": "newData.isString() || newData.isNumber()"
+        }
+      }
+    },
+    
+    "system_stats": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()",
+      
+      "total_users": {
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      },
+      "total_commissions": {
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      },
+      "total_withdrawals": {
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      },
+      "total_clicks": {
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      },
+      "last_updated": {
+        ".validate": "newData.isString() || newData.isNumber()"
+      }
+    }
+  }
+}
