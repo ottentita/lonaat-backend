@@ -16,7 +16,7 @@ import hashlib
 from typing import Dict, List, Any, Union, cast
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 from affiliate_integration import AffiliateNetworkManager, sync_affiliate_products
@@ -123,9 +123,11 @@ def now_iso():
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 if not ENCRYPTION_KEY:
-    print("⚠️  WARNING: ENCRYPTION_KEY not set. Generating temporary key (NOT FOR PRODUCTION)")
-    ENCRYPTION_KEY = base64.urlsafe_b64encode(os.urandom(32)).decode()
-    print(f"⚠️  Set this in your environment: ENCRYPTION_KEY={ENCRYPTION_KEY}")
+    print("❌ CRITICAL ERROR: ENCRYPTION_KEY environment variable is required but not set!")
+    print("❌ This key is necessary to encrypt/decrypt sensitive payout bank details.")
+    print("❌ Generate one with: python -c \"import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\"")
+    print("❌ Then set it in Replit Secrets as ENCRYPTION_KEY")
+    raise RuntimeError("ENCRYPTION_KEY is mandatory for secure operation")
 
 def encrypt_sensitive_data(data: dict) -> dict:
     """
@@ -138,7 +140,7 @@ def encrypt_sensitive_data(data: dict) -> dict:
         iv = os.urandom(12)
         
         # Derive encryption key using PBKDF2
-        kdf = PBKDF2(
+        kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
@@ -170,7 +172,7 @@ def encrypt_sensitive_data(data: dict) -> dict:
             }
         }
     except Exception as e:
-        print(f"⚠️  Encryption failed: {e}")
+        print(f"⚠️  Encryption failed: {type(e).__name__}")
         raise
 
 def decrypt_sensitive_data(encrypted: dict) -> dict:
@@ -186,7 +188,7 @@ def decrypt_sensitive_data(encrypted: dict) -> dict:
         tag = base64.b64decode(encrypted["tag"])
         
         # Derive decryption key
-        kdf = PBKDF2(
+        kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
@@ -206,7 +208,7 @@ def decrypt_sensitive_data(encrypted: dict) -> dict:
         plaintext = decryptor.update(ciphertext) + decryptor.finalize()
         return json.loads(plaintext.decode())
     except Exception as e:
-        print(f"⚠️  Decryption failed: {e}")
+        print(f"⚠️  Decryption failed: {type(e).__name__}")
         raise
 
 def write_audit(action, actor="system", meta=None):
@@ -970,15 +972,31 @@ def get_payouts():
                     "paid_date": payout_data.get("paid_date")
                 }
             except Exception as e:
-                print(f"⚠️  Failed to decrypt payout {payout_id}: {e}")
-                # Return payout with encrypted flag if decryption fails
+                print(f"⚠️  Failed to decrypt payout {payout_id}: {type(e).__name__}")
+                # Return payout with decryption error flag
                 decrypted_payouts[payout_id] = {
-                    **payout_data,
-                    "decryption_error": True
+                    "user_id": payout_data.get("user_id"),
+                    "amount": payout_data.get("amount"),
+                    "status": payout_data.get("status"),
+                    "request_date": payout_data.get("request_date"),
+                    "paid_date": payout_data.get("paid_date"),
+                    "decryption_error": True,
+                    "bank_details": "ENCRYPTED - Unable to decrypt"
                 }
         else:
             # Legacy payout without encryption (backward compatibility)
-            decrypted_payouts[payout_id] = payout_data
+            # These are old payouts created before encryption was implemented
+            decrypted_payouts[payout_id] = {
+                "user_id": payout_data.get("user_id"),
+                "amount": payout_data.get("amount"),
+                "bank_name": payout_data.get("bank_name", "N/A"),
+                "account_number": payout_data.get("account_number", "N/A"),
+                "account_name": payout_data.get("account_name", "N/A"),
+                "status": payout_data.get("status"),
+                "request_date": payout_data.get("request_date"),
+                "paid_date": payout_data.get("paid_date"),
+                "legacy_unencrypted": True
+            }
     
     return jsonify(decrypted_payouts)
 
