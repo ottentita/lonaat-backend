@@ -350,6 +350,7 @@ lonaat-backend/
 ├── render.yaml                  # Render deployment config
 ├── firebase_rules.json          # Firebase security rules
 ├── .gitignore                   # Git ignore rules
+├── NEW_ENCRYPTION_KEY.txt       # New encryption key (update in Secrets)
 │
 ├── templates/                   # HTML templates
 │   ├── index.html              # Homepage
@@ -367,7 +368,9 @@ lonaat-backend/
 │   └── verify_deployment.py    # Pre-deployment verification
 │
 └── docs/                        # Documentation
-    ├── DEPLOYMENT.md           # Deployment guide
+    ├── QUICKSTART.md           # 5-minute quick start
+    ├── DEPLOYMENT.md           # Full deployment guide
+    ├── DEPLOYMENT_SUMMARY.md   # Current deployment status
     ├── FIREBASE_SETUP.md       # Firebase configuration
     └── ENCRYPTION_SECURITY.md  # Encryption details
 ```
@@ -504,4 +507,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for affiliate marketers worldwide**
 
-🚀 **Ready to deploy?** See [DEPLOYMENT.md](DEPLOYMENT.md)
+🚀 **Ready to deploy?** See [docs/QUICKSTART.md](docs/QUICKSTART.md) for 5-minute setup or [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full guide
