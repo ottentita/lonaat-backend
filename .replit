@@ -12,8 +12,8 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["python3", "main.py"]
-deploymentTarget = "cloudrun"
+run = ["sh", "-c", "cd backend && gunicorn --bind 0.0.0.0:5000 --reuse-port --workers 2 --timeout 120 main:app"]
+deploymentTarget = "autoscale"
 
 [agent]
 expertMode = true
