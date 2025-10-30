@@ -6,6 +6,8 @@ from firebase_admin.db import Reference
 import os
 import json
 import random
+import threading
+import time
 from typing import Dict, List, Any, Union, cast
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 from affiliate_integration import AffiliateNetworkManager, sync_affiliate_products
@@ -525,6 +527,16 @@ def add_security_headers(response):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
+
+def daily_sync():
+    while True:
+        try:
+            sync_affiliate_products("YOUR_CLICKBANK_API_KEY")
+        except Exception as e:
+            print("Daily sync failed:", e)
+        time.sleep(86400)  # every 24 hours
+
+threading.Thread(target=daily_sync, daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
