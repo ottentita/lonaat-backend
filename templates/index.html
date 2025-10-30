@@ -69,6 +69,29 @@
         <p style="margin-top: 40px; font-size: 14px; opacity: 0.7;">
             Complete affiliate marketing platform with AI-powered features
         </p>
+        
+        <div id="marketplace" style="margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+            <p>Loading marketplace products...</p>
+        </div>
     </div>
+    
+    <script>
+        async function loadMarketplace() {
+            const res = await fetch('/sync_affiliates', {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({clickbank_key:"YOUR_CLICKBANK_KEY"})
+            });
+            const data = await res.json();
+            console.log(data.message);
+
+            // Now fetch latest products from Firebase (optional)
+            // For demo, just show placeholder
+            document.getElementById("marketplace").innerHTML = `
+                <p>Products synced! Check Firebase → marketplace.</p>
+            `;
+        }
+        loadMarketplace();
+    </script>
 </body>
 </html>
