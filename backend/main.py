@@ -256,6 +256,10 @@ def admin_login_page():
 def my_commissions():
     return render_template('my_commissions.html')
 
+@app.route('/turbo')
+def turbo_dashboard():
+    return send_file('../frontend/turbo_dashboard.html')
+
 @app.route('/get_users')
 def get_users():
     if firebase_enabled and users_ref is not None:
@@ -1101,7 +1105,7 @@ def transfer_products():
         # Sync products from all networks
         for network_name in affiliate_manager.networks.keys():
             try:
-                products = affiliate_manager.fetch_products(network_name, limit=20)
+                products = affiliate_manager.fetch_from_network(network_name, max_results=20)
                 
                 if firebase_enabled and marketplace_ref is not None:
                     for product in products:
@@ -1154,7 +1158,7 @@ def add_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     # Updated CSP to allow inline styles/scripts and CDN resources for TailwindCSS/AlpineJS
-    response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; connect-src 'self' https://lonaat-backend.onrender.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response

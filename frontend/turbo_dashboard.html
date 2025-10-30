@@ -55,7 +55,7 @@
   </div>
 
 <script>
-const API = "https://lonaat-backend.onrender.com";
+const API = window.location.hostname.includes('onrender.com') ? 'https://lonaat-backend.onrender.com' : '';
 function affiliateDashboard(){
   return {
     user_id: localStorage.getItem("user_id") || "demo_user",
