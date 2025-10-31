@@ -9,6 +9,7 @@ from affiliate_integrations import (
     ClickBankIntegration,
     Digistore24Integration,
     CJAffiliateIntegration,
+    ShareASaleIntegration,
     ImpactIntegration
 )
 
@@ -23,7 +24,7 @@ class AffiliateNetworkManager:
         self.networks = {
             'amazon': AmazonAssociates(),
             'cj': CJAffiliateIntegration(),
-            'shareasale': CJAffiliateIntegration(),
+            'shareasale': ShareASaleIntegration(),
             'clickbank': ClickBankIntegration(),
             'impact': ImpactIntegration(),
             'partnerstack': ImpactIntegration(),

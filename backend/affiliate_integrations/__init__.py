@@ -37,6 +37,7 @@ from .amazon_affiliate import AmazonAssociates
 from .clickbank import ClickBankIntegration
 from .digistore24 import Digistore24Integration
 from .cj_affiliate import CJAffiliateIntegration
+from .shareasale import ShareASaleIntegration
 from .impact import ImpactIntegration
 
 __all__ = [
@@ -45,5 +46,6 @@ __all__ = [
     'ClickBankIntegration',
     'Digistore24Integration',
     'CJAffiliateIntegration',
+    'ShareASaleIntegration',
     'ImpactIntegration'
 ]

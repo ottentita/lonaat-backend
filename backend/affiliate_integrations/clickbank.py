@@ -21,7 +21,7 @@ class ClickBankIntegration(AffiliateNetworkIntegration):
     
     def __init__(self):
         super().__init__()
-        self.affiliate_id = os.getenv('CLICKBANK_AFFILIATE_ID', 'lonaat')
+        self.affiliate_id: str = os.getenv('CLICKBANK_AFFILIATE_ID') or 'lonaat'
         self.marketplace_feed = 'https://accounts.clickbank.com/feeds/marketplace_feed_v2.xml'
     
     def fetch_products(self, max_results: int = 20, category: str = None, **kwargs) -> List[Dict[str, Any]]:
