@@ -18,78 +18,93 @@ from . import AffiliateNetworkIntegration
 
 
 class ShareASaleIntegration(AffiliateNetworkIntegration):
-    """ShareASale API Integration for affiliate products"""
+    """ShareASale API Integration for affiliate merchants and products"""
     
     def __init__(self):
         super().__init__()
         self.token = os.getenv('SHAREASALE_TOKEN')
         self.secret = os.getenv('SHAREASALE_SECRET')
         self.affiliate_id = os.getenv('SHAREASALE_AFFILIATE_ID')
-        self.api_version = '2.8'
-        self.endpoint = 'https://api.shareasale.com/w.cfm'
+        self.api_endpoint = 'https://api.shareasale.com/x.cfm'
     
-    def _generate_signature(self, action: str, timestamp: str) -> str:
-        """Generate HMAC-SHA256 signature for ShareASale API"""
-        if not self.secret:
+    def _generate_signature(self, action: str, date_str: str) -> str:
+        """Generate MD5 signature for ShareASale API"""
+        if not self.secret or not self.token:
             return ""
         
-        sig_string = f"{self.token}:{timestamp}:{action}:{self.secret}"
-        signature = hashlib.sha256(sig_string.encode()).hexdigest()
+        raw = f"{self.token}:{date_str}:{action}:{self.secret}"
+        signature = hashlib.md5(raw.encode("utf-8")).hexdigest()
         return signature
     
     def fetch_products(self, max_results: int = 20, merchant_id: Optional[int] = None, **kwargs) -> List[Dict[str, Any]]:
         """
-        Fetch products from ShareASale
+        Fetch merchants and products from ShareASale
         
         Args:
             merchant_id: Specific merchant ID (optional)
-            max_results: Maximum products to return
+            max_results: Maximum merchants to return
         
         Returns:
-            List of products
+            List of merchant products
         """
         if not all([self.token, self.secret, self.affiliate_id]):
             self._warn_once("⚠️  ShareASale API not configured. Using example products.")
             return self._get_example_products()[:max_results]
         
-        products = []
-        timestamp = str(int(time.time()))
-        action = 'productSearch'
-        signature = self._generate_signature(action, timestamp)
+        merchants = []
         
         try:
-            params = {
-                'affiliateId': self.affiliate_id,
-                'token': self.token,
-                'timestamp': timestamp,
-                'signature': signature,
-                'action': action,
-                'version': self.api_version,
-                'resultsPerPage': max_results
+            action = "merchantStatus"
+            date_str = time.strftime("%Y-%m-%d")
+            signature = self._generate_signature(action, date_str)
+            
+            url = f"{self.api_endpoint}?merchantStatus=active"
+            headers = {
+                "x-ShareASale-Date": date_str,
+                "x-ShareASale-Authentication": signature,
+                "x-ShareASale-Token": self.token,
+                "x-ShareASale-AffiliateId": self.affiliate_id
             }
             
-            if merchant_id:
-                params['merchantId'] = merchant_id
-            
-            response = self.session.get(self.endpoint, params=params, timeout=10)
+            response = self.session.get(url, headers=headers, timeout=10)
             
             if response.status_code == 200:
-                products.append({
-                    "name": "ShareASale Product",
-                    "price": "$49.99",
-                    "link": f"https://www.shareasale.com/r.cfm?b=1&u={self.affiliate_id}",
-                    "description": "ShareASale affiliate product",
-                    "source": "ShareASale"
-                })
+                for line in response.text.splitlines()[1:]:
+                    parts = line.split("|")
+                    if len(parts) >= 4:
+                        merchant_id_val = parts[0]
+                        merchant_name = parts[1]
+                        category = parts[2] if len(parts) > 2 else "General"
+                        
+                        merchants.append({
+                            "network": "ShareASale",
+                            "merchant_id": merchant_id_val,
+                            "name": merchant_name,
+                            "price": "Varies",
+                            "category": category,
+                            "commission": "Varies by merchant",
+                            "link": f"https://www.shareasale.com/r.cfm?u={self.affiliate_id}&b={merchant_id_val}",
+                            "affiliate_link": f"https://www.shareasale.com/r.cfm?u={self.affiliate_id}&b={merchant_id_val}",
+                            "image": "https://www.shareasale.com/images/logos/default.png",
+                            "description": f"{merchant_name} - ShareASale affiliate merchant",
+                            "source": "ShareASale"
+                        })
+                        
+                        if len(merchants) >= max_results:
+                            break
+                
+                if merchants:
+                    print(f"✅ Fetched {len(merchants)} real ShareASale merchants from API")
+                    return merchants
+                else:
+                    self._warn_once("⚠️  ShareASale API returned no merchants. Using demo products.")
             else:
-                print(f"ShareASale API Error: HTTP {response.status_code}")
+                self._warn_once(f"⚠️  ShareASale API error (HTTP {response.status_code}). Using demo products.")
+                
         except Exception as e:
-            print(f"ShareASale API Error: {str(e)}")
+            self._warn_once(f"⚠️  ShareASale API error: {str(e)}. Using demo products.")
         
-        if not products:
-            return self._get_example_products()[:max_results]
-        
-        return products
+        return self._get_example_products()[:max_results]
     
     def _get_example_products(self) -> List[Dict[str, Any]]:
         """Get realistic example ShareASale products"""

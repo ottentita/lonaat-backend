@@ -24,7 +24,7 @@ class ClickBankIntegration(AffiliateNetworkIntegration):
         self.affiliate_id: str = os.getenv('CLICKBANK_AFFILIATE_ID') or 'lonaat'
         self.marketplace_feed = 'https://accounts.clickbank.com/feeds/marketplace_feed_v2.xml'
     
-    def fetch_products(self, max_results: int = 20, category: str = None, **kwargs) -> List[Dict[str, Any]]:
+    def fetch_products(self, max_results: int = 20, category: Optional[str] = None, **kwargs) -> List[Dict[str, Any]]:
         """
         Fetch real products from ClickBank public marketplace feed
         
