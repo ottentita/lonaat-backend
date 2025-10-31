@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
-from affiliate_integration import AffiliateNetworkManager, sync_affiliate_products
+from affiliate_manager import get_affiliate_manager, sync_affiliate_products
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,7 +35,7 @@ if not flask_secret:
 app.secret_key = flask_secret
 
 # Initialize affiliate network manager
-affiliate_manager = AffiliateNetworkManager()
+affiliate_manager = get_affiliate_manager()
 
 # Initialize Firebase references and database with proper types
 users_ref: Union[Reference, None] = None
