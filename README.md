@@ -1,549 +1,292 @@
 # 🚀 Lonaat - AI-Powered Affiliate Marketing Platform
 
-**Lonaat** is a comprehensive affiliate marketing platform that combines Flask backend, Firebase storage, and OpenAI-powered content generation. It provides commission tracking, secure payout management, and multi-network product integration.
+![Lonaat Banner](https://img.shields.io/badge/Powered%20by-Lonaat-blue?style=for-the-badge&logo=lightning&logoColor=white)
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com)
-
----
-
-## 🚀 Overview
-
-Lonaat is a full-stack affiliate marketing platform split into two parts: a Flask backend API deployed on Render and a static HTML/CSS/JS frontend deployed on Firebase Hosting. It combines **AI-powered content generation**, **multi-network affiliate integration**, and **bank-grade encryption** to provide a secure, scalable solution for affiliate marketers.
-
-### Key Features
-
-✅ **Multi-Network Integration**
-- Amazon Associates
-- ShareASale
-- ClickBank
-- PartnerStack  
-- Digistore24
-
-✅ **AI-Powered Features**
-- Automated product descriptions (OpenAI GPT)
-- Marketing ad copy generation
-- One-click product sync with AI ads
-
-✅ **Enterprise Security**
-- AES-256-GCM encryption for bank details
-- PBKDF2-HMAC-SHA256 key derivation (200,000 iterations)
-- Encrypted payout request system
-- Admin-only decryption access
-
-✅ **Commission Tracking**
-- Real-time commission tracking
-- Automatic click simulation (₦0.5 - ₦5.0 per click)
-- Transaction history with timestamps
-- Balance management system
-
-✅ **Production-Ready**
-- Gunicorn WSGI server (2 workers)
-- Firebase Realtime Database persistence
-- Render.com deployment configuration
-- Comprehensive security rules
+> **Lonaat** is a comprehensive, production-ready affiliate marketing platform with AI-powered features, real-time analytics, and automated commission tracking. Built with Flask, React PWA, and cutting-edge web technologies.
 
 ---
 
-## 📋 Table of Contents
+## ✨ Features
 
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Deployment](#deployment)
-- [API Documentation](#api-documentation)
-- [Security](#security)
-- [Development](#development)
-- [License](#license)
+### 🎯 Core Features
+- **🤖 AI-Powered Product Descriptions** - Automatic generation using OpenAI
+- **📊 Real-Time Analytics** - Track clicks, commissions, and conversions
+- **💰 Commission System** - Automated tracking and payouts
+- **🔐 Secure Authentication** - JWT-based auth with 12-hour token expiry
+- **📱 Progressive Web App (PWA)** - Offline support and installable
+- **🎨 Modern UI/UX** - Dark/blue theme with responsive design
+
+### 🚀 AdBoost Campaign Engine
+- **Smart Click Multiplier**: Each click doubles your boost (1x → 2x → 4x → 8x → 16x → 32x max)
+- **24-Hour Campaigns**: Automatic expiry with APScheduler
+- **Credit System**: Pay-per-boost pricing (₦10 per credit)
+- **Real-Time Tracking**: Monitor campaign performance
+
+### 💳 Payment Integration
+- **Flutterwave Integration**: Secure payment processing
+- **Automatic Credit Top-up**: Credits added instantly
+- **Withdrawal System**: Bank transfer or mobile money
+- **Admin Approval**: Manual review for security
+
+### 📦 Product Management
+- **Multi-Network Support**: Import from 6+ affiliate networks (Amazon, ShareASale, ClickBank, Digistore24, CJ, Impact)
+- **Bulk Import**: Import products in batches
+- **Click Tracking**: Track every affiliate click
+- **Share Cards**: OpenGraph meta tags for social sharing
+
+### 👥 Dual Dashboard System
+#### User Dashboard
+- Profile Management
+- Product Library
+- AdBoost Campaigns
+- Transaction History
+- Withdrawal Requests
+- Real-Time Notifications
+
+#### Admin Dashboard
+- User Management
+- Campaign Oversight
+- Withdrawal Approval
+- Payment Monitoring
+- Platform Analytics
 
 ---
 
-## ⚡ Quick Start
+## 🛠️ Tech Stack
 
-### Prerequisites
+### Backend
+- **Framework**: Flask 3.x (Python 3.11+)
+- **Database**: PostgreSQL / SQLite (dual support)
+- **ORM**: SQLAlchemy with Flask-Migrate
+- **Authentication**: Flask-JWT-Extended
+- **Background Tasks**: APScheduler
+- **Payment**: Flutterwave API
+- **AI**: OpenAI API (via Replit Integrations)
 
-- Python 3.11+
-- Firebase account with Realtime Database
-- OpenAI API key (for AI features)
-- Git
+### Frontend
+- **Framework**: React 18 + Vite
+- **Routing**: React Router v6
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Charts**: Recharts
+- **Notifications**: React Hot Toast
+- **PWA**: Vite-Plugin-PWA + Workbox
+- **Offline**: IndexedDB caching
 
-### Local Development
+---
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
+
+```bash
+# Backend
+cd backend
+pip install -r requirements.txt
+
+# Frontend
+cd frontend
+npm install
+```
+
+### 2. Configure Environment
+
+Create `backend/.env`:
+
+```env
+FLASK_SECRET=your_secret_key
+JWT_SECRET=your_jwt_secret
+DATABASE_URL=postgresql://user:pass@localhost/lonaat
+ADMIN_EMAIL=admin@lonaat.com
+ADMIN_PASSWORD=secure_password
+FLUTTERWAVE_SECRET=your_flw_secret
+FLUTTERWAVE_PUBLIC=your_flw_public
+BASE_URL=https://your-domain.com
+```
+
+### 3. Initialize Database
+
+```bash
+cd backend
+python3 init_db_migration.py
+```
+
+### 4. Run Servers
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+flask --app main run --host=0.0.0.0 --port=8000
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+Visit: `http://localhost:5000`
+
+---
+
+## 📱 PWA Features
+
+- ✅ Installable on desktop and mobile
+- ✅ Offline dashboard access
+- ✅ Background sync for pending actions
+- ✅ Push notifications ready
+- ✅ App shortcuts
+- ✅ Responsive design
+
+### Install Instructions
+
+**Desktop:**
+1. Visit app in Chrome/Edge
+2. Click install icon in address bar
+3. Click "Install"
+
+**Mobile:**
+1. Open in mobile browser
+2. Tap "Add to Home Screen"
+3. Launch from home screen
+
+---
+
+## 🎨 User Flow
+
+1. **Register** → Create account
+2. **Login** → Access dashboard
+3. **Add Product** → Import or manual entry
+4. **Launch AdBoost** → Start campaign with credits
+5. **Share Product** → Track affiliate clicks
+6. **View Traffic** → Monitor analytics
+7. **Withdraw Funds** → Request payout
+8. **Admin Approval** → Get paid!
+
+---
+
+## 📊 API Endpoints
+
+### Authentication
+```
+POST   /api/auth/register          Register new user
+POST   /api/auth/login             Login
+POST   /api/auth/refresh           Refresh JWT token
+GET    /api/user/profile           Get user profile
+PUT    /api/user/profile           Update profile
+```
+
+### Products
+```
+GET    /api/products               List products (paginated)
+POST   /api/products               Create product
+PUT    /api/products/:id           Update product
+DELETE /api/products/:id           Delete product
+POST   /api/products/import        Import from affiliate network
+```
+
+### AdBoost
+```
+POST   /api/ads/launch             Launch campaign
+GET    /api/ads/status             Get campaigns
+GET    /api/ads/:id                Campaign details
+POST   /api/ads/:id/pause          Pause campaign
+```
+
+### Wallet
+```
+GET    /api/wallet                 Get balance
+POST   /api/wallet/buy_credits     Purchase credits
+GET    /api/wallet/transactions    Transaction history
+```
+
+### Withdrawals
+```
+POST   /api/withdraw                        Request withdrawal
+GET    /api/withdrawals/my                  My withdrawals
+GET    /api/admin/withdrawals               All withdrawals (admin)
+POST   /api/admin/withdrawals/:id/approve   Approve (admin)
+POST   /api/admin/withdrawals/:id/reject    Reject (admin)
+```
+
+### Leads
+```
+POST   /api/leads/capture          Capture email lead
+```
+
+See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for full API reference.
+
+---
+
+## 🔒 Security Features
+
+- ✅ JWT authentication with auto-refresh
+- ✅ Password hashing (Werkzeug)
+- ✅ CORS protection
+- ✅ Webhook signature verification
+- ✅ SQL injection prevention (SQLAlchemy ORM)
+- ✅ Input validation
+- ✅ Admin role verification
+- ✅ HTTPS ready
+
+---
+
+## 🌐 Deployment
+
+### Replit Autoscale
+Already configured! Just click "Publish" in Replit.
+
+### Custom Hosting
 
 **Backend:**
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/lonaat-app.git
-cd lonaat-app/backend
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-export ADMIN_USERNAME="your_admin"
-export ADMIN_PASSWORD="your_secure_password"
-export ENCRYPTION_KEY="your_base64_encryption_key"
-export FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
-export FLASK_SECRET="your_secret_key"
-
-# Run the development server
-python main.py
+gunicorn --bind 0.0.0.0:8000 --workers 4 --reuse-port backend.main:app
 ```
-
-Visit backend: `http://localhost:5000`
 
 **Frontend:**
 ```bash
-cd ../frontend
-
-# Serve static files
-python -m http.server 8000
-
-# Or using Node.js
-npx serve .
-```
-
-Visit frontend: `http://localhost:8000`
-
----
-
-## 🔧 Installation
-
-### Method 1: Local Development
-
-```bash
-# Install backend dependencies
-cd backend
-pip install -r requirements.txt
-
-# Verify installation
-python -c "import flask, firebase_admin, openai; print('✅ All dependencies installed')"
-```
-
-### Method 2: Production Deployment
-
-- **Backend (Render):** See `backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md`
-- **Frontend (Firebase):** See `frontend/README.md`
-
----
-
-## ⚙️ Configuration
-
-### Required Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `ADMIN_USERNAME` | Admin login username | `admin` |
-| `ADMIN_PASSWORD` | Admin login password | `SecurePass123!` |
-| `ENCRYPTION_KEY` | AES-256 encryption key (base64) | Generate with script below |
-| `FIREBASE_SERVICE_ACCOUNT` | Firebase credentials (JSON) | `{"type":"service_account",...}` |
-| `FIREBASE_DATABASE_URL` | Firebase database URL | `https://PROJECT-ID.firebaseio.com` |
-| `FLASK_SECRET` | Flask session secret | Random string |
-
-### Generate Encryption Key
-
-```bash
-python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
-```
-
-**⚠️ IMPORTANT:** Back up your `ENCRYPTION_KEY` securely! If lost, encrypted payout data cannot be recovered.
-
----
-
-## 🚀 Deployment
-
-### Deploy to Render (Recommended)
-
-**1. Automated Deployment**
-
-This repository includes `render.yaml` (copied to root for Render auto-detection) with `rootDir: backend` configuration:
-
-```bash
-# Run the GitHub setup script
-cd backend
-./scripts/setup_github.sh
-
-# Follow the prompts to:
-# - Initialize git repository
-# - Commit all files
-# - Push to GitHub
-# - Get deployment instructions
-```
-
-**2. Manual Deployment**
-
-1. Push code to GitHub
-2. Go to [Render.com](https://render.com)
-3. Click "New +" → "Web Service"
-4. Connect your GitHub repository
-5. Render auto-detects `render.yaml`
-6. Add environment variables
-7. Click "Create Web Service"
-
-**3. Verify Deployment**
-
-```bash
-# Run pre-deployment verification
-cd backend
-python scripts/verify_deployment.py
-
-# Test the deployed app
-curl https://your-app.onrender.com/
-```
-
-📖 **Full deployment guide:** `backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md`
-
----
-
-## 📡 API Documentation
-
-### User Management
-
-**Register User**
-```http
-POST /register
-Content-Type: application/json
-
-{
-  "username": "john_doe",
-  "email": "john@example.com"
-}
-```
-
-**Get All Users**
-```http
-GET /get_all_users
-```
-
-**Get User Balance**
-```http
-GET /get_balance?user_id=USER_ID
-```
-
-### Commission System
-
-**Add Commission (Admin Only)**
-```http
-POST /add_commission
-Content-Type: application/json
-
-{
-  "user_id": "user123",
-  "amount": 1500.00,
-  "description": "Amazon Associates - Product XYZ"
-}
-```
-
-**Get User Transactions**
-```http
-GET /get_transactions?user_id=USER_ID
-```
-
-### Payout System (Encrypted)
-
-**Request Payout**
-```http
-POST /register_payout
-Content-Type: application/json
-
-{
-  "user_id": "user123",
-  "amount": 5000.00,
-  "bank_name": "First Bank",
-  "account_number": "1234567890",
-  "account_name": "John Doe"
-}
-```
-
-**Get Payout Requests (Admin Only)**
-```http
-GET /get_payout_requests
-```
-
-**Decrypt Payout (Admin Only)**
-```http
-POST /decrypt_payout
-Content-Type: application/json
-
-{
-  "payout_id": "payout_xyz"
-}
-```
-
-### Affiliate Products
-
-**Get All Products**
-```http
-GET /get_affiliate_products
-```
-
-**Sync Products with AI Ads**
-```http
-POST /sync_affiliates
-Content-Type: application/json
-
-{
-  "networks": ["Amazon Associates", "ClickBank"]
-}
-```
-
-**Generate AI Ad**
-```http
-POST /generate_ad
-Content-Type: application/json
-
-{
-  "product_name": "Wireless Bluetooth Headphones",
-  "product_description": "Premium noise-canceling headphones"
-}
-```
-
-### Admin
-
-**Admin Login**
-```http
-POST /admin_login
-Content-Type: application/json
-
-{
-  "username": "admin",
-  "password": "password"
-}
+cd frontend
+npm run build
+# Serve dist/ folder
 ```
 
 ---
 
-## 🔒 Security
+## 📝 Contributing
 
-### Encryption
-
-Lonaat uses **AES-256-GCM** encryption for sensitive payout data:
-
-- **Algorithm:** AES-256-GCM (Galois/Counter Mode)
-- **Key Derivation:** PBKDF2-HMAC-SHA256
-- **Iterations:** 200,000 (recommended by OWASP)
-- **Unique IV & Salt:** Per-record randomization
-- **Authentication Tag:** Prevents tampering
-
-**Encrypted Data Structure:**
-```json
-{
-  "encrypted_bank_details": {
-    "ciphertext": "base64_encrypted_data",
-    "iv": "base64_initialization_vector",
-    "salt": "base64_salt",
-    "tag": "base64_authentication_tag",
-    "kdf": {
-      "algorithm": "PBKDF2",
-      "hash": "SHA256",
-      "iterations": 200000
-    }
-  }
-}
-```
-
-📖 **Full encryption documentation:** [backend/docs/ENCRYPTION_SECURITY.md](backend/docs/ENCRYPTION_SECURITY.md)
-
-### Firebase Security Rules
-
-Production-ready security rules included in `firebase_rules.json`:
-
-- ✅ Authentication-based access control
-- ✅ Admin-only payout decryption
-- ✅ Public product browsing
-- ✅ Data validation rules
-- ✅ Indexed queries for performance
-
-📖 **Firebase setup guide:** [backend/docs/FIREBASE_SETUP.md](backend/docs/FIREBASE_SETUP.md)
-
----
-
-## 🛠️ Development
-
-### Project Structure
-
-```
-lonaat-app/
-│
-├── backend/                        # 🔧 Flask API + Firebase + AI (Deployed to Render)
-│   ├── main.py                     # Main Flask application
-│   ├── affiliate_integration.py    # Affiliate network integration
-│   ├── affiliate_scraper.py        # Product scraping utilities
-│   ├── requirements.txt            # Python dependencies
-│   ├── render.yaml                 # Render deployment config
-│   ├── firebase_rules.json         # Firebase security rules
-│   ├── NEW_ENCRYPTION_KEY.txt      # Encryption key backup
-│   ├── pyproject.toml              # UV package config
-│   ├── uv.lock                     # UV lock file
-│   │
-│   ├── templates/                  # Flask HTML templates (legacy)
-│   │   ├── index.html              # Homepage
-│   │   ├── admin.html              # Admin panel
-│   │   ├── my_commissions.html     # User commissions
-│   │   ├── withdraw_page.html      # Withdrawal page
-│   │   └── affiliate.html          # Affiliate hub
-│   │
-│   ├── docs/                       # Deployment documentation
-│   │   ├── QUICKSTART.md
-│   │   ├── DEPLOYMENT.md
-│   │   ├── RENDER_DEPLOYMENT_CHECKLIST.md
-│   │   ├── RENDER_TROUBLESHOOTING.md
-│   │   └── GITHUB_SETUP_SUMMARY.md
-│   │
-│   └── scripts/                    # Setup & deployment scripts
-│       ├── setup_github.sh
-│       ├── test_deployment.sh
-│       └── verify_deployment.py
-│
-├── frontend/                       # 🎨 Static HTML/CSS/JS (Deployed to Firebase Hosting)
-│   ├── index.html                  # Marketplace homepage
-│   ├── dashboard.html              # User dashboard
-│   ├── user_commission.html        # Commission history
-│   ├── bank_payment.html           # Payout request form
-│   ├── admin_login.html            # Admin authentication
-│   ├── admin_commission.html       # Admin dashboard
-│   ├── e2ee.js                     # Client-side AES-256 encryption
-│   ├── style.css                   # Global styles
-│   ├── firebase.json               # Firebase Hosting config
-│   └── README.md                   # Frontend deployment guide
-│
-└── README.md                       # This file
-```
-
-### Running Tests
-
-```bash
-# Navigate to backend
-cd backend
-
-# Verify deployment readiness
-python scripts/verify_deployment.py
-
-# Test Gunicorn locally
-./scripts/test_deployment.sh
-
-# Test specific endpoint
-curl http://localhost:5000/get_affiliate_products
-```
-
-### Adding New Affiliate Networks
-
-1. Open `affiliate_integration.py`
-2. Add network configuration:
-```python
-{
-    "name": "New Network",
-    "api_url": "https://api.newnetwork.com",
-    "requires_key": True
-}
-```
-3. Implement scraping/API logic
-4. Update Firebase rules to allow new network name
-
----
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Issue:** "ENCRYPTION_KEY is mandatory"
-```bash
-# Solution: Generate and set encryption key
-export ENCRYPTION_KEY=$(python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
-```
-
-**Issue:** "Firebase initialization failed"
-```bash
-# Solution: Check FIREBASE_SERVICE_ACCOUNT format
-echo $FIREBASE_SERVICE_ACCOUNT | python -m json.tool
-```
-
-**Issue:** "Permission denied" on Firebase
-```bash
-# Solution: Deploy security rules
-firebase deploy --only database
-```
-
----
-
-## 📊 System Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                      User Browser                       │
-└────────────────┬────────────────────────────────────────┘
-                 │
-                 │ HTTPS
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Flask Application                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Routes     │  │  Encryption  │  │   Admin      │  │
-│  │  (main.py)   │  │  (AES-256)   │  │   Auth       │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└──────┬───────────────────┬─────────────────┬───────────┘
-       │                   │                 │
-       │ API Calls         │ Store Data      │ Generate
-       ▼                   ▼                 ▼
-┌─────────────┐   ┌─────────────────┐   ┌──────────┐
-│  Affiliate  │   │    Firebase     │   │  OpenAI  │
-│  Networks   │   │ Realtime DB     │   │   API    │
-│  (5 APIs)   │   │  (Encrypted)    │   │  (GPT)   │
-└─────────────┘   └─────────────────┘   └──────────┘
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
+Contributions welcome! Please:
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - feel free to use this project for learning or commercial purposes.
 
 ---
 
-## 📞 Support
+<div align="center">
 
-- **Documentation:** See `backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md`, `backend/docs/FIREBASE_SETUP.md`, `backend/docs/ENCRYPTION_SECURITY.md`
-- **Issues:** Open an issue on GitHub
-- **Email:** support@lonaat.com (if applicable)
+### 🎉 Powered by Lonaat
 
----
+**Built with ❤️ for affiliate marketers**
 
-## 🙏 Acknowledgments
+[![GitHub Stars](https://img.shields.io/badge/⭐-Star%20on%20GitHub-yellow)](https://github.com)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-- **Flask** - Lightweight web framework
-- **Firebase** - Realtime database and authentication
-- **OpenAI** - AI-powered content generation
-- **Render** - Easy deployment platform
-- **Replit** - Development environment
+**[Get Started](#quick-start)** • **[Features](#features)** • **[API Docs](./API_DOCUMENTATION.md)** • **[Support](#support)**
+
+</div>
 
 ---
 
-## 🔮 Roadmap
+**Last Updated**: November 2025  
+**Version**: 1.0.0  
+**Status**: Production Ready ✅
 
-- [ ] Add more affiliate networks (Commission Junction, Rakuten)
-- [ ] Implement email notifications for payouts
-- [ ] Add analytics dashboard with charts
-- [ ] Create mobile app (React Native)
-- [ ] Add multi-currency support
-- [ ] Implement referral system
-- [ ] Add automated testing suite
-- [ ] Create API rate limiting
-
----
-
-**Made with ❤️ for affiliate marketers worldwide**
-
-🚀 **Ready to deploy?** 
-- **GitHub:** See [backend/docs/GITHUB_SETUP_SUMMARY.md](backend/docs/GITHUB_SETUP_SUMMARY.md) for automated deployment
-- **Quick Start:** See [backend/docs/QUICKSTART.md](backend/docs/QUICKSTART.md) for 5-minute setup
-- **Full Guide:** See [backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md](backend/docs/RENDER_DEPLOYMENT_CHECKLIST.md) for comprehensive instructions
+**Powered by Lonaat**

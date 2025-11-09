@@ -1,104 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lonaat - AI-Powered Affiliate Marketing</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🚀 Lonaat Marketplace</h1>
-            <p class="subtitle">AI-Powered Affiliate Marketing Platform</p>
-        </header>
-
-        <nav class="main-nav">
-            <a href="dashboard.html" class="nav-btn">📊 My Dashboard</a>
-            <a href="user_commission.html" class="nav-btn">💵 My Commissions</a>
-            <a href="bank_payment.html" class="nav-btn">💰 Request Payout</a>
-            <a href="admin_login.html" class="nav-btn admin">🔐 Admin Login</a>
-        </nav>
-
-        <section class="hero">
-            <h2>Welcome to Lonaat</h2>
-            <p>Browse affiliate products from top networks and earn commissions</p>
-        </section>
-
-        <section class="products">
-            <h3>📦 Marketplace Products</h3>
-            <div id="productGrid" class="product-grid">
-                <div class="loading">Loading products...</div>
-            </div>
-        </section>
-
-        <section class="networks">
-            <h3>🌐 Integrated Networks</h3>
-            <div class="network-list">
-                <div class="network-card">
-                    <h4>Amazon Associates</h4>
-                    <p>World's largest online marketplace</p>
-                </div>
-                <div class="network-card">
-                    <h4>ShareASale</h4>
-                    <p>Leading affiliate marketing network</p>
-                </div>
-                <div class="network-card">
-                    <h4>ClickBank</h4>
-                    <p>Digital product marketplace</p>
-                </div>
-                <div class="network-card">
-                    <h4>PartnerStack</h4>
-                    <p>B2B SaaS affiliate platform</p>
-                </div>
-                <div class="network-card">
-                    <h4>Digistore24</h4>
-                    <p>European digital marketplace</p>
-                </div>
-            </div>
-        </section>
-
-        <footer>
-            <p>&copy; 2025 Lonaat. AI-Powered Affiliate Marketing.</p>
-        </footer>
-    </div>
-
-    <script>
-        // Configure your backend URL
-        const BACKEND_URL = 'https://lonaat-backend.onrender.com';
-        // For local testing: const BACKEND_URL = 'http://localhost:5000';
-
-        // Load marketplace products
-        async function loadProducts() {
-            try {
-                const response = await fetch(`${BACKEND_URL}/get_marketplace_products`);
-                const products = await response.json();
-                
-                const grid = document.getElementById('productGrid');
-                
-                if (products.length === 0) {
-                    grid.innerHTML = '<p class="no-products">No products available yet. Check back soon!</p>';
-                    return;
-                }
-
-                grid.innerHTML = products.map(product => `
-                    <div class="product-card">
-                        <h4>${product.name}</h4>
-                        <p class="product-price">${product.price || 'Price varies'}</p>
-                        <p class="product-network">${product.network}</p>
-                        ${product.ai_ad ? `<p class="ai-ad">${product.ai_ad}</p>` : ''}
-                        ${product.link ? `<a href="${product.link}" target="_blank" class="product-link">View Product</a>` : ''}
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('Error loading products:', error);
-                document.getElementById('productGrid').innerHTML = 
-                    '<p class="error">Unable to load products. Please try again later.</p>';
-            }
-        }
-
-        // Load products when page loads
-        loadProducts();
-    </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
