@@ -40,7 +40,7 @@ const AdminWithdrawals = () => {
       const response = await withdrawalAPI.getAll();
       setWithdrawals(response.data.withdrawals || []);
     } catch (error) {
-      console.error('Error fetching withdrawals:', error);
+      
       toast.error('Failed to load withdrawals');
     } finally {
       setLoading(false);

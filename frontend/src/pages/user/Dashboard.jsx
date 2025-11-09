@@ -70,7 +70,7 @@ const Dashboard = () => {
 
       setRecentActivity(activity);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);

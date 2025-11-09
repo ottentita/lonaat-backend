@@ -42,7 +42,7 @@ const AdBoosts = () => {
       setProducts(productsRes.data.products || []);
       setBalance(walletRes.data.balance || 0);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      
       toast.error('Failed to load campaigns');
     } finally {
       setLoading(false);

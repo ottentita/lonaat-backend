@@ -36,7 +36,7 @@ const AdminAds = () => {
       const response = await adsAPI.getStatus();
       setCampaigns(response.data.campaigns || []);
     } catch (error) {
-      console.error('Error fetching campaigns:', error);
+      
       toast.error('Failed to load campaigns');
     } finally {
       setLoading(false);

@@ -43,7 +43,7 @@ const AdminPayments = () => {
       );
       setPayments(paymentTransactions);
     } catch (error) {
-      console.error('Error fetching payments:', error);
+      
       toast.error('Failed to load payments');
     } finally {
       setLoading(false);

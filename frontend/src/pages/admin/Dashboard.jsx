@@ -35,7 +35,7 @@ const AdminDashboard = () => {
       const response = await adminAPI.getStats();
       setStats(response.data.stats || response.data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      
       toast.error('Failed to load statistics');
     } finally {
       setLoading(false);

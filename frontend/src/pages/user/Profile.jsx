@@ -49,7 +49,7 @@ const Profile = () => {
         email: data.email || ''
       });
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      
       toast.error('Failed to load profile');
     } finally {
       setLoading(false);

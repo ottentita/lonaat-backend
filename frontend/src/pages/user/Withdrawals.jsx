@@ -41,7 +41,7 @@ const Withdrawals = () => {
       setWithdrawals(withdrawalsRes.data.withdrawals || []);
       setBalance(walletRes.data.balance || 0);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      
       toast.error('Failed to load withdrawals');
     } finally {
       setLoading(false);

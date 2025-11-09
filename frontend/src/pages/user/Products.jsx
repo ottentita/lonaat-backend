@@ -43,7 +43,7 @@ const Products = () => {
       const response = await productsAPI.getAll();
       setProducts(response.data.products || []);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      
       toast.error('Failed to load products');
     } finally {
       setLoading(false);

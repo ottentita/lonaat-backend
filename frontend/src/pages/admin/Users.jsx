@@ -38,7 +38,7 @@ const Users = () => {
       const response = await adminAPI.getUsers();
       setUsers(response.data.users || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      
       toast.error('Failed to load users');
     } finally {
       setLoading(false);

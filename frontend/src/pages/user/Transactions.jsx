@@ -40,7 +40,7 @@ const Transactions = () => {
       const response = await walletAPI.getTransactions();
       setTransactions(response.data.transactions || []);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      
       toast.error('Failed to load transactions');
     } finally {
       setLoading(false);
