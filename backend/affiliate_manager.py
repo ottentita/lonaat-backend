@@ -10,7 +10,21 @@ from affiliate_integrations import (
     Digistore24Integration,
     CJAffiliateIntegration,
     ShareASaleIntegration,
-    ImpactIntegration
+    ImpactIntegration,
+    RakutenAdvertisingIntegration,
+    AwinIntegration,
+    FlexOffersIntegration,
+    eBayPartnerIntegration,
+    ShopifyCollabsIntegration,
+    MoreNicheIntegration,
+    AvangateIntegration,
+    EtsyAffiliateIntegration,
+    ClickDealerIntegration,
+    MobideaIntegration,
+    TerraLeadsIntegration,
+    MaxWebIntegration,
+    LeadBitIntegration,
+    GiddyUpIntegration
 )
 
 
@@ -28,7 +42,21 @@ class AffiliateNetworkManager:
             'clickbank': ClickBankIntegration(),
             'impact': ImpactIntegration(),
             'partnerstack': ImpactIntegration(),
-            'digistore24': Digistore24Integration()
+            'digistore24': Digistore24Integration(),
+            'rakuten': RakutenAdvertisingIntegration(),
+            'awin': AwinIntegration(),
+            'flexoffers': FlexOffersIntegration(),
+            'ebay': eBayPartnerIntegration(),
+            'shopify': ShopifyCollabsIntegration(),
+            'moreniche': MoreNicheIntegration(),
+            'avangate': AvangateIntegration(),
+            'etsy': EtsyAffiliateIntegration(),
+            'clickdealer': ClickDealerIntegration(),
+            'mobidea': MobideaIntegration(),
+            'terraleads': TerraLeadsIntegration(),
+            'maxweb': MaxWebIntegration(),
+            'leadbit': LeadBitIntegration(),
+            'giddyup': GiddyUpIntegration()
         }
     
     def get_network(self, network_name: str):
@@ -126,65 +154,27 @@ class AffiliateNetworkManager:
     def get_setup_instructions(self) -> Dict[str, str]:
         """Get setup instructions for all networks"""
         return {
-            'amazon': """
-                Amazon Associates Setup:
-                1. Sign up: https://affiliate-program.amazon.com/
-                2. Get API access: https://webservices.amazon.com/paapi5/
-                3. Add to Replit Secrets:
-                   - AMAZON_ACCESS_KEY
-                   - AMAZON_SECRET_KEY
-                   - AMAZON_PARTNER_TAG
-            """,
-            'cj': """
-                CJ Affiliate Setup:
-                1. Sign up: https://www.cj.com/
-                2. Go to Account Settings > API/FTP
-                3. Add to Replit Secrets:
-                   - CJ_API_TOKEN
-                   - CJ_API_SECRET
-                   - CJ_AFFILIATE_ID
-            """,
-            'shareasale': """
-                ShareASale Setup:
-                1. Sign up: https://www.shareasale.com/
-                2. Go to Account Settings > API/FTP
-                3. Add to Replit Secrets:
-                   - SHAREASALE_TOKEN
-                   - SHAREASALE_SECRET
-                   - SHAREASALE_AFFILIATE_ID
-            """,
-            'clickbank': """
-                ClickBank Setup:
-                1. Sign up: https://www.clickbank.com/
-                2. Get your affiliate nickname
-                3. Add to Replit Secrets:
-                   - CLICKBANK_AFFILIATE_ID (your nickname)
-            """,
-            'impact': """
-                Impact Partnership Cloud Setup:
-                1. Sign up: https://impact.com/
-                2. Join partner programs
-                3. Get API key from dashboard
-                4. Add to Replit Secrets:
-                   - IMPACT_API_KEY
-                   - IMPACT_ACCOUNT_SID
-            """,
-            'partnerstack': """
-                PartnerStack Setup:
-                1. Sign up: https://partnerstack.com/
-                2. Join partner programs
-                3. Get API key from dashboard
-                4. Add to Replit Secrets:
-                   - PARTNERSTACK_API_KEY
-            """,
-            'digistore24': """
-                Digistore24 Setup:
-                1. Sign up: https://www.digistore24.com/
-                2. Get API key from Settings → Account Access → API Keys
-                3. Add to Replit Secrets:
-                   - DIGISTORE24_API_KEY (required)
-                   - DIGISTORE24_AFFILIATE_ID (optional, for personalized links)
-            """
+            'amazon': "Amazon Associates: https://affiliate-program.amazon.com/ | Secrets: AMAZON_ACCESS_KEY, AMAZON_SECRET_KEY, AMAZON_PARTNER_TAG",
+            'cj': "CJ Affiliate: https://www.cj.com/ | Secrets: CJ_API_TOKEN, CJ_API_SECRET, CJ_AFFILIATE_ID",
+            'shareasale': "ShareASale: https://www.shareasale.com/ | Secrets: SHAREASALE_TOKEN, SHAREASALE_SECRET, SHAREASALE_AFFILIATE_ID",
+            'clickbank': "ClickBank: https://www.clickbank.com/ | Secrets: CLICKBANK_AFFILIATE_ID",
+            'impact': "Impact: https://impact.com/ | Secrets: IMPACT_API_KEY, IMPACT_ACCOUNT_SID",
+            'partnerstack': "PartnerStack: https://partnerstack.com/ | Secrets: PARTNERSTACK_API_KEY",
+            'digistore24': "Digistore24: https://www.digistore24.com/ | Secrets: DIGISTORE24_API_KEY, DIGISTORE24_AFFILIATE_ID",
+            'rakuten': "Rakuten Advertising: https://rakutenadvertising.com/ | Secrets: RAKUTEN_API_KEY, RAKUTEN_SID, RAKUTEN_MID",
+            'awin': "Awin: https://www.awin.com/ | Secrets: AWIN_API_TOKEN, AWIN_PUBLISHER_ID",
+            'flexoffers': "FlexOffers: https://www.flexoffers.com/ | Secrets: FLEXOFFERS_API_KEY, FLEXOFFERS_PUBLISHER_ID",
+            'ebay': "eBay Partner Network: https://partnernetwork.ebay.com/ | Secrets: EBAY_APP_ID, EBAY_CAMPAIGN_ID",
+            'shopify': "Shopify Collabs: https://www.shopify.com/collabs | Secrets: SHOPIFY_COLLABS_ACCESS_TOKEN",
+            'moreniche': "MoreNiche: https://www.moreniche.com/ | Secrets: MORENICHE_API_KEY, MORENICHE_AFFILIATE_ID",
+            'avangate': "Avangate (2Checkout): https://www.2checkout.com/ | Secrets: AVANGATE_API_KEY, AVANGATE_AFFILIATE_CODE",
+            'etsy': "Etsy Affiliate: https://www.etsy.com/affiliates | Secrets: ETSY_AFFILIATE_ID, ETSY_API_KEY",
+            'clickdealer': "ClickDealer: https://www.clickdealer.com/ | Secrets: CLICKDEALER_API_KEY, CLICKDEALER_AFFILIATE_ID",
+            'mobidea': "Mobidea: https://www.mobidea.com/ | Secrets: MOBIDEA_API_KEY, MOBIDEA_AFFILIATE_ID",
+            'terraleads': "TerraLeads: https://terraleads.com/ | Secrets: TERRALEADS_API_KEY, TERRALEADS_AFFILIATE_ID",
+            'maxweb': "MaxWeb: https://maxweb.com/ | Secrets: MAXWEB_API_KEY, MAXWEB_AFFILIATE_ID",
+            'leadbit': "LeadBit: https://leadbit.com/ | Secrets: LEADBIT_API_KEY, LEADBIT_AFFILIATE_ID",
+            'giddyup': "GiddyUp: https://www.giddyup.io/ | Secrets: GIDDYUP_API_KEY, GIDDYUP_PARTNER_ID"
         }
 
 

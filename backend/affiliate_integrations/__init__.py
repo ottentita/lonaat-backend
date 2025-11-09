@@ -39,6 +39,20 @@ from .digistore24 import Digistore24Integration
 from .cj_affiliate import CJAffiliateIntegration
 from .shareasale import ShareASaleIntegration
 from .impact import ImpactIntegration
+from .rakuten import RakutenAdvertisingIntegration
+from .awin import AwinIntegration
+from .flexoffers import FlexOffersIntegration
+from .ebay import eBayPartnerIntegration
+from .shopify_collabs import ShopifyCollabsIntegration
+from .moreniche import MoreNicheIntegration
+from .avangate import AvangateIntegration
+from .etsy import EtsyAffiliateIntegration
+from .clickdealer import ClickDealerIntegration
+from .mobidea import MobideaIntegration
+from .terraleads import TerraLeadsIntegration
+from .maxweb import MaxWebIntegration
+from .leadbit import LeadBitIntegration
+from .giddyup import GiddyUpIntegration
 
 __all__ = [
     'AffiliateNetworkIntegration',
@@ -47,5 +61,19 @@ __all__ = [
     'Digistore24Integration',
     'CJAffiliateIntegration',
     'ShareASaleIntegration',
-    'ImpactIntegration'
+    'ImpactIntegration',
+    'RakutenAdvertisingIntegration',
+    'AwinIntegration',
+    'FlexOffersIntegration',
+    'eBayPartnerIntegration',
+    'ShopifyCollabsIntegration',
+    'MoreNicheIntegration',
+    'AvangateIntegration',
+    'EtsyAffiliateIntegration',
+    'ClickDealerIntegration',
+    'MobideaIntegration',
+    'TerraLeadsIntegration',
+    'MaxWebIntegration',
+    'LeadBitIntegration',
+    'GiddyUpIntegration'
 ]
