@@ -55,10 +55,10 @@ class ShareASaleIntegration(AffiliateNetworkIntegration):
         
         try:
             action = "merchantStatus"
-            date_str = time.strftime("%Y-%m-%d")
+            date_str = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
             signature = self._generate_signature(action, date_str)
             
-            url = f"{self.api_endpoint}?merchantStatus=active"
+            url = f"{self.api_endpoint}?action={action}&merchantStatus=active&version=2.8"
             headers = {
                 "x-ShareASale-Date": date_str,
                 "x-ShareASale-Authentication": signature,
