@@ -385,3 +385,37 @@ class ReferralPayout(db.Model):
     
     def __repr__(self):
         return f'<ReferralPayout ₦{self.amount} {self.commission_type}>'
+
+
+class SocialConnection(db.Model):
+    """Social media platform connection model"""
+    __tablename__ = 'social_connections'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    platform = db.Column(db.String(50), nullable=False, index=True)
+    platform_user_id = db.Column(db.String(255), nullable=True)
+    platform_username = db.Column(db.String(255), nullable=True)
+    access_token = db.Column(db.Text, nullable=False)
+    refresh_token = db.Column(db.Text, nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    user = db.relationship('User', backref='social_connections')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'platform': self.platform,
+            'platform_username': self.platform_username,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'token_expires_at': self.token_expires_at.isoformat() if self.token_expires_at else None
+        }
+    
+    def __repr__(self):
+        return f'<SocialConnection User:{self.user_id} Platform:{self.platform}>'

@@ -34,6 +34,8 @@ from affiliate_routes import affiliate_bp
 from withdrawal_routes import withdrawal_bp
 from payment_webhook import payments_bp
 from leads_routes import leads_bp
+from routes.social import social_bp
+from routes.networks import networks_bp
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 
@@ -69,6 +71,8 @@ app.register_blueprint(affiliate_bp)
 app.register_blueprint(withdrawal_bp)
 app.register_blueprint(payments_bp)
 app.register_blueprint(leads_bp)
+app.register_blueprint(social_bp)
+app.register_blueprint(networks_bp)
 
 # Create database tables
 with app.app_context():
