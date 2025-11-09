@@ -1,35 +1,100 @@
 """
-Impact Partnership Cloud API Integration (formerly PartnerStack)
+Impact Partnership Cloud API Integration
 
 Setup:
-1. Sign up at https://impact.com/ or https://partnerstack.com/
-2. Join partner programs for SaaS products
+1. Sign up at https://impact.com/
+2. Go to Account → Settings → API to create access token
 3. Add to Replit Secrets:
-   - IMPACT_API_KEY or PARTNERSTACK_API_KEY
-   - IMPACT_ACCOUNT_SID
+   - IMPACT_ACCOUNT_SID (Your Account ID)
+   - IMPACT_AUTH_TOKEN (Your API Token)
 """
 
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from requests.auth import HTTPBasicAuth
 from . import AffiliateNetworkIntegration
 
 
 class ImpactIntegration(AffiliateNetworkIntegration):
-    """Impact Partnership Cloud (PartnerStack) Integration for SaaS Products"""
+    """Impact Partnership Cloud API Integration"""
     
-    def __init__(self):
+    def __init__(self, account_sid: Optional[str] = None, auth_token: Optional[str] = None):
         super().__init__()
-        self.api_key = os.getenv('IMPACT_API_KEY') or os.getenv('PARTNERSTACK_API_KEY')
-        self.account_sid = os.getenv('IMPACT_ACCOUNT_SID')
-        self.endpoint = 'https://api.impact.com/v1' if self.api_key else 'https://api.partnerstack.com/v1'
+        self.account_sid = account_sid or os.getenv('IMPACT_ACCOUNT_SID')
+        self.auth_token = auth_token or os.getenv('IMPACT_AUTH_TOKEN')
+        self.base_url = 'https://api.impact.com'
+        self.auth = None
+        
+        if self.account_sid and self.auth_token:
+            self.auth = HTTPBasicAuth(self.account_sid, self.auth_token)
     
-    def fetch_products(self, max_results: int = 10, **kwargs) -> List[Dict[str, Any]]:
-        """Fetch SaaS products from Impact/PartnerStack"""
-        if not self.api_key:
+    def fetch_products(self, max_results: int = 10, campaign_id: Optional[int] = None, **kwargs) -> List[Dict[str, Any]]:
+        """
+        Fetch campaigns and products from Impact Partner API
+        
+        Args:
+            campaign_id: Specific campaign ID (optional)
+            max_results: Maximum products to return
+        
+        Returns:
+            List of campaigns/products
+        """
+        if not self.auth:
             self._warn_once("⚠️  Impact API not configured. Using example products.")
             return self._get_example_products()[:max_results]
         
+        products = []
+        
+        try:
+            url = f"{self.base_url}/Advertisers/{self.account_sid}/Campaigns"
+            headers = {"Accept": "application/json"}
+            
+            response = self.session.get(
+                url,
+                auth=self.auth,
+                headers=headers,
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                campaigns = data.get('Campaigns', [])
+                for campaign in campaigns[:max_results]:
+                    product = self._parse_impact_campaign(campaign)
+                    if product:
+                        products.append(product)
+                
+                if products:
+                    print(f"✅ Fetched {len(products)} real Impact campaigns")
+                    return products
+                else:
+                    self._warn_once("⚠️  Impact API returned no campaigns. Using demo products.")
+            else:
+                self._warn_once(f"⚠️  Impact API error (HTTP {response.status_code}). Using demo products.")
+                
+        except Exception as e:
+            self._warn_once(f"⚠️  Impact API error: {str(e)}. Using demo products.")
+        
         return self._get_example_products()[:max_results]
+    
+    def _parse_impact_campaign(self, campaign: dict) -> Optional[Dict[str, Any]]:
+        """Parse Impact campaign into standard product format"""
+        try:
+            return {
+                "name": campaign.get('Name', 'Unknown Campaign'),
+                "price": "Varies",
+                "link": f"https://impact.com/",
+                "image": "https://via.placeholder.com/150",
+                "description": f"Impact partnership campaign - {campaign.get('Name', '')}",
+                "source": "Impact",
+                "commission": "Varies by campaign",
+                "campaign_id": campaign.get('Id'),
+                "status": campaign.get('Status', 'Active')
+            }
+        except Exception as e:
+            print(f"Error parsing Impact campaign: {e}")
+            return None
     
     def _get_example_products(self) -> List[Dict[str, Any]]:
         """Get realistic example SaaS products"""
