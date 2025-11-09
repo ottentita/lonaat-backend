@@ -24,9 +24,24 @@ from affiliate_scraper import fetch_affiliate_products, generate_product_descrip
 from affiliate_manager import get_affiliate_manager, sync_affiliate_products
 from dotenv import load_dotenv
 from config import Config
-from models import db as sqlalchemy_db, User, Transaction
+from models import db as sqlalchemy_db, User, Transaction, Plan, AdBoost, CreditWallet
 from auth import auth_bp
 from api_routes import api_bp
+from products_routes import products_bp
+from wallet_routes import wallet_bp
+from ads_routes import ads_bp
+from affiliate_routes import affiliate_bp
+from withdrawal_routes import withdrawal_bp
+from payment_webhook import payments_bp
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -46,11 +61,17 @@ jwt = JWTManager(app)
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(api_bp)
+app.register_blueprint(products_bp)
+app.register_blueprint(wallet_bp)
+app.register_blueprint(ads_bp)
+app.register_blueprint(affiliate_bp)
+app.register_blueprint(withdrawal_bp)
+app.register_blueprint(payments_bp)
 
 # Create database tables
 with app.app_context():
     sqlalchemy_db.create_all()
-    print("✅ SQLAlchemy database initialized")
+    logger.info("✅ SQLAlchemy database initialized")
     
     # Create admin user if it doesn't exist
     admin_email = app.config.get('ADMIN_EMAIL', 'admin@example.com')
@@ -66,7 +87,27 @@ with app.app_context():
         admin_user.set_password(app.config.get('ADMIN_PASSWORD', 'admin123'))
         sqlalchemy_db.session.add(admin_user)
         sqlalchemy_db.session.commit()
-        print(f"✅ Admin user created: {admin_email}")
+        logger.info(f"✅ Admin user created: {admin_email}")
+    
+    # Create default subscription plans
+    plans_data = [
+        {'name': 'free', 'price': 0, 'max_products': 5, 'max_ad_boosts': 1},
+        {'name': 'pro', 'price': 5000, 'max_products': 50, 'max_ad_boosts': 10},
+        {'name': 'business', 'price': 15000, 'max_products': None, 'max_ad_boosts': None}
+    ]
+    
+    for plan_data in plans_data:
+        existing_plan = Plan.query.filter_by(name=plan_data['name']).first()
+        if not existing_plan:
+            plan = Plan(**plan_data)
+            sqlalchemy_db.session.add(plan)
+    
+    try:
+        sqlalchemy_db.session.commit()
+        logger.info("✅ Default plans initialized")
+    except Exception as e:
+        sqlalchemy_db.session.rollback()
+        logger.warning(f"Plans already exist or error: {e}")
 
 # Flask secret key - REQUIRED for session management
 flask_secret = os.getenv("FLASK_SECRET")
@@ -1217,6 +1258,36 @@ def daily_sync():
         time.sleep(86400)  # every 24 hours
 
 threading.Thread(target=daily_sync, daemon=True).start()
+
+# --------- AdBoost Expiry Scheduler ---------
+def expire_old_ad_boosts():
+    """Background task to expire AdBoost campaigns after 24 hours"""
+    with app.app_context():
+        try:
+            expired_campaigns = AdBoost.query.filter(
+                AdBoost.status == 'active',
+                AdBoost.expires_at <= datetime.utcnow()
+            ).all()
+            
+            for campaign in expired_campaigns:
+                campaign.status = 'expired'
+            
+            if expired_campaigns:
+                sqlalchemy_db.session.commit()
+                logger.info(f"Expired {len(expired_campaigns)} AdBoost campaigns")
+        except Exception as e:
+            logger.error(f"Expire ad boosts error: {e}")
+            sqlalchemy_db.session.rollback()
+
+# Initialize APScheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=expire_old_ad_boosts, trigger="interval", minutes=5)  # Run every 5 minutes
+scheduler.start()
+logger.info("✅ APScheduler started for AdBoost expiry")
+
+# Shutdown scheduler when app stops
+import atexit
+atexit.register(lambda: scheduler.shutdown())
 
 if __name__ == '__main__':
     # Use PORT environment variable for Render deployment, fallback to 5000 for local

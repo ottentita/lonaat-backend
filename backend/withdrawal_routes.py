@@ -1,0 +1,291 @@
+"""
+Withdrawal system routes
+/api/withdraw - Submit withdrawal request
+/api/admin/withdrawals - Admin approval and processing
+"""
+
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from models import db, WithdrawalRequest, User, Transaction
+from api_routes import admin_required
+from flutterwave_service import flutterwave_service
+from datetime import datetime
+import json
+import logging
+import secrets
+
+logger = logging.getLogger(__name__)
+
+withdrawal_bp = Blueprint('withdrawal', __name__)
+
+
+@withdrawal_bp.route('/api/withdraw', methods=['POST'])
+@jwt_required()
+def request_withdrawal():
+    """
+    Submit a withdrawal request
+    
+    Request body:
+    {
+        "amount": 5000,
+        "method": "mobile_money",  // or "bank_transfer"
+        "account_details": {
+            "phone": "0812345678",  // for mobile money
+            "bank_code": "058",     // for bank transfer
+            "account_number": "1234567890",
+            "account_name": "John Doe"
+        }
+    }
+    """
+    try:
+        user_id = int(get_jwt_identity())
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        data = request.get_json()
+        
+        amount = data.get('amount', 0)
+        method = data.get('method', '').lower()
+        account_details = data.get('account_details', {})
+        
+        # Validation
+        if amount <= 0:
+            return jsonify({'error': 'Invalid amount'}), 400
+        
+        if amount < 1000:
+            return jsonify({'error': 'Minimum withdrawal is ₦1,000'}), 400
+        
+        if method not in ['mobile_money', 'bank_transfer']:
+            return jsonify({'error': 'Invalid withdrawal method'}), 400
+        
+        if user.balance < amount:
+            return jsonify({
+                'error': f'Insufficient balance. Available: ₦{user.balance}'
+            }), 400
+        
+        # Create withdrawal request
+        withdrawal = WithdrawalRequest(
+            user_id=user_id,
+            amount=amount,
+            method=method,
+            account_details=json.dumps(account_details),
+            status='pending'
+        )
+        
+        db.session.add(withdrawal)
+        db.session.commit()
+        
+        logger.info(f"Withdrawal request created: {withdrawal.id} for user {user_id}, amount ₦{amount}")
+        
+        return jsonify({
+            'message': 'Withdrawal request submitted successfully',
+            'withdrawal': withdrawal.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Request withdrawal error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@withdrawal_bp.route('/api/withdrawals/my', methods=['GET'])
+@jwt_required()
+def get_my_withdrawals():
+    """Get user's withdrawal requests"""
+    try:
+        user_id = int(get_jwt_identity())
+        
+        withdrawals = WithdrawalRequest.query.filter_by(user_id=user_id)\
+            .order_by(WithdrawalRequest.created_at.desc())\
+            .all()
+        
+        return jsonify({
+            'withdrawals': [w.to_dict() for w in withdrawals]
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Get my withdrawals error: {e}")
+        return jsonify({'error': 'Failed to fetch withdrawals'}), 500
+
+
+@withdrawal_bp.route('/api/admin/withdrawals', methods=['GET'])
+@admin_required
+def get_all_withdrawals():
+    """Get all withdrawal requests (admin only)"""
+    try:
+        status = request.args.get('status')
+        
+        query = WithdrawalRequest.query
+        
+        if status:
+            query = query.filter_by(status=status)
+        
+        withdrawals = query.order_by(WithdrawalRequest.created_at.desc()).all()
+        
+        return jsonify({
+            'withdrawals': [w.to_dict() for w in withdrawals],
+            'total': len(withdrawals)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Get all withdrawals error: {e}")
+        return jsonify({'error': 'Failed to fetch withdrawals'}), 500
+
+
+@withdrawal_bp.route('/api/admin/withdrawals/<int:withdrawal_id>/approve', methods=['POST'])
+@admin_required
+def approve_withdrawal(withdrawal_id):
+    """
+    Approve and process withdrawal request
+    
+    Request body (optional):
+    {
+        "notes": "Processed via Flutterwave"
+    }
+    """
+    try:
+        withdrawal = WithdrawalRequest.query.get(withdrawal_id)
+        
+        if not withdrawal:
+            return jsonify({'error': 'Withdrawal request not found'}), 404
+        
+        if withdrawal.status != 'pending':
+            return jsonify({'error': f'Withdrawal is already {withdrawal.status}'}), 400
+        
+        user = User.query.get(withdrawal.user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check user balance
+        if user.balance < withdrawal.amount:
+            return jsonify({'error': 'User has insufficient balance'}), 400
+        
+        data = request.get_json() or {}
+        notes = data.get('notes', '')
+        
+        try:
+            # Parse account details
+            account_details = json.loads(withdrawal.account_details)
+            
+            # Generate reference
+            reference = f"WD_{withdrawal.id}_{secrets.token_hex(8)}"
+            
+            # Initiate transfer via Flutterwave
+            if withdrawal.method == 'bank_transfer':
+                transfer_result = flutterwave_service.initiate_transfer(
+                    account_bank=account_details.get('bank_code'),
+                    account_number=account_details.get('account_number'),
+                    amount=withdrawal.amount,
+                    narration=f"Lonaat withdrawal #{withdrawal.id}",
+                    reference=reference,
+                    beneficiary_name=account_details.get('account_name', user.name)
+                )
+                
+                if transfer_result.get('status') == 'success':
+                    # Deduct from user balance
+                    user.balance -= withdrawal.amount
+                    
+                    # Update withdrawal status
+                    withdrawal.status = 'approved'
+                    withdrawal.flutterwave_reference = reference
+                    withdrawal.admin_notes = notes or 'Approved and processed via Flutterwave'
+                    withdrawal.processed_at = datetime.utcnow()
+                    
+                    # Create transaction record
+                    transaction = Transaction(
+                        user_id=user.id,
+                        type='withdrawal',
+                        amount=-withdrawal.amount,
+                        description=f'Withdrawal to {withdrawal.method}',
+                        status='completed',
+                        reference=reference
+                    )
+                    db.session.add(transaction)
+                    
+                    db.session.commit()
+                    
+                    logger.info(f"Withdrawal approved: {withdrawal_id}, transferred ₦{withdrawal.amount}")
+                    
+                    return jsonify({
+                        'message': 'Withdrawal approved and processed',
+                        'withdrawal': withdrawal.to_dict()
+                    }), 200
+                else:
+                    return jsonify({'error': 'Transfer failed'}), 500
+            
+            else:
+                # For mobile money or manual processing
+                user.balance -= withdrawal.amount
+                withdrawal.status = 'approved'
+                withdrawal.admin_notes = notes or 'Approved'
+                withdrawal.processed_at = datetime.utcnow()
+                
+                transaction = Transaction(
+                    user_id=user.id,
+                    type='withdrawal',
+                    amount=-withdrawal.amount,
+                    description=f'Withdrawal to {withdrawal.method}',
+                    status='completed'
+                )
+                db.session.add(transaction)
+                
+                db.session.commit()
+                
+                return jsonify({
+                    'message': 'Withdrawal approved',
+                    'withdrawal': withdrawal.to_dict()
+                }), 200
+                
+        except Exception as transfer_error:
+            logger.error(f"Transfer processing error: {transfer_error}")
+            return jsonify({'error': f'Transfer failed: {str(transfer_error)}'}), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Approve withdrawal error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@withdrawal_bp.route('/api/admin/withdrawals/<int:withdrawal_id>/reject', methods=['POST'])
+@admin_required
+def reject_withdrawal(withdrawal_id):
+    """
+    Reject withdrawal request
+    
+    Request body:
+    {
+        "notes": "Reason for rejection"
+    }
+    """
+    try:
+        withdrawal = WithdrawalRequest.query.get(withdrawal_id)
+        
+        if not withdrawal:
+            return jsonify({'error': 'Withdrawal request not found'}), 404
+        
+        if withdrawal.status != 'pending':
+            return jsonify({'error': f'Withdrawal is already {withdrawal.status}'}), 400
+        
+        data = request.get_json() or {}
+        notes = data.get('notes', 'Rejected by admin')
+        
+        withdrawal.status = 'rejected'
+        withdrawal.admin_notes = notes
+        withdrawal.processed_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        logger.info(f"Withdrawal rejected: {withdrawal_id}")
+        
+        return jsonify({
+            'message': 'Withdrawal rejected',
+            'withdrawal': withdrawal.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Reject withdrawal error: {e}")
+        return jsonify({'error': str(e)}), 500

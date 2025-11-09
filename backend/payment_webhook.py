@@ -1,0 +1,192 @@
+"""
+Flutterwave payment webhook handler
+/api/payments/flutterwave/webhook - Handle payment notifications
+"""
+
+from flask import Blueprint, request, jsonify
+from models import db, Transaction, CreditWallet, User
+from flutterwave_service import flutterwave_service
+import logging
+import json
+
+logger = logging.getLogger(__name__)
+
+payments_bp = Blueprint('payments', __name__, url_prefix='/api/payments')
+
+
+@payments_bp.route('/flutterwave/webhook', methods=['POST'])
+def flutterwave_webhook():
+    """
+    Handle Flutterwave webhook notifications
+    
+    This endpoint receives payment confirmations from Flutterwave
+    """
+    try:
+        # Get webhook signature
+        signature = request.headers.get('verif-hash')
+        
+        if not signature:
+            logger.warning("Webhook received without signature")
+            return jsonify({'error': 'Invalid signature'}), 401
+        
+        # Verify signature
+        if not flutterwave_service.verify_webhook_signature(signature):
+            logger.warning("Webhook signature verification failed")
+            return jsonify({'error': 'Invalid signature'}), 401
+        
+        data = request.get_json()
+        
+        event_type = data.get('event')
+        
+        if event_type == 'charge.completed':
+            return handle_charge_completed(data)
+        
+        elif event_type == 'transfer.completed':
+            return handle_transfer_completed(data)
+        
+        else:
+            logger.info(f"Unhandled webhook event: {event_type}")
+            return jsonify({'message': 'Event received'}), 200
+        
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return jsonify({'error': 'Webhook processing failed'}), 500
+
+
+def handle_charge_completed(data: dict):
+    """Handle successful payment charge"""
+    try:
+        event_data = data.get('data', {})
+        
+        status = event_data.get('status')
+        tx_ref = event_data.get('tx_ref')
+        amount = event_data.get('amount', 0)
+        flw_ref = event_data.get('flw_ref')
+        
+        if status != 'successful':
+            logger.info(f"Payment not successful: {tx_ref}, status: {status}")
+            return jsonify({'message': 'Payment not successful'}), 200
+        
+        # Find transaction
+        transaction = Transaction.query.filter_by(reference=tx_ref).first()
+        
+        if not transaction:
+            logger.warning(f"Transaction not found for ref: {tx_ref}")
+            return jsonify({'error': 'Transaction not found'}), 404
+        
+        if transaction.status == 'completed':
+            logger.info(f"Transaction already completed: {tx_ref}")
+            return jsonify({'message': 'Already processed'}), 200
+        
+        # Verify payment with Flutterwave using transaction ID
+        transaction_id = event_data.get('id')
+        
+        if not transaction_id:
+            logger.error(f"No transaction ID in webhook: {tx_ref}")
+            return jsonify({'error': 'Missing transaction ID'}), 400
+        
+        # Initialize verified_data with webhook data as fallback
+        verified_data = event_data
+        verified_amount = amount
+        
+        try:
+            verification = flutterwave_service.verify_payment(transaction_id)
+            
+            if verification.get('status') != 'success':
+                logger.error(f"Payment verification failed: {tx_ref}")
+                transaction.status = 'failed'
+                db.session.commit()
+                return jsonify({'error': 'Verification failed'}), 400
+            
+            verified_data = verification.get('data', {})
+            verified_amount = verified_data.get('amount', 0)
+        except Exception as verify_error:
+            logger.warning(f"Payment verification error (using webhook data): {verify_error}")
+            # Fallback to webhook data if verification fails
+            verified_data = event_data
+            verified_amount = amount
+        
+        # Verify amount matches
+        if abs(verified_amount - amount) > 0.01:
+            logger.error(f"Amount mismatch: expected {amount}, got {verified_amount}")
+            return jsonify({'error': 'Amount mismatch'}), 400
+        
+        # Process based on transaction type
+        if transaction.type == 'credit_purchase':
+            # Get metadata to find credits amount
+            meta = verified_data.get('meta', {})
+            credits = meta.get('credits', 0)
+            user_id = transaction.user_id
+            
+            # Get or create wallet
+            wallet = CreditWallet.query.filter_by(user_id=user_id).first()
+            if not wallet:
+                wallet = CreditWallet(user_id=user_id)
+                db.session.add(wallet)
+            
+            # Add credits
+            wallet.credits += credits
+            wallet.total_purchased += credits
+            
+            # Update transaction
+            transaction.status = 'completed'
+            
+            db.session.commit()
+            
+            logger.info(f"Credits added: {credits} for user {user_id}, tx: {tx_ref}")
+            
+            return jsonify({'message': 'Credits added successfully'}), 200
+        
+        elif transaction.type == 'subscription':
+            # Handle subscription payment
+            transaction.status = 'completed'
+            db.session.commit()
+            
+            logger.info(f"Subscription payment completed: {tx_ref}")
+            
+            return jsonify({'message': 'Subscription activated'}), 200
+        
+        else:
+            logger.warning(f"Unknown transaction type: {transaction.type}")
+            return jsonify({'message': 'Transaction type not handled'}), 200
+        
+    except Exception as e:
+        logger.error(f"Handle charge completed error: {e}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+def handle_transfer_completed(data: dict):
+    """Handle completed bank transfer (withdrawal)"""
+    try:
+        event_data = data.get('data', {})
+        
+        status = event_data.get('status')
+        reference = event_data.get('reference')
+        
+        logger.info(f"Transfer completed: {reference}, status: {status}")
+        
+        # Update withdrawal request status if needed
+        from models import WithdrawalRequest
+        
+        withdrawal = WithdrawalRequest.query.filter_by(
+            flutterwave_reference=reference
+        ).first()
+        
+        if withdrawal:
+            if status == 'successful':
+                withdrawal.status = 'completed'
+            elif status == 'failed':
+                withdrawal.status = 'rejected'
+                withdrawal.admin_notes = f"Transfer failed: {event_data.get('complete_message', 'Unknown error')}"
+            
+            db.session.commit()
+            
+            logger.info(f"Withdrawal updated: {withdrawal.id}, status: {withdrawal.status}")
+        
+        return jsonify({'message': 'Transfer status updated'}), 200
+        
+    except Exception as e:
+        logger.error(f"Handle transfer completed error: {e}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

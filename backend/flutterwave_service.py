@@ -1,0 +1,198 @@
+"""
+Flutterwave Payment Integration Service
+Handles payments, subscriptions, and withdrawals
+"""
+
+import os
+import requests
+import hashlib
+import hmac
+from typing import Dict, Any, Optional
+from config import Config
+
+FLUTTERWAVE_BASE_URL = "https://api.flutterwave.com/v3"
+
+
+class FlutterwaveService:
+    """Flutterwave payment service"""
+    
+    def __init__(self):
+        self.secret_key = Config.FLUTTERWAVE_SECRET
+        self.public_key = Config.FLUTTERWAVE_PUBLIC
+        self.base_url = FLUTTERWAVE_BASE_URL
+        
+        if not self.secret_key:
+            print("⚠️  WARNING: FLUTTERWAVE_SECRET not set. Payment features disabled.")
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """Get authorization headers"""
+        return {
+            "Authorization": f"Bearer {self.secret_key}",
+            "Content-Type": "application/json"
+        }
+    
+    def verify_webhook_signature(self, signature: str) -> bool:
+        """
+        Verify Flutterwave webhook signature
+        
+        Flutterwave sends SHA256 hash of the secret key in verif-hash header
+        """
+        if not self.secret_key:
+            return False
+        
+        hash_value = hashlib.sha256(self.secret_key.encode()).hexdigest()
+        return hash_value == signature
+    
+    def initialize_payment(self, amount: float, email: str, name: str, 
+                          tx_ref: str, redirect_url: str, 
+                          meta: Optional[Dict] = None) -> Dict[str, Any]:
+        """
+        Initialize a payment transaction
+        
+        Args:
+            amount: Amount to charge
+            email: Customer email
+            name: Customer name
+            tx_ref: Unique transaction reference
+            redirect_url: URL to redirect after payment
+            meta: Additional metadata
+        """
+        if not self.secret_key:
+            raise Exception("Flutterwave not configured")
+        
+        payload = {
+            "tx_ref": tx_ref,
+            "amount": amount,
+            "currency": "NGN",
+            "redirect_url": redirect_url,
+            "payment_options": "card,mobilemoney,ussd,banktransfer",
+            "customer": {
+                "email": email,
+                "name": name
+            },
+            "customizations": {
+                "title": "Lonaat Payment",
+                "description": meta.get('description', 'Payment') if meta else 'Payment',
+                "logo": "https://lonaat.com/logo.png"
+            }
+        }
+        
+        if meta:
+            payload["meta"] = meta
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/payments",
+                json=payload,
+                headers=self._get_headers(),
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Flutterwave payment initialization error: {e}")
+            raise
+    
+    def verify_payment(self, transaction_id: str) -> Dict[str, Any]:
+        """Verify a payment transaction"""
+        if not self.secret_key:
+            raise Exception("Flutterwave not configured")
+        
+        try:
+            response = requests.get(
+                f"{self.base_url}/transactions/{transaction_id}/verify",
+                headers=self._get_headers(),
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Flutterwave verification error: {e}")
+            raise
+    
+    def initiate_transfer(self, account_bank: str, account_number: str, 
+                         amount: float, narration: str, 
+                         reference: str, beneficiary_name: str) -> Dict[str, Any]:
+        """
+        Initiate a bank transfer (for withdrawals)
+        
+        Args:
+            account_bank: Bank code
+            account_number: Account number
+            amount: Amount to transfer
+            narration: Transfer description
+            reference: Unique reference
+            beneficiary_name: Beneficiary name
+        """
+        if not self.secret_key:
+            raise Exception("Flutterwave not configured")
+        
+        payload = {
+            "account_bank": account_bank,
+            "account_number": account_number,
+            "amount": amount,
+            "narration": narration,
+            "currency": "NGN",
+            "reference": reference,
+            "callback_url": f"{Config.BASE_URL}/api/payments/flutterwave/transfer_callback",
+            "debit_currency": "NGN",
+            "beneficiary_name": beneficiary_name
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/transfers",
+                json=payload,
+                headers=self._get_headers(),
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Flutterwave transfer error: {e}")
+            raise
+    
+    def get_banks(self, country: str = "NG") -> list:
+        """Get list of banks"""
+        if not self.secret_key:
+            return []
+        
+        try:
+            response = requests.get(
+                f"{self.base_url}/banks/{country}",
+                headers=self._get_headers(),
+                timeout=30
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get('data', [])
+        except Exception as e:
+            print(f"Flutterwave get banks error: {e}")
+            return []
+    
+    def resolve_account(self, account_number: str, account_bank: str) -> Dict[str, Any]:
+        """Resolve account number to verify details"""
+        if not self.secret_key:
+            raise Exception("Flutterwave not configured")
+        
+        payload = {
+            "account_number": account_number,
+            "account_bank": account_bank
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/accounts/resolve",
+                json=payload,
+                headers=self._get_headers(),
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Flutterwave account resolution error: {e}")
+            raise
+
+
+# Singleton instance
+flutterwave_service = FlutterwaveService()
