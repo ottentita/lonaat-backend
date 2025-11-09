@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, jsonify, session, Response, send_file, redirect
 from flask_cors import CORS
+from flask_migrate import Migrate
+from flask_jwt_extended import JWTManager
 from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, db
@@ -21,11 +23,50 @@ from cryptography.hazmat.backends import default_backend
 from affiliate_scraper import fetch_affiliate_products, generate_product_description, analyze_product_with_ai, generate_ad_text
 from affiliate_manager import get_affiliate_manager, sync_affiliate_products
 from dotenv import load_dotenv
+from config import Config
+from models import db as sqlalchemy_db, User, Transaction
+from auth import auth_bp
+from api_routes import api_bp
 
 load_dotenv()
 
 app = Flask(__name__)
+app.config.from_object(Config)
 CORS(app)
+
+# Initialize SQLAlchemy
+sqlalchemy_db.init_app(app)
+
+# Initialize Flask-Migrate
+migrate = Migrate(app, sqlalchemy_db)
+
+# Initialize JWT Manager
+jwt = JWTManager(app)
+
+# Register blueprints
+app.register_blueprint(auth_bp)
+app.register_blueprint(api_bp)
+
+# Create database tables
+with app.app_context():
+    sqlalchemy_db.create_all()
+    print("✅ SQLAlchemy database initialized")
+    
+    # Create admin user if it doesn't exist
+    admin_email = app.config.get('ADMIN_EMAIL', 'admin@example.com')
+    admin_user = User.query.filter_by(email=admin_email).first()
+    
+    if not admin_user and app.config.get('ADMIN_PASSWORD'):
+        admin_user = User(
+            name='Admin',
+            email=admin_email,
+            role='admin',
+            verified=True
+        )
+        admin_user.set_password(app.config.get('ADMIN_PASSWORD', 'admin123'))
+        sqlalchemy_db.session.add(admin_user)
+        sqlalchemy_db.session.commit()
+        print(f"✅ Admin user created: {admin_email}")
 
 # Flask secret key - REQUIRED for session management
 flask_secret = os.getenv("FLASK_SECRET")
