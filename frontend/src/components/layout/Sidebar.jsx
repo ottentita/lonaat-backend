@@ -5,6 +5,8 @@ import {
   Megaphone, 
   DollarSign, 
   Wallet,
+  CreditCard,
+  Bell,
   User,
   Users,
   Settings,
@@ -18,11 +20,13 @@ const Sidebar = ({ onLogout }) => {
 
   const userLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/products', icon: Package, label: 'My Products' },
-    { to: '/ads', icon: Megaphone, label: 'AdBoost' },
-    { to: '/transactions', icon: DollarSign, label: 'Transactions' },
-    { to: '/withdrawals', icon: Wallet, label: 'Withdrawals' },
-    { to: '/profile', icon: User, label: 'Profile' },
+    { to: '/dashboard/products', icon: Package, label: 'My Products' },
+    { to: '/dashboard/ads', icon: Megaphone, label: 'AdBoost' },
+    { to: '/dashboard/wallet', icon: CreditCard, label: 'Wallet' },
+    { to: '/dashboard/transactions', icon: DollarSign, label: 'Transactions' },
+    { to: '/dashboard/withdrawals', icon: Wallet, label: 'Withdrawals' },
+    { to: '/dashboard/notifications', icon: Bell, label: 'Notifications' },
+    { to: '/dashboard/settings', icon: Settings, label: 'Settings' },
   ];
 
   const adminLinks = [
@@ -31,6 +35,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/admin/ads', icon: Megaphone, label: 'Ad Campaigns' },
     { to: '/admin/withdrawals', icon: Wallet, label: 'Withdrawals' },
     { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
+    { to: '/admin/notifications', icon: Bell, label: 'Notifications' },
   ];
 
   const links = admin ? adminLinks : userLinks;

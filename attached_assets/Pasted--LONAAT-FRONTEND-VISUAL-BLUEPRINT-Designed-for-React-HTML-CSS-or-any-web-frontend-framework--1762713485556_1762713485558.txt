@@ -1,0 +1,302 @@
+🎨 LONAAT FRONTEND VISUAL BLUEPRINT
+
+(Designed for React, HTML/CSS, or any web frontend framework)
+
+
+---
+
+🏠 1️⃣ LOGIN / REGISTER PAGES
+
+→ Path: /login & /register
+
+Element	Description
+
+Logo	“Lonaat” (animated glowing logo, blue gradient)
+Form	Email + Password (and Name for Register)
+CTA	“Sign in” / “Create Account” button
+Switch	“Don’t have an account? Register” / “Already have one? Login”
+Background	Subtle affiliate/AI pattern background (dark mode)
+Footer	“© 2025 Lonaat. Empowering affiliate creators.”
+
+
+✅ After login: redirect to /dashboard
+
+
+---
+
+🧍‍♂ 2️⃣ USER DASHBOARD
+
+→ Path: /dashboard
+
+Purpose: Display user overview, products, traffic, earnings, and boost status.
+
+
+---
+
+🧭 Sidebar Navigation
+
+Icon	Label	Route
+
+🏠	Dashboard	/dashboard
+🛍	My Products	/dashboard/products
+⚡	AdBoost	/dashboard/ads
+💰	Wallet	/dashboard/wallet
+📈	Transactions	/dashboard/transactions
+💸	Withdrawals	/dashboard/withdrawals
+🔔	Notifications	/dashboard/notifications
+⚙	Settings	/dashboard/settings
+
+
+
+---
+
+🖥 Main Dashboard View
+
+Welcome header:
+
+> “Hi {{user.name}}, here’s how your affiliate empire is performing today 👑”
+
+
+
+Stats cards (4 columns):
+
+Products live
+
+Total clicks
+
+Earnings (today / all-time)
+
+Active AdBoosts
+
+
+Mini chart:
+
+Line chart: “Clicks & Earnings (7 days)”
+
+
+Recent Ads section:
+
+Table: Product name | Boost Level | Clicks | Ends in | Status
+
+
+Quick Actions:
+
+➕ “Add Product”
+
+🚀 “Launch New AdBoost”
+
+
+
+
+---
+
+🛍 3️⃣ PRODUCTS PAGE
+
+→ Path: /dashboard/products
+
+Product table (Name, Network, Commission %, Status, Date Added)
+
+Buttons:
+
+“Add Product Manually”
+
+“Import from Affiliate Link”
+
+
+Modal for import:
+
+Paste your affiliate link below:
+[ https://amzn.to/... ] [IMPORT]
+
+→ Auto-fetch image, title, price, and attach your affiliate ID.
+
+Card grid view (product images + quick AdBoost button)
+
+Each card: “View Stats | Edit | Delete”
+
+
+
+---
+
+⚡ 4️⃣ AD BOOST PAGE
+
+→ Path: /dashboard/ads
+
+Element	Description
+
+Credits Counter	Shows available AdBoost credits
+Button	“Buy More Credits” (opens Flutterwave modal)
+Active Boosts	Cards: Product + Boost Level + Time Left + Clicks
+History	Table: Product
+Tooltip	“Each click doubles your boost power for 24 hours!”
+
+
+
+---
+
+💰 5️⃣ WALLET PAGE
+
+→ Path: /dashboard/wallet
+
+Element	Description
+
+Wallet Balance	e.g. $42.50
+Button	“Top up credits via Flutterwave”
+Transaction log	History of payments, AdBoost purchases, commissions
+Referral Section	“Invite a friend → Earn 3 Boost Credits” + copy referral link
+
+
+
+---
+
+💸 6️⃣ WITHDRAWALS PAGE
+
+→ Path: /dashboard/withdrawals
+
+Element	Description
+
+Balance Card	Shows withdrawable amount
+Button	“Request Withdrawal”
+Modal:	Input amount + choose Mobile Money (MTN/Orange)
+Table	History: Date
+
+
+✅ Once submitted → Notification:
+
+> “Your withdrawal request has been sent for review.”
+
+
+
+
+---
+
+🔔 7️⃣ NOTIFICATIONS PAGE
+
+→ Path: /dashboard/notifications
+
+Feature	Description
+
+Real-time feed	Shows new clicks, commission updates, withdrawal responses
+Buttons	“Mark all as read”
+Example notification	“🎯 Your ad for ‘Wireless Earbuds’ gained 150 new clicks!”
+
+
+
+---
+
+⚙ 8️⃣ SETTINGS PAGE
+
+→ Path: /dashboard/settings
+
+Field	Description
+
+Name, Email	Editable
+Password change	✔
+Affiliate Network IDs	Amazon ID, ClickBank ID, etc.
+Security	2FA toggle, IP monitor
+Delete Account	Confirmation modal
+
+
+
+---
+
+🧠 9️⃣ ADMIN DASHBOARD
+
+→ Path: /admin
+
+Section	Description
+
+Overview Cards	Users, Active Ads, Total Clicks, Withdrawals Pending
+Charts	Top products by traffic
+Tabs:	
+👥 Users	List + Role + Status + Manage
+📦 Products	Global overview of all products
+⚡ Ads	All AdBoost campaigns
+💸 Withdrawals	Approve / Reject
+💳 Payments	Transactions log
+📢 Notifications	Send broadcast message
+🧾 Reports	Export CSV of daily metrics
+
+
+✅ Admin actions logged in AuditLog.
+
+
+---
+
+📱 10️⃣ RESPONSIVE + PWA FEATURES
+
+Feature	Description
+
+PWA Install	“Install Lonaat on your device” prompt
+Offline Mode	Cached dashboard & analytics
+Push Notifications	New clicks / earnings (via service worker)
+Theme	Blue + Black gradient, white text
+Font	“Poppins” or “Inter”
+Animation	Smooth transitions between tabs
+
+
+
+---
+
+🔗 DATA FLOW SUMMARY
+
+1️⃣ User registers → JWT created → redirected to dashboard.
+2️⃣ Adds products → auto-linked to affiliate URLs.
+3️⃣ Launches AdBoost → credits deducted → clicks recorded.
+4️⃣ Commissions accumulate → user requests withdrawal.
+5️⃣ Admin reviews/approves → funds released via Flutterwave.
+6️⃣ Notifications update user in real time.
+
+
+---
+
+🧱 FILE STRUCTURE FOR FRONTEND (Recommended)
+
+/frontend
+│
+├── /public
+│   ├── manifest.json
+│   ├── service-worker.js
+│   ├── sitemap.xml
+│   └── robots.txt
+│
+├── /src
+│   ├── /components
+│   │   ├── Sidebar.jsx
+│   │   ├── Navbar.jsx
+│   │   ├── StatCard.jsx
+│   │   ├── ProductCard.jsx
+│   │   ├── NotificationItem.jsx
+│   │   └── ChartPanel.jsx
+│   ├── /pages
+│   │   ├── Login.jsx
+│   │   ├── Register.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── Products.jsx
+│   │   ├── Ads.jsx
+│   │   ├── Wallet.jsx
+│   │   ├── Withdrawals.jsx
+│   │   ├── Notifications.jsx
+│   │   ├── Settings.jsx
+│   │   └── AdminDashboard.jsx
+│   ├── /services (API calls)
+│   ├── /context (AuthProvider, UserContext)
+│   ├── App.jsx
+│   └── index.js
+│
+└── package.json
+
+
+---
+
+🪄 COLORS + VISUAL STYLE GUIDE
+
+Element	Color Code
+
+Primary Blue	#2563EB
+Accent Blue (glow)	#60A5FA
+Background Dark	#0F172A
+Text Light	#F8FAFC
+Success	#22C55E
+Warning	#EAB308
+Error	#DC2626

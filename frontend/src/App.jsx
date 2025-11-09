@@ -8,8 +8,10 @@ import Register from './pages/auth/Register';
 import UserDashboard from './pages/user/Dashboard';
 import Products from './pages/user/Products';
 import AdBoosts from './pages/user/AdBoosts';
+import Wallet from './pages/user/Wallet';
 import Transactions from './pages/user/Transactions';
 import Withdrawals from './pages/user/Withdrawals';
+import Notifications from './pages/user/Notifications';
 import Profile from './pages/user/Profile';
 
 // Admin Pages
@@ -18,6 +20,7 @@ import AdminUsers from './pages/admin/Users';
 import AdminAds from './pages/admin/Ads';
 import AdminWithdrawals from './pages/admin/Withdrawals';
 import AdminPayments from './pages/admin/Payments';
+import AdminNotifications from './pages/admin/Notifications';
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   if (!isAuthenticated()) {
@@ -63,17 +66,20 @@ function App() {
         <Route path="/register" element={<Register />} />
 
         <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-        <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-        <Route path="/ads" element={<ProtectedRoute><AdBoosts /></ProtectedRoute>} />
-        <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-        <Route path="/withdrawals" element={<ProtectedRoute><Withdrawals /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/dashboard/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+        <Route path="/dashboard/ads" element={<ProtectedRoute><AdBoosts /></ProtectedRoute>} />
+        <Route path="/dashboard/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
+        <Route path="/dashboard/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+        <Route path="/dashboard/withdrawals" element={<ProtectedRoute><Withdrawals /></ProtectedRoute>} />
+        <Route path="/dashboard/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+        <Route path="/dashboard/settings" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
         <Route path="/admin/ads" element={<ProtectedRoute adminOnly><AdminAds /></ProtectedRoute>} />
         <Route path="/admin/withdrawals" element={<ProtectedRoute adminOnly><AdminWithdrawals /></ProtectedRoute>} />
         <Route path="/admin/payments" element={<ProtectedRoute adminOnly><AdminPayments /></ProtectedRoute>} />
+        <Route path="/admin/notifications" element={<ProtectedRoute adminOnly><AdminNotifications /></ProtectedRoute>} />
 
         <Route
           path="/"
