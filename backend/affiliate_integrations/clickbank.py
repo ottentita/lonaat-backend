@@ -11,7 +11,7 @@ Note: This integration uses ClickBank's public marketplace feed - no API key nee
 """
 
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from xml.etree import ElementTree
 from . import AffiliateNetworkIntegration
 
