@@ -46,7 +46,7 @@ class ImpactIntegration(AffiliateNetworkIntegration):
         products = []
         
         try:
-            url = f"{self.base_url}/Advertisers/{self.account_sid}/Campaigns"
+            url = f"{self.base_url}/Partners/{self.account_sid}/Campaigns"
             headers = {"Accept": "application/json"}
             
             response = self.session.get(

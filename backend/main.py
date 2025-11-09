@@ -24,7 +24,8 @@ from affiliate_scraper import fetch_affiliate_products, generate_product_descrip
 from affiliate_manager import get_affiliate_manager, sync_affiliate_products
 from dotenv import load_dotenv
 from config import Config
-from models import db as sqlalchemy_db, User, Transaction, Plan, AdBoost, CreditWallet
+from models import db as sqlalchemy_db, User, Transaction, Plan, AdBoost, CreditWallet, SocialConnection
+from models_network_connection import NetworkConnection
 from auth import auth_bp
 from api_routes import api_bp
 from products_routes import products_bp

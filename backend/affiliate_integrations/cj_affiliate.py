@@ -89,9 +89,19 @@ class CJAffiliateIntegration(AffiliateNetworkIntegration):
     def _parse_cj_product(self, item: dict) -> Optional[Dict[str, Any]]:
         """Parse CJ product JSON into standard format"""
         try:
+            price_raw = item.get('price', 'N/A')
+            price_formatted = "N/A"
+            
+            if price_raw and price_raw != 'N/A':
+                try:
+                    price_num = float(price_raw)
+                    price_formatted = f"${price_num:.2f}"
+                except (ValueError, TypeError):
+                    price_formatted = str(price_raw)
+            
             return {
                 "name": item.get('name', 'Unknown Product'),
-                "price": f"${item.get('price', 0):.2f}" if 'price' in item else "N/A",
+                "price": price_formatted,
                 "link": item.get('link', 'https://www.cj.com/'),
                 "image": item.get('imageUrl', 'https://via.placeholder.com/150'),
                 "description": item.get('description', '')[:200],

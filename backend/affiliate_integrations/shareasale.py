@@ -36,68 +36,89 @@ class ShareASaleIntegration(AffiliateNetworkIntegration):
         signature = hashlib.md5(raw.encode("utf-8")).hexdigest()
         return signature
     
-    def fetch_products(self, max_results: int = 20, merchant_id: Optional[int] = None, **kwargs) -> List[Dict[str, Any]]:
+    def fetch_products(self, max_results: int = 20, merchant_id: Optional[int] = None, keywords: str = "electronics", **kwargs) -> List[Dict[str, Any]]:
         """
-        Fetch merchants and products from ShareASale
+        Fetch products from ShareASale using getProducts API
         
         Args:
             merchant_id: Specific merchant ID (optional)
-            max_results: Maximum merchants to return
+            keywords: Search keywords (optional)
+            max_results: Maximum products to return
         
         Returns:
-            List of merchant products
+            List of products
         """
         if not all([self.token, self.secret, self.affiliate_id]):
             self._warn_once("⚠️  ShareASale API not configured. Using example products.")
             return self._get_example_products()[:max_results]
         
-        merchants = []
+        products = []
         
         try:
-            action = "merchantStatus"
+            action = "getProducts"
             date_str = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
             signature = self._generate_signature(action, date_str)
             
-            url = f"{self.api_endpoint}?action={action}&merchantStatus=active&version=2.8"
-            headers = {
-                "x-ShareASale-Date": date_str,
-                "x-ShareASale-Authentication": signature,
-                "x-ShareASale-Token": self.token,
-                "x-ShareASale-AffiliateId": self.affiliate_id
+            params = {
+                "affiliateId": self.affiliate_id,
+                "token": self.token,
+                "version": "2.8",
+                "action": action,
+                "XMLFormat": "0",
+                "resultsPerPage": str(min(max_results, 100))
             }
             
-            response = self.session.get(url, headers=headers, timeout=10)
+            if merchant_id:
+                params["merchantId"] = str(merchant_id)
+            if keywords:
+                params["keyword"] = keywords
+            
+            headers = {
+                "x-ShareASale-Date": date_str,
+                "x-ShareASale-Authentication": signature
+            }
+            
+            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            url = f"{self.api_endpoint}?{query_string}"
+            
+            response = self.session.get(url, headers=headers, timeout=15)
             
             if response.status_code == 200:
                 for line in response.text.splitlines()[1:]:
                     parts = line.split("|")
-                    if len(parts) >= 4:
-                        merchant_id_val = parts[0]
-                        merchant_name = parts[1]
-                        category = parts[2] if len(parts) > 2 else "General"
+                    if len(parts) >= 8:
+                        product_id = parts[0] if len(parts) > 0 else ""
+                        product_name = parts[1] if len(parts) > 1 else "Unknown Product"
+                        product_merchant_id = parts[2] if len(parts) > 2 else ""
+                        merchant_name = parts[3] if len(parts) > 3 else "ShareASale Merchant"
+                        product_link = parts[4] if len(parts) > 4 else ""
+                        thumbnail = parts[5] if len(parts) > 5 else "https://via.placeholder.com/150"
+                        price = parts[7] if len(parts) > 7 else "N/A"
+                        category = parts[9] if len(parts) > 9 else "General"
+                        description = parts[11] if len(parts) > 11 else f"{product_name} from {merchant_name}"
                         
-                        merchants.append({
-                            "network": "ShareASale",
-                            "merchant_id": merchant_id_val,
-                            "name": merchant_name,
-                            "price": "Varies",
-                            "category": category,
+                        affiliate_link = f"https://www.shareasale.com/m-pr.cfm?merchantID={product_merchant_id}&userID={self.affiliate_id}&productID={product_id}"
+                        
+                        products.append({
+                            "name": product_name,
+                            "price": f"${price}" if price and price != "N/A" else "N/A",
+                            "link": affiliate_link,
+                            "image": thumbnail,
+                            "description": description[:200],
+                            "source": "ShareASale",
                             "commission": "Varies by merchant",
-                            "link": f"https://www.shareasale.com/r.cfm?u={self.affiliate_id}&b={merchant_id_val}",
-                            "affiliate_link": f"https://www.shareasale.com/r.cfm?u={self.affiliate_id}&b={merchant_id_val}",
-                            "image": "https://www.shareasale.com/images/logos/default.png",
-                            "description": f"{merchant_name} - ShareASale affiliate merchant",
-                            "source": "ShareASale"
+                            "merchant": merchant_name,
+                            "category": category
                         })
                         
-                        if len(merchants) >= max_results:
+                        if len(products) >= max_results:
                             break
                 
-                if merchants:
-                    print(f"✅ Fetched {len(merchants)} real ShareASale merchants from API")
-                    return merchants
+                if products:
+                    print(f"✅ Fetched {len(products)} real ShareASale products from API")
+                    return products
                 else:
-                    self._warn_once("⚠️  ShareASale API returned no merchants. Using demo products.")
+                    self._warn_once("⚠️  ShareASale API returned no products. Using demo products.")
             else:
                 self._warn_once(f"⚠️  ShareASale API error (HTTP {response.status_code}). Using demo products.")
                 
