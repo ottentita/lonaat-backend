@@ -24,7 +24,7 @@ from affiliate_scraper import fetch_affiliate_products, generate_product_descrip
 from affiliate_manager import get_affiliate_manager, sync_affiliate_products
 from dotenv import load_dotenv
 from config import Config
-from models import db as sqlalchemy_db, User, Transaction, Plan, AdBoost, CreditWallet, SocialConnection
+from models import db as sqlalchemy_db, User, Transaction, Plan, AdBoost, CreditWallet, SocialConnection, BankAccount, WithdrawalRequest, AuditLog
 from models_network_connection import NetworkConnection
 from auth import auth_bp
 from api_routes import api_bp
@@ -32,11 +32,10 @@ from products_routes import products_bp
 from wallet_routes import wallet_bp
 from ads_routes import ads_bp
 from affiliate_routes import affiliate_bp
-from withdrawal_routes import withdrawal_bp
-from payment_webhook import payments_bp
 from leads_routes import leads_bp
 from routes.social import social_bp
 from routes.networks import networks_bp
+from routes.bank import bank_bp
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 
@@ -69,11 +68,10 @@ app.register_blueprint(products_bp)
 app.register_blueprint(wallet_bp)
 app.register_blueprint(ads_bp)
 app.register_blueprint(affiliate_bp)
-app.register_blueprint(withdrawal_bp)
-app.register_blueprint(payments_bp)
 app.register_blueprint(leads_bp)
 app.register_blueprint(social_bp)
 app.register_blueprint(networks_bp)
+app.register_blueprint(bank_bp)
 
 # Create database tables
 with app.app_context():

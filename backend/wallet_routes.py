@@ -7,7 +7,6 @@ Wallet and credit purchase routes
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, CreditWallet, User, Transaction
-from flutterwave_service import flutterwave_service
 from config import Config
 import logging
 import secrets
@@ -80,10 +79,12 @@ def buy_credits():
         if abs(amount - expected_amount) > 0.01:
             return jsonify({'error': f'Invalid amount. Expected ₦{expected_amount} for {credits} credits'}), 400
         
-        # Generate unique transaction reference
+        # Note: Payment gateway integration required
+        # For production, integrate with payment provider (Stripe, PayStack, etc.)
+        # Current: Manual approval workflow via admin panel
+        
         tx_ref = f"CREDIT_{user_id}_{secrets.token_hex(8)}"
         
-        # Create pending transaction
         transaction = Transaction(
             user_id=user_id,
             type='credit_purchase',
@@ -95,36 +96,16 @@ def buy_credits():
         db.session.add(transaction)
         db.session.commit()
         
-        # Initialize Flutterwave payment
-        payment_data = flutterwave_service.initialize_payment(
-            amount=amount,
-            email=user.email,
-            name=user.name,
-            tx_ref=tx_ref,
-            redirect_url=f"{Config.BASE_URL}/wallet/payment_callback",
-            meta={
-                'user_id': user_id,
-                'credits': credits,
-                'type': 'credit_purchase'
-            }
-        )
+        logger.info(f"Credit purchase request created: {tx_ref} for user {user_id}")
         
-        if payment_data.get('status') == 'success':
-            payment_link = payment_data['data']['link']
-            
-            logger.info(f"Credit purchase initiated: {tx_ref} for user {user_id}")
-            
-            return jsonify({
-                'message': 'Payment initialized',
-                'payment_link': payment_link,
-                'tx_ref': tx_ref,
-                'amount': amount,
-                'credits': credits
-            }), 200
-        else:
-            db.session.delete(transaction)
-            db.session.commit()
-            return jsonify({'error': 'Failed to initialize payment'}), 500
+        return jsonify({
+            'message': 'Credit purchase request received. Please contact admin for payment instructions.',
+            'tx_ref': tx_ref,
+            'amount': amount,
+            'credits': credits,
+            'status': 'pending',
+            'note': 'Payment gateway integration coming soon. Currently requires manual admin approval.'
+        }), 201
         
     except Exception as e:
         logger.error(f"Buy credits error: {e}")

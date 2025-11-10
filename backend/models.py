@@ -166,39 +166,111 @@ class AffiliateClick(db.Model):
         return f'<AffiliateClick Product:{self.product_id}>'
 
 
+class BankAccount(db.Model):
+    """User bank account for direct bank transfers"""
+    __tablename__ = 'bank_accounts'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    bank_name = db.Column(db.String(100), nullable=False)
+    account_name = db.Column(db.String(100), nullable=False)
+    account_number = db.Column(db.String(50), nullable=False)
+    bank_code = db.Column(db.String(20), nullable=True)
+    is_primary = db.Column(db.Boolean, default=True, nullable=False)
+    is_verified = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    user = db.relationship('User', backref=db.backref('bank_accounts', lazy='dynamic'))
+    
+    def to_dict(self, mask_account=True):
+        account_num = self.account_number
+        if mask_account and len(account_num) > 4:
+            account_num = account_num[-4:].rjust(len(account_num), '*')
+        
+        return {
+            'id': self.id,
+            'bank_name': self.bank_name,
+            'account_name': self.account_name,
+            'account_number': account_num,
+            'bank_code': self.bank_code,
+            'is_primary': self.is_primary,
+            'is_verified': self.is_verified,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<BankAccount {self.bank_name} - {self.account_name}>'
+
+
 class WithdrawalRequest(db.Model):
-    """Withdrawal request model"""
+    """Withdrawal request for direct bank transfers"""
     __tablename__ = 'withdrawal_requests'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
     amount = db.Column(db.Float, nullable=False)
-    method = db.Column(db.String(50), nullable=False)  # 'mobile_money', 'bank_transfer'
-    account_details = db.Column(db.Text, nullable=False)  # JSON string with account info
-    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'rejected', 'completed'
+    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'rejected', 'paid'
     admin_notes = db.Column(db.Text, nullable=True)
-    flutterwave_reference = db.Column(db.String(100), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    processed_at = db.Column(db.DateTime, nullable=True)
+    requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
-    user = db.relationship('User', backref='withdrawal_requests')
+    user = db.relationship('User', foreign_keys=[user_id], backref='withdrawal_requests')
+    bank_account = db.relationship('BankAccount', backref='withdrawals')
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by])
     
     def to_dict(self):
         return {
             'id': self.id,
             'user_id': self.user_id,
             'amount': self.amount,
-            'method': self.method,
-            'account_details': self.account_details,
             'status': self.status,
+            'bank_account': self.bank_account.to_dict() if self.bank_account else None,
             'admin_notes': self.admin_notes,
-            'flutterwave_reference': self.flutterwave_reference,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'processed_at': self.processed_at.isoformat() if self.processed_at else None
+            'requested_at': self.requested_at.isoformat() if self.requested_at else None,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'reviewed_by': self.reviewed_by
         }
     
     def __repr__(self):
-        return f'<WithdrawalRequest ₦{self.amount} {self.status}>'
+        return f'<WithdrawalRequest XAF {self.amount} ({self.status})>'
+
+
+class AuditLog(db.Model):
+    """Audit log for fraud detection"""
+    __tablename__ = 'audit_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    action = db.Column(db.String(100), nullable=False)
+    entity_type = db.Column(db.String(50), nullable=False)
+    entity_id = db.Column(db.Integer, nullable=True)
+    details = db.Column(db.Text, nullable=True)
+    ip_address = db.Column(db.String(50), nullable=True)
+    fraud_score = db.Column(db.Integer, default=0, nullable=False)
+    flagged = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    user = db.relationship('User', backref='audit_logs')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'action': self.action,
+            'entity_type': self.entity_type,
+            'entity_id': self.entity_id,
+            'details': self.details,
+            'ip_address': self.ip_address,
+            'fraud_score': self.fraud_score,
+            'flagged': self.flagged,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<AuditLog {self.action} by User {self.user_id}>'
 
 
 class Notification(db.Model):

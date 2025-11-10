@@ -6,9 +6,8 @@ Withdrawal system routes
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, WithdrawalRequest, User, Transaction
+from models import db, WithdrawalRequest, User, Transaction, BankAccount
 from api_routes import admin_required
-from flutterwave_service import flutterwave_service
 from datetime import datetime
 import json
 import logging

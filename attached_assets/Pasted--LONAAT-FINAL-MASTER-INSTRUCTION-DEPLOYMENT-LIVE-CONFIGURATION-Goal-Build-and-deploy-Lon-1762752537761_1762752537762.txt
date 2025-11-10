@@ -1,0 +1,421 @@
+🚀 LONAAT – FINAL MASTER INSTRUCTION (DEPLOYMENT & LIVE CONFIGURATION)
+
+> Goal: Build and deploy Lonaat, a full affiliate automation system that integrates multiple affiliate networks, runs automated ads, tracks commissions, manages direct bank withdrawals, ensures fraud safety, and includes legal pages + email alerts — running on PostgreSQL via Render.
+
+
+
+
+---
+
+🧩 1️⃣ PROJECT STRUCTURE
+
+Keep current Lonaat repository.
+Upgrade, don’t replace.
+
+/backend   → Flask API
+/frontend  → React + Tailwind + shadcn/ui
+/infra
+/docs
+
+.replit run command:
+
+run = "flask run --host=0.0.0.0 --port=5000"
+
+SQLite → PostgreSQL (Render) for production.
+
+
+---
+
+🧱 2️⃣ ENVIRONMENT VARIABLES
+
+Set the following in Replit Secrets or Render Environment:
+
+JWT_SECRET_KEY
+DATABASE_URL
+EMAIL_HOST
+EMAIL_PORT
+EMAIL_USER
+EMAIL_PASS
+EMAIL_SENDER
+ADMITAD_TOKEN
+AFRIEX_TOKEN
+KALAWEB_API_KEY
+PAYSALE_TOKEN
+NALAREF_TOKEN
+GREY_TOKEN
+TRADETRACKER_TOKEN
+AMAZON_ACCESS_KEY
+AMAZON_SECRET_KEY
+AMAZON_ASSOC_TAG
+SHAREASALE_TOKEN
+CJ_TOKEN
+IMPACT_TOKEN
+ADMIN_EMAIL
+BASE_URL
+
+
+---
+
+🗄 3️⃣ DATABASE – POSTGRESQL VIA RENDER
+
+Agent must:
+
+1. Provision PostgreSQL on Render.
+
+
+2. Copy database URL and set as DATABASE_URL.
+
+
+3. Update Flask config:
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+
+4. Run:
+
+flask db upgrade
+
+
+5. Confirm connection successful.
+
+
+
+Dependency:
+
+psycopg2-binary
+
+✅ PostgreSQL becomes the live, persistent backend database.
+
+
+---
+
+💳 4️⃣ REMOVE FLUTTERWAVE INTEGRATION
+
+Remove all references to Flutterwave API.
+
+Only allow direct bank transfers via admin approval.
+
+Admin manually confirms payout to user’s verified bank account.
+
+Withdrawals update status to “Paid” once approved.
+
+
+✅ No third-party payment gateway needed.
+
+
+---
+
+🏦 5️⃣ DIRECT BANK TRANSFER SYSTEM
+
+Models
+
+BankAccount, WithdrawalRequest, Commission
+
+Endpoints
+
+POST /api/bank/add
+GET  /api/bank
+POST /api/withdraw
+GET  /api/admin/withdrawals
+POST /api/admin/withdrawals/approve
+
+Flow
+
+1. User adds bank info → /api/bank/add
+
+
+2. User requests withdrawal → /api/withdraw
+
+
+3. Admin reviews → approves → marks “Paid”
+
+
+4. User gets email confirmation:
+
+> “Your withdrawal of XAF {amount} has been transferred to your {bank_name} account.”
+
+
+
+
+
+
+---
+
+📧 6️⃣ EMAIL NOTIFICATION SERVICE
+
+Configure SMTP (Brevo or Mailgun).
+
+Environment vars:
+
+EMAIL_HOST=smtp-relay.sendinblue.com
+EMAIL_PORT=587
+EMAIL_USER=your_email@domain.com
+EMAIL_PASS=your_smtp_password
+EMAIL_SENDER="Lonaat Support <no-reply@lonaat.com>"
+
+Use email_service.py:
+
+import smtplib
+from email.mime.text import MIMEText
+import os
+
+def send_email(to, subject, message):
+    msg = MIMEText(message, 'html')
+    msg['Subject'] = subject
+    msg['From'] = os.getenv("EMAIL_SENDER")
+    msg['To'] = to
+    with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
+        server.starttls()
+        server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+        server.send_message(msg)
+
+Trigger on:
+
+New registration (welcome)
+
+Commission approval
+
+Withdrawal paid
+
+Fraud flag or security review
+
+
+✅ Send test emails to three demo users.
+
+
+---
+
+🌍 7️⃣ LEGAL & SUPPORT PAGES
+
+Add the following frontend routes:
+
+/terms
+/privacy
+/contact
+
+Terms of Service:
+
+Affiliate responsibilities
+
+Prohibited content
+
+Anti-fraud policy
+
+Payout timeline
+
+
+Privacy Policy:
+
+Data collection
+
+Affiliate tracking
+
+Email communication
+
+
+Contact Page:
+
+Simple form or mailto: ADMIN_EMAIL
+
+
+Add footer links to all 3 pages site-wide.
+
+
+---
+
+👤 8️⃣ TEST USERS (SEED)
+
+After migration, seed 3 test accounts:
+
+Name	Role	Email	Password
+
+Admin User	admin	admin@lonaat.com	Admin123!
+Affiliate One	user	user1@lonaat.com	Test123!
+Affiliate Two	user	user2@lonaat.com	Test123!
+
+
+Use /backend/seed.py:
+
+from backend.models import User, db
+from passlib.hash import bcrypt
+
+users = [
+    User(name="Admin User", email="admin@lonaat.com", password_hash=bcrypt.hash("Admin123!"), role="admin"),
+    User(name="Affiliate One", email="user1@lonaat.com", password_hash=bcrypt.hash("Test123!"), role="user"),
+    User(name="Affiliate Two", email="user2@lonaat.com", password_hash=bcrypt.hash("Test123!"), role="user")
+]
+db.session.add_all(users)
+db.session.commit()
+
+✅ Verify:
+Admin can approve commissions & withdrawals.
+Users can import, post, and withdraw.
+
+
+---
+
+🔗 9️⃣ AFFILIATE NETWORKS
+
+Integrate all the following networks:
+
+Network	Slug	API
+
+Amazon	amazon	Product Advertising API v5
+ShareASale	shareasale	REST API
+ClickBank	clickbank	Public API
+CJ Affiliate	cj	Developer API
+Impact	impact	Partner API
+Admitad	admitad	developers.admitad.com
+Afriex	afriex	REST API (demo until verified)
+Kalaweb	kalaweb	Local network via API key
+Paysale	paysale	paysale.com/api
+Nala Ref	nalaref	Placeholder
+Grey	grey	Referral API
+TradeTracker	tradetracker	developers.tradetracker.com
+Generic Affiliate	affiliate	Manual input
+
+
+If API key missing, return sample offers in demo=true mode.
+
+
+---
+
+💡 10️⃣ ANTI-FRAUD SYSTEM
+
+Add fraud safety logic to:
+
+Withdrawals
+
+Commissions
+
+Click tracking
+
+
+Rules:
+
+One pending withdrawal per user.
+
+Verify commission before approval.
+
+Detect duplicate or suspicious requests (within 5 min).
+
+Limit 3 withdrawals/day & 5 commissions/min/product.
+
+Store all actions in AuditLog.
+
+Fraud flags shown in Admin → “Fraud Center”.
+
+
+Send alert email if flagged.
+
+✅ Test by creating a duplicate commission for demo users.
+
+
+---
+
+🎨 11️⃣ FRONTEND
+
+Frameworks: React + Tailwind + shadcn/ui + Framer Motion.
+Responsive and modern design with sidebar + dashboard cards.
+
+User Pages:
+
+Dashboard
+
+My Products
+
+Add Product
+
+Commissions
+
+Withdrawals
+
+Settings (Bank Info + Profile)
+
+Terms, Privacy, Contact
+
+
+Admin Pages:
+
+Overview
+
+Users
+
+Networks
+
+Commissions
+
+Withdrawals
+
+Fraud Center
+
+
+✅ Include footer links to legal pages.
+✅ PWA manifest for app install.
+
+
+---
+
+📊 12️⃣ ANALYTICS
+
+Track clicks, impressions, earnings, ad performance.
+
+User Dashboard: total earnings, pending, paid commissions.
+
+Admin: totals for users, posts, campaigns, withdrawals, and fraud flags.
+
+
+
+---
+
+⚙ 13️⃣ DEPLOYMENT
+
+1. Deploy backend (Flask) on Render Web Service.
+
+
+2. Deploy frontend (React) as Render Static Site.
+
+
+3. PostgreSQL stays live 24/7 on Render.
+
+
+4. Domain connected to frontend service.
+
+
+5. Environment variables configured in Render dashboard.
+
+
+6. Enable HTTPS.
+
+
+
+✅ Lonaat will run live and continuously.
+
+
+---
+
+🧾 14️⃣ ACCEPTANCE TESTS
+
+Before go-live:
+
+1. Login with each demo user.
+
+
+2. Import a demo affiliate product.
+
+
+3. Publish product → run ad → record commission.
+
+
+4. Request withdrawal → admin approves → status “paid”.
+
+
+5. Confirm email notifications for each stage.
+
+
+6. Verify /terms, /privacy, /contact load correctly.
+
+
+7. Check fraud prevention flags trigger properly.
+8.
