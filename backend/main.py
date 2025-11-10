@@ -48,6 +48,14 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+# Detect environment (production vs development) - must be early in file
+# Only treat as production if explicitly on Render or if DATABASE_URL points to actual Postgres server
+IS_PRODUCTION = bool(os.getenv('RENDER')) or (
+    os.getenv('DATABASE_URL', '').startswith('postgresql://') and
+    'localhost' not in os.getenv('DATABASE_URL', '') and
+    '127.0.0.1' not in os.getenv('DATABASE_URL', '')
+)
+
 app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
@@ -73,46 +81,63 @@ app.register_blueprint(social_bp)
 app.register_blueprint(networks_bp)
 app.register_blueprint(bank_bp)
 
-# Create database tables
-with app.app_context():
-    sqlalchemy_db.create_all()
-    logger.info("✅ SQLAlchemy database initialized")
+# Create database tables - FAIL FAST in production, graceful in development
+try:
+    with app.app_context():
+        # Test database connection first
+        sqlalchemy_db.create_all()
+        logger.info("✅ SQLAlchemy database initialized")
+        
+        # Create admin user if it doesn't exist
+        admin_email = app.config.get('ADMIN_EMAIL', 'admin@example.com')
+        admin_user = User.query.filter_by(email=admin_email).first()
+        
+        if not admin_user and app.config.get('ADMIN_PASSWORD'):
+            admin_user = User(
+                name='Admin',
+                email=admin_email,
+                role='admin',
+                verified=True
+            )
+            admin_user.set_password(app.config.get('ADMIN_PASSWORD', 'admin123'))
+            sqlalchemy_db.session.add(admin_user)
+            sqlalchemy_db.session.commit()
+            logger.info(f"✅ Admin user created: {admin_email}")
+        
+        # Create default subscription plans
+        plans_data = [
+            {'name': 'free', 'price': 0, 'max_products': 5, 'max_ad_boosts': 1},
+            {'name': 'pro', 'price': 5000, 'max_products': 50, 'max_ad_boosts': 10},
+            {'name': 'business', 'price': 15000, 'max_products': None, 'max_ad_boosts': None}
+        ]
+        
+        for plan_data in plans_data:
+            existing_plan = Plan.query.filter_by(name=plan_data['name']).first()
+            if not existing_plan:
+                plan = Plan(**plan_data)
+                sqlalchemy_db.session.add(plan)
+        
+        try:
+            sqlalchemy_db.session.commit()
+            logger.info("✅ Default plans initialized")
+        except Exception as e:
+            sqlalchemy_db.session.rollback()
+            logger.warning(f"Plans already exist or error: {e}")
+            
+except Exception as e:
+    logger.error(f"❌ Database initialization FAILED: {e}")
+    logger.error(f"❌ Database URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
     
-    # Create admin user if it doesn't exist
-    admin_email = app.config.get('ADMIN_EMAIL', 'admin@example.com')
-    admin_user = User.query.filter_by(email=admin_email).first()
-    
-    if not admin_user and app.config.get('ADMIN_PASSWORD'):
-        admin_user = User(
-            name='Admin',
-            email=admin_email,
-            role='admin',
-            verified=True
-        )
-        admin_user.set_password(app.config.get('ADMIN_PASSWORD', 'admin123'))
-        sqlalchemy_db.session.add(admin_user)
-        sqlalchemy_db.session.commit()
-        logger.info(f"✅ Admin user created: {admin_email}")
-    
-    # Create default subscription plans
-    plans_data = [
-        {'name': 'free', 'price': 0, 'max_products': 5, 'max_ad_boosts': 1},
-        {'name': 'pro', 'price': 5000, 'max_products': 50, 'max_ad_boosts': 10},
-        {'name': 'business', 'price': 15000, 'max_products': None, 'max_ad_boosts': None}
-    ]
-    
-    for plan_data in plans_data:
-        existing_plan = Plan.query.filter_by(name=plan_data['name']).first()
-        if not existing_plan:
-            plan = Plan(**plan_data)
-            sqlalchemy_db.session.add(plan)
-    
-    try:
-        sqlalchemy_db.session.commit()
-        logger.info("✅ Default plans initialized")
-    except Exception as e:
-        sqlalchemy_db.session.rollback()
-        logger.warning(f"Plans already exist or error: {e}")
+    if IS_PRODUCTION:
+        # FAIL FAST in production - database is critical
+        logger.error("❌ FATAL: Cannot start in production without working database!")
+        logger.error("❌ Please verify DATABASE_URL is set correctly in your deployment")
+        raise RuntimeError(f"Database connection failed in production: {e}")
+    else:
+        # Development - warn but continue
+        logger.warning("⚠️  Database initialization failed in development mode")
+        logger.warning("⚠️  The app will start but database features won't work")
+        logger.warning("⚠️  Check your DATABASE_URL or use SQLite for local development")
 
 # Flask secret key - REQUIRED for session management
 flask_secret = os.getenv("FLASK_SECRET")
@@ -210,11 +235,17 @@ def now_iso():
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 if not ENCRYPTION_KEY:
-    print("❌ CRITICAL ERROR: ENCRYPTION_KEY environment variable is required but not set!")
-    print("❌ This key is necessary to encrypt/decrypt sensitive payout bank details.")
-    print("❌ Generate one with: python -c \"import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\"")
-    print("❌ Then set it in Replit Secrets as ENCRYPTION_KEY")
-    raise RuntimeError("ENCRYPTION_KEY is mandatory for secure operation")
+    if IS_PRODUCTION:
+        # FAIL FAST in production - encryption key is mandatory
+        logger.error("❌ FATAL: ENCRYPTION_KEY environment variable is REQUIRED for production!")
+        logger.error("❌ Generate one with: python -c \"import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\"")
+        logger.error("❌ Set it in your deployment environment variables")
+        raise RuntimeError("ENCRYPTION_KEY is mandatory for production deployment")
+    else:
+        # Development only - auto-generate with warning
+        logger.warning("⚠️  ENCRYPTION_KEY not set - auto-generating for development")
+        logger.warning("⚠️  DO NOT USE IN PRODUCTION - encrypted data won't persist across restarts")
+        ENCRYPTION_KEY = base64.urlsafe_b64encode(os.urandom(32)).decode()
 
 def encrypt_sensitive_data(data: dict) -> dict:
     """

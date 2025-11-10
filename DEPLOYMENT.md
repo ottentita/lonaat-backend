@@ -6,6 +6,54 @@ This guide covers deploying Lonaat to Render with PostgreSQL, SMTP email, and al
 
 ---
 
+## ⚠️ CRITICAL: Fix Deployment Crash Loops
+
+If you're experiencing deployment failures with errors like:
+- "SQLAlchemy database initialization failed"
+- "Missing or invalid DATABASE_URL environment variable"  
+- "Crash loop detected"
+- "ENCRYPTION_KEY is mandatory for secure operation"
+
+**The app now uses FAIL-FAST semantics in production:**
+
+✅ **Production Detection** - Automatically detects Render or PostgreSQL deployments
+✅ **ENCRYPTION_KEY is MANDATORY in production** - App will crash with clear error if missing
+✅ **DATABASE_URL is MANDATORY in production** - App will crash with clear error if missing/invalid
+✅ **Firebase is optional** - Gracefully falls back to SQLite (development only)
+✅ **Development Mode** - Auto-generates ENCRYPTION_KEY and allows DB failures (local dev only)
+
+**IMPORTANT: The app will NOT start in production without these critical secrets configured.**
+
+This is intentional - fail-fast behavior prevents silent data corruption and security issues.
+
+### Minimum Required Secrets for Production
+```bash
+# 1. Database Connection (CRITICAL)
+DATABASE_URL=postgresql://user:password@host:port/database
+
+# 2. Encryption Key (CRITICAL - generate a new one)
+ENCRYPTION_KEY=$(python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
+
+# 3. Flask Secret (CRITICAL)
+FLASK_SECRET=$(python -c "import secrets; print(secrets.token_hex(32))")
+
+# 4. Admin Credentials (CRITICAL)
+ADMIN_USERNAME=admin@lonaat.com
+ADMIN_PASSWORD=YourSecurePassword123!
+ADMIN_EMAIL=admin@lonaat.com
+
+# 5. Email SMTP (CRITICAL for notifications)
+EMAIL_HOST=smtp-relay.sendinblue.com
+EMAIL_PORT=587
+EMAIL_USER=your-smtp-username
+EMAIL_PASS=your-smtp-password
+EMAIL_SENDER=Lonaat Support <no-reply@lonaat.com>
+```
+
+**Set these in Render Dashboard → Your Service → Environment → Add Environment Variable**
+
+---
+
 ## 🚀 Quick Deployment Steps
 
 ### 1. Create Render Services
