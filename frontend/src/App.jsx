@@ -22,6 +22,11 @@ import AdminWithdrawals from './pages/admin/Withdrawals';
 import AdminPayments from './pages/admin/Payments';
 import AdminNotifications from './pages/admin/Notifications';
 
+// Legal Pages
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Contact from './pages/Contact';
+
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
@@ -80,6 +85,10 @@ function App() {
         <Route path="/admin/withdrawals" element={<ProtectedRoute adminOnly><AdminWithdrawals /></ProtectedRoute>} />
         <Route path="/admin/payments" element={<ProtectedRoute adminOnly><AdminPayments /></ProtectedRoute>} />
         <Route path="/admin/notifications" element={<ProtectedRoute adminOnly><AdminNotifications /></ProtectedRoute>} />
+
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/contact" element={<Contact />} />
 
         <Route
           path="/"

@@ -5,6 +5,7 @@ Authentication routes and JWT token management
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, create_refresh_token
 from models import db, User
+from email_service import send_welcome_email
 from datetime import datetime
 import re
 
@@ -79,6 +80,9 @@ def register():
         
         db.session.add(user)
         db.session.commit()
+        
+        # Send welcome email
+        send_welcome_email(user.email, user.name)
         
         # Generate tokens (identity must be string)
         access_token = create_access_token(identity=str(user.id))
