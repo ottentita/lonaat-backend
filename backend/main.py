@@ -36,6 +36,8 @@ from leads_routes import leads_bp
 from routes.social import social_bp
 from routes.networks import networks_bp
 from routes.bank import bank_bp
+from deployment_status import status_bp
+from db_guard import set_db_initialized
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 
@@ -48,13 +50,10 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Detect environment (production vs development) - must be early in file
-# Only treat as production if explicitly on Render or if DATABASE_URL points to actual Postgres server
-IS_PRODUCTION = bool(os.getenv('RENDER')) or (
-    os.getenv('DATABASE_URL', '').startswith('postgresql://') and
-    'localhost' not in os.getenv('DATABASE_URL', '') and
-    '127.0.0.1' not in os.getenv('DATABASE_URL', '')
-)
+# Detect environment - allow deployment without crashing, but warn about missing features
+# This allows initial deployment to succeed while prompting for proper configuration
+IS_PRODUCTION = bool(os.getenv('RENDER') or os.getenv('RAILWAY') or os.getenv('FLY_APP_NAME'))
+logger.info(f"🔍 Environment: {'PRODUCTION' if IS_PRODUCTION else 'DEVELOPMENT'}")
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -80,13 +79,16 @@ app.register_blueprint(leads_bp)
 app.register_blueprint(social_bp)
 app.register_blueprint(networks_bp)
 app.register_blueprint(bank_bp)
+app.register_blueprint(status_bp)
 
-# Create database tables - FAIL FAST in production, graceful in development
+# Create database tables
+# FAIL FAST in production if database unavailable to prevent runtime crashes
 try:
     with app.app_context():
         # Test database connection first
         sqlalchemy_db.create_all()
-        logger.info("✅ SQLAlchemy database initialized")
+        logger.info("✅ SQLAlchemy database initialized successfully")
+        set_db_initialized(True)
         
         # Create admin user if it doesn't exist
         admin_email = app.config.get('ADMIN_EMAIL', 'admin@example.com')
@@ -103,6 +105,8 @@ try:
             sqlalchemy_db.session.add(admin_user)
             sqlalchemy_db.session.commit()
             logger.info(f"✅ Admin user created: {admin_email}")
+        elif not admin_user:
+            logger.warning("⚠️  Admin user NOT created - ADMIN_PASSWORD not set")
         
         # Create default subscription plans
         plans_data = [
@@ -119,25 +123,37 @@ try:
         
         try:
             sqlalchemy_db.session.commit()
-            logger.info("✅ Default plans initialized")
+            logger.info("✅ Default subscription plans initialized")
         except Exception as e:
             sqlalchemy_db.session.rollback()
-            logger.warning(f"Plans already exist or error: {e}")
+            logger.warning(f"Plans initialization: {e}")
             
 except Exception as e:
-    logger.error(f"❌ Database initialization FAILED: {e}")
+    logger.error("=" * 80)
+    logger.error("❌ DATABASE INITIALIZATION FAILED")
+    logger.error(f"❌ Error: {e}")
     logger.error(f"❌ Database URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
+    logger.error("=" * 80)
     
     if IS_PRODUCTION:
-        # FAIL FAST in production - database is critical
+        # FAIL FAST in production - database is critical for core features
         logger.error("❌ FATAL: Cannot start in production without working database!")
-        logger.error("❌ Please verify DATABASE_URL is set correctly in your deployment")
+        logger.error("❌ Database is required for user accounts, transactions, and bank transfers")
+        logger.error("❌ ")
+        logger.error("❌ To fix:")
+        logger.error("❌ 1. Create PostgreSQL database in your deployment dashboard")
+        logger.error("❌ 2. Copy the External Database URL (starts with postgresql://)")
+        logger.error("❌ 3. Add as environment variable: DATABASE_URL=<your-url>")
+        logger.error("❌ 4. Redeploy")
+        logger.error("=" * 80)
         raise RuntimeError(f"Database connection failed in production: {e}")
     else:
-        # Development - warn but continue
+        # Development - allow startup with warnings
         logger.warning("⚠️  Database initialization failed in development mode")
-        logger.warning("⚠️  The app will start but database features won't work")
-        logger.warning("⚠️  Check your DATABASE_URL or use SQLite for local development")
+        logger.warning("⚠️  App will start but database features won't work")
+        logger.warning("⚠️  Visit http://localhost:8000/api/deployment/status for guidance")
+        logger.error("=" * 80)
+        set_db_initialized(False)
 
 # Flask secret key - REQUIRED for session management
 flask_secret = os.getenv("FLASK_SECRET")
@@ -236,15 +252,20 @@ ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 if not ENCRYPTION_KEY:
     if IS_PRODUCTION:
-        # FAIL FAST in production - encryption key is mandatory
-        logger.error("❌ FATAL: ENCRYPTION_KEY environment variable is REQUIRED for production!")
-        logger.error("❌ Generate one with: python -c \"import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\"")
-        logger.error("❌ Set it in your deployment environment variables")
-        raise RuntimeError("ENCRYPTION_KEY is mandatory for production deployment")
+        # FAIL FAST in production - encryption key is MANDATORY to prevent data loss
+        logger.error("=" * 80)
+        logger.error("❌ FATAL: ENCRYPTION_KEY is REQUIRED for production deployment!")
+        logger.error("❌ Without a persistent key, encrypted data (bank accounts) will be")
+        logger.error("❌ permanently LOST on every restart/redeploy!")
+        logger.error("❌ ")
+        logger.error("❌ Generate a key: python -c \"import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\"")
+        logger.error("❌ Add to deployment secrets: ENCRYPTION_KEY=<your-generated-key>")
+        logger.error("=" * 80)
+        raise RuntimeError("ENCRYPTION_KEY is mandatory for production - prevents data loss")
     else:
         # Development only - auto-generate with warning
-        logger.warning("⚠️  ENCRYPTION_KEY not set - auto-generating for development")
-        logger.warning("⚠️  DO NOT USE IN PRODUCTION - encrypted data won't persist across restarts")
+        logger.warning("⚠️  ENCRYPTION_KEY not set - auto-generating for development only")
+        logger.warning("⚠️  Encrypted data will not persist across restarts")
         ENCRYPTION_KEY = base64.urlsafe_b64encode(os.urandom(32)).decode()
 
 def encrypt_sensitive_data(data: dict) -> dict:
