@@ -18,6 +18,13 @@ class Config:
     SECRET_KEY = os.getenv('FLASK_SECRET', 'dev_secret_lonaat_2025_change_in_production')
     
     # Database - PostgreSQL for production (Render), SQLite for development
+    # CRITICAL: Must unset PGHOST to prevent psycopg2 from using it instead of DATABASE_URL
+    # Replit sets PGHOST=helium (internal dev hostname) which breaks production deployment
+    if 'PGHOST' in os.environ and os.getenv('DATABASE_URL'):
+        # DATABASE_URL exists, remove individual PG* vars to avoid conflicts
+        for pg_var in ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']:
+            os.environ.pop(pg_var, None)
+    
     DATABASE_URL = os.getenv('DATABASE_URL')
     if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
         # Fix for SQLAlchemy 1.4+ which requires postgresql:// instead of postgres://
