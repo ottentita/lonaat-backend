@@ -433,13 +433,17 @@ def admin_autologin():
             token = data.get('token', '')
         
         if not token:
-            return jsonify({'error': 'Token required'}), 400
+            current_app.logger.warning(f"Admin autologin attempt without token from {request.remote_addr}")
+            return jsonify({'error': 'Authentication failed'}), 403
         
-        # Verify token matches SECRET_KEY
+        # Verify token matches SECRET_KEY (CRITICAL SECURITY CHECK)
         secret_key = os.getenv('SECRET_KEY')
+        
+        # Reject any invalid authentication WITHOUT revealing configuration state
         if not secret_key or token != secret_key:
             current_app.logger.warning(f"Failed admin autologin attempt from {request.remote_addr}")
-            return jsonify({'error': 'Invalid token'}), 403
+            # Always return same error message to prevent information leakage
+            return jsonify({'error': 'Authentication failed'}), 403
         
         # Get admin user by ADMIN_EMAIL
         admin_email = os.getenv('ADMIN_EMAIL', 'admin@lonaat.com')
