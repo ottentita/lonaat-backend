@@ -491,3 +491,118 @@ class SocialConnection(db.Model):
     
     def __repr__(self):
         return f'<SocialConnection User:{self.user_id} Platform:{self.platform}>'
+
+
+class EmailVerificationToken(db.Model):
+    """Email verification token model for user registration"""
+    __tablename__ = 'email_verification_tokens'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    token = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    used = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    user = db.relationship('User', backref='email_verification_tokens')
+    
+    def is_expired(self):
+        return datetime.utcnow() > self.expires_at
+    
+    def __repr__(self):
+        return f'<EmailVerificationToken User:{self.user_id}>'
+
+
+class PasswordResetToken(db.Model):
+    """Password reset token model for password recovery"""
+    __tablename__ = 'password_reset_tokens'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    token = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    used = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    user = db.relationship('User', backref='password_reset_tokens')
+    
+    def is_expired(self):
+        return datetime.utcnow() > self.expires_at
+    
+    def __repr__(self):
+        return f'<PasswordResetToken User:{self.user_id}>'
+
+
+class ImportedProduct(db.Model):
+    """Imported affiliate product from external networks (Digistore24, Awin)"""
+    __tablename__ = 'imported_products'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24' or 'awin'
+    external_product_id = db.Column(db.String(255), nullable=False)
+    product_name = db.Column(db.String(255), nullable=False)
+    product_url = db.Column(db.String(500), nullable=False)
+    product_image_url = db.Column(db.String(500), nullable=True)
+    commission_info = db.Column(db.String(255), nullable=True)
+    price = db.Column(db.String(50), nullable=True)
+    category = db.Column(db.String(100), nullable=True)
+    earn_mode = db.Column(db.String(20), default='auto', nullable=False)  # 'auto' or 'manual'
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    user = db.relationship('User', backref='imported_products')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'network': self.network,
+            'external_product_id': self.external_product_id,
+            'product_name': self.product_name,
+            'product_url': self.product_url,
+            'product_image_url': self.product_image_url,
+            'commission_info': self.commission_info,
+            'price': self.price,
+            'category': self.category,
+            'earn_mode': self.earn_mode,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ImportedProduct {self.product_name} from {self.network}>'
+
+
+class Commission(db.Model):
+    """Affiliate commission tracking from webhooks"""
+    __tablename__ = 'commissions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24' or 'awin'
+    product_id = db.Column(db.Integer, nullable=True)  # Reference to Product or ImportedProduct
+    amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'paid'
+    external_ref = db.Column(db.String(255), nullable=True)  # External transaction ID
+    webhook_data = db.Column(db.Text, nullable=True)  # JSON data from webhook
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    paid_at = db.Column(db.DateTime, nullable=True)
+    
+    user = db.relationship('User', backref='commissions')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'network': self.network,
+            'product_id': self.product_id,
+            'amount': self.amount,
+            'status': self.status,
+            'external_ref': self.external_ref,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'paid_at': self.paid_at.isoformat() if self.paid_at else None
+        }
+    
+    def __repr__(self):
+        return f'<Commission ₦{self.amount} from {self.network} ({self.status})>'
