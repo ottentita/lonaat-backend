@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adminAPI } from '@/services/api';
 import toast from 'react-hot-toast';
@@ -10,10 +11,16 @@ import {
   Wallet,
   Loader2,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Package,
+  Megaphone,
+  Globe,
+  ArrowRight
 } from 'lucide-react';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     total_users: 0,
@@ -23,6 +30,12 @@ const AdminDashboard = () => {
     total_withdrawals: 0,
     total_campaigns: 0,
     total_products: 0
+  });
+  const [recentData, setRecentData] = useState({
+    users: [],
+    transactions: [],
+    commissions: [],
+    adminActions: []
   });
 
   useEffect(() => {
@@ -34,6 +47,14 @@ const AdminDashboard = () => {
       setLoading(true);
       const response = await adminAPI.getStats();
       setStats(response.data.stats || response.data);
+      
+      const rawData = response.data.raw || {};
+      setRecentData({
+        users: rawData.recent_users || [],
+        transactions: rawData.recent_transactions || [],
+        commissions: rawData.recent_commissions || [],
+        adminActions: rawData.recent_admin_actions || []
+      });
     } catch (error) {
       
       toast.error('Failed to load statistics');
@@ -87,32 +108,47 @@ const AdminDashboard = () => {
     }
   ];
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
+
   const recentActivity = [
-    {
+    ...recentData.users.slice(0, 3).map(user => ({
       type: 'user',
       title: 'New user registered',
-      description: 'John Doe joined the platform',
-      time: '5 minutes ago',
+      description: `${user.email || 'Unknown'} joined the platform`,
+      time: formatDate(user.created_at),
       icon: Users,
       color: 'text-blue-500'
-    },
-    {
-      type: 'withdrawal',
-      title: 'Withdrawal request',
-      description: 'Jane Smith requested ₦50,000',
-      time: '1 hour ago',
-      icon: Wallet,
-      color: 'text-yellow-500'
-    },
-    {
-      type: 'payment',
-      title: 'Payment received',
-      description: 'Mike Johnson deposited ₦10,000',
-      time: '2 hours ago',
-      icon: DollarSign,
-      color: 'text-green-500'
-    }
-  ];
+    })),
+    ...recentData.transactions.slice(0, 3).map(tx => ({
+      type: 'transaction',
+      title: tx.type === 'withdrawal' ? 'Withdrawal request' : 'Commission earned',
+      description: `₦${parseFloat(tx.amount || 0).toLocaleString()} - ${tx.status || 'pending'}`,
+      time: formatDate(tx.created_at),
+      icon: tx.type === 'withdrawal' ? Wallet : DollarSign,
+      color: tx.type === 'withdrawal' ? 'text-yellow-500' : 'text-green-500'
+    })),
+    ...recentData.commissions.slice(0, 2).map(comm => ({
+      type: 'commission',
+      title: 'Commission generated',
+      description: `₦${parseFloat(comm.amount || 0).toLocaleString()} from affiliate sales`,
+      time: formatDate(comm.created_at),
+      icon: TrendingUp,
+      color: 'text-purple-500'
+    }))
+  ].slice(0, 5);
 
   if (loading) {
     return (
@@ -149,6 +185,67 @@ const AdminDashboard = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold text-dark-50 mb-4">Product Management</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => navigate('/user/products')}
+              className="card-hover text-left group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-3 rounded-lg bg-blue-500/10 text-blue-500">
+                  <Download className="w-6 h-6" />
+                </div>
+                <ArrowRight className="w-5 h-5 text-dark-500 group-hover:text-primary-500 transition-colors" />
+              </div>
+              <h3 className="text-dark-50 font-semibold mb-1">Import Products</h3>
+              <p className="text-dark-400 text-sm">Import from Digistore24 & Awin</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/user/products')}
+              className="card-hover text-left group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-3 rounded-lg bg-purple-500/10 text-purple-500">
+                  <Package className="w-6 h-6" />
+                </div>
+                <ArrowRight className="w-5 h-5 text-dark-500 group-hover:text-primary-500 transition-colors" />
+              </div>
+              <h3 className="text-dark-50 font-semibold mb-1">View Products</h3>
+              <p className="text-dark-400 text-sm">Manage {stats.total_products} products</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/user/ad-boosts')}
+              className="card-hover text-left group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-3 rounded-lg bg-orange-500/10 text-orange-500">
+                  <Megaphone className="w-6 h-6" />
+                </div>
+                <ArrowRight className="w-5 h-5 text-dark-500 group-hover:text-primary-500 transition-colors" />
+              </div>
+              <h3 className="text-dark-50 font-semibold mb-1">Manage Campaigns</h3>
+              <p className="text-dark-400 text-sm">{stats.total_campaigns} active campaigns</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/user/products')}
+              className="card-hover text-left group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-3 rounded-lg bg-green-500/10 text-green-500">
+                  <Globe className="w-6 h-6" />
+                </div>
+                <ArrowRight className="w-5 h-5 text-dark-500 group-hover:text-primary-500 transition-colors" />
+              </div>
+              <h3 className="text-dark-50 font-semibold mb-1">Browse Networks</h3>
+              <p className="text-dark-400 text-sm">Digistore24 & Awin products</p>
+            </button>
+          </div>
         </div>
 
         {stats.pending_withdrawals > 0 && (
