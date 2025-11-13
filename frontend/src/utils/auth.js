@@ -30,5 +30,6 @@ export const isAuthenticated = () => {
 
 export const isAdmin = () => {
   const user = getUser();
-  return user?.role === 'admin';
+  // Check both is_admin flag (primary) and role field (fallback)
+  return user?.is_admin === true || user?.role === 'admin';
 };
