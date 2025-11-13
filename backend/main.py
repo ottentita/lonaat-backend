@@ -384,42 +384,14 @@ def write_audit(action: str, actor: str = "system", meta: Any = None) -> None:
 def require_admin():
     return session.get("admin_logged_in", False)
 
-# --------- Routes ----------
-@app.route('/')
-def home():
-    return render_template('index.html')
+# --------- SPA Frontend Serving ----------
+# Serve React app for all non-API routes (development mode uses Vite proxy)
+# In production, this would serve from frontend/dist
+# OLD TEMPLATE ROUTES ARCHIVED TO templates_legacy/
 
 @app.route('/favicon.ico')
 def favicon():
     return '', 204
-
-@app.route('/admin')
-def admin():
-    return render_template('admin.html')
-
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
-
-@app.route('/withdraw_page')
-def withdraw_page():
-    return render_template('withdraw.html')
-
-@app.route('/affiliate')
-def affiliate():
-    return render_template('affiliate.html')
-
-@app.route('/admin_login_page')
-def admin_login_page():
-    return render_template('admin_login.html')
-
-@app.route('/my_commissions')
-def my_commissions():
-    return render_template('my_commissions.html')
-
-@app.route('/turbo')
-def turbo_dashboard():
-    return send_file('../frontend/turbo_dashboard.html')
 
 @app.route('/get_users')
 def get_users():
