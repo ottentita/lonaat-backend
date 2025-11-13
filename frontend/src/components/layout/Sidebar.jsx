@@ -11,7 +11,8 @@ import {
   Users,
   Settings,
   LogOut,
-  Zap
+  Zap,
+  TrendingUp
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -23,6 +24,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/dashboard/products', icon: Package, label: 'My Products' },
     { to: '/dashboard/ads', icon: Megaphone, label: 'AdBoost' },
     { to: '/dashboard/wallet', icon: CreditCard, label: 'Wallet' },
+    { to: '/dashboard/commissions', icon: TrendingUp, label: 'Commissions' },
     { to: '/dashboard/transactions', icon: DollarSign, label: 'Transactions' },
     { to: '/dashboard/withdrawals', icon: Wallet, label: 'Withdrawals' },
     { to: '/dashboard/notifications', icon: Bell, label: 'Notifications' },

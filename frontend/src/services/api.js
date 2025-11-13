@@ -68,13 +68,25 @@ api.interceptors.response.use(
   }
 );
 
-// Auth APIs
+// Auth APIs - Production Ready
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   refresh: () => api.post('/auth/refresh'),
+  getMe: () => api.get('/auth/me'),
+  sendVerification: () => api.post('/auth/send-verification'),
+  verifyEmail: (token) => api.post('/auth/verify-email', { token }),
+  requestPasswordReset: (email) => api.post('/auth/request-password-reset', { email }),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
   getProfile: () => api.get('/user/profile'),
   updateProfile: (data) => api.put('/user/profile', data),
+};
+
+// Affiliate Offers APIs - Digistore24 & Awin Only
+export const offersAPI = {
+  getOffers: (network, query = '', page = 1) => api.get('/offers', { params: { network, q: query, page } }),
+  getOfferDetail: (id) => api.get(`/offers/${id}`),
+  importOffer: (data) => api.post('/offers/import', data), // { offer_id, network, earn_mode }
 };
 
 // Products APIs
@@ -85,6 +97,13 @@ export const productsAPI = {
   update: (id, data) => api.put(`/products/${id}`, data),
   delete: (id) => api.delete(`/products/${id}`),
   import: (data) => api.post('/products/import', data),
+};
+
+// Commissions APIs
+export const commissionsAPI = {
+  getMy: () => api.get('/commissions/user'),
+  getAll: (params) => api.get('/commissions/all', { params }),
+  markPaid: (id) => api.post(`/commissions/${id}/mark-paid`),
 };
 
 // AdBoost APIs

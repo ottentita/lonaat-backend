@@ -5,12 +5,15 @@ import { isAuthenticated, isAdmin } from './utils/auth';
 // Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import VerifyEmail from './pages/auth/VerifyEmail';
+import ResetPassword from './pages/auth/ResetPassword';
 import UserDashboard from './pages/user/Dashboard';
 import Products from './pages/user/Products';
 import AdBoosts from './pages/user/AdBoosts';
 import Wallet from './pages/user/Wallet';
 import Transactions from './pages/user/Transactions';
 import Withdrawals from './pages/user/Withdrawals';
+import Commissions from './pages/user/Commissions';
 import Notifications from './pages/user/Notifications';
 import Profile from './pages/user/Profile';
 
@@ -69,6 +72,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
         <Route path="/dashboard/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
@@ -76,6 +81,7 @@ function App() {
         <Route path="/dashboard/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/dashboard/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
         <Route path="/dashboard/withdrawals" element={<ProtectedRoute><Withdrawals /></ProtectedRoute>} />
+        <Route path="/dashboard/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
         <Route path="/dashboard/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/dashboard/settings" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 

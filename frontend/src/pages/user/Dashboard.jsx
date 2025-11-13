@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { walletAPI, productsAPI, adsAPI } from '@/services/api';
+import { walletAPI, productsAPI, adsAPI, commissionsAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 import { 
   Package, 
@@ -11,7 +11,8 @@ import {
   Plus,
   TrendingUp,
   Activity,
-  Loader2
+  Loader2,
+  DollarSign
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -21,7 +22,9 @@ const Dashboard = () => {
     totalProducts: 0,
     activeCampaigns: 0,
     balance: 0,
-    totalClicks: 0
+    totalClicks: 0,
+    totalCommissions: 0,
+    pendingCommissions: 0
   });
   const [recentActivity, setRecentActivity] = useState([]);
 
@@ -32,21 +35,29 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [walletRes, productsRes, adsRes] = await Promise.all([
-        walletAPI.getBalance(),
-        productsAPI.getAll(),
-        adsAPI.getStatus()
+      const [walletRes, productsRes, adsRes, commissionsRes] = await Promise.all([
+        walletAPI.getBalance().catch(() => ({ data: { balance: 0 } })),
+        productsAPI.getAll().catch(() => ({ data: { products: [] } })),
+        adsAPI.getStatus().catch(() => ({ data: { campaigns: [] } })),
+        commissionsAPI.getMy().catch(() => ({ data: { commissions: [] } }))
       ]);
 
       const products = productsRes.data.products || [];
       const campaigns = adsRes.data.campaigns || [];
+      const commissions = commissionsRes.data.commissions || [];
       const totalClicks = campaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
+      const totalCommissions = commissions.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+      const pendingCommissions = commissions
+        .filter(c => c.status === 'pending')
+        .reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
       setStats({
         totalProducts: products.length,
         activeCampaigns: campaigns.filter(c => c.status === 'active').length,
         balance: walletRes.data.balance || 0,
-        totalClicks
+        totalClicks,
+        totalCommissions,
+        pendingCommissions
       });
 
       const activity = [
@@ -83,49 +94,49 @@ const Dashboard = () => {
       value: stats.totalProducts,
       icon: Package,
       color: 'bg-blue-500/10 text-blue-500',
-      change: '+12%'
+      link: '/dashboard/products'
     },
     {
-      title: 'Active Campaigns',
-      value: stats.activeCampaigns,
-      icon: Megaphone,
-      color: 'bg-purple-500/10 text-purple-500',
-      change: '+5%'
+      title: 'Total Commissions',
+      value: `₦${stats.totalCommissions.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      icon: DollarSign,
+      color: 'bg-green-500/10 text-green-500',
+      link: '/dashboard/commissions'
+    },
+    {
+      title: 'Pending Payout',
+      value: `₦${stats.pendingCommissions.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      icon: TrendingUp,
+      color: 'bg-yellow-500/10 text-yellow-500',
+      link: '/dashboard/commissions'
     },
     {
       title: 'Account Balance',
-      value: `₦${stats.balance.toLocaleString()}`,
+      value: `₦${stats.balance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
       icon: Wallet,
-      color: 'bg-green-500/10 text-green-500',
-      change: '+8%'
-    },
-    {
-      title: 'Total Clicks',
-      value: stats.totalClicks,
-      icon: MousePointerClick,
-      color: 'bg-orange-500/10 text-orange-500',
-      change: '+23%'
+      color: 'bg-purple-500/10 text-purple-500',
+      link: '/dashboard/wallet'
     }
   ];
 
   const quickActions = [
     {
-      label: 'Add Product',
+      label: 'Import Products',
       icon: Plus,
       color: 'btn-primary',
-      onClick: () => navigate('/products')
+      onClick: () => navigate('/dashboard/products')
     },
     {
-      label: 'Launch Campaign',
-      icon: TrendingUp,
+      label: 'View Commissions',
+      icon: DollarSign,
       color: 'btn-primary',
-      onClick: () => navigate('/ads')
+      onClick: () => navigate('/dashboard/commissions')
     },
     {
-      label: 'Buy Credits',
+      label: 'Withdraw Funds',
       icon: Wallet,
       color: 'btn-secondary',
-      onClick: () => navigate('/transactions')
+      onClick: () => navigate('/dashboard/withdrawals')
     }
   ];
 
@@ -149,12 +160,15 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {statCards.map((stat, index) => (
-            <div key={index} className="card-hover">
+            <div 
+              key={index} 
+              className="card-hover cursor-pointer" 
+              onClick={() => stat.link && navigate(stat.link)}
+            >
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-dark-400 text-sm">{stat.title}</p>
                   <h3 className="text-2xl font-bold text-dark-50 mt-2">{stat.value}</h3>
-                  <p className="text-green-500 text-sm mt-2">{stat.change}</p>
                 </div>
                 <div className={`p-3 rounded-lg ${stat.color}`}>
                   <stat.icon className="w-6 h-6" />

@@ -35,7 +35,7 @@ const Register = () => {
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
       
-      toast.success('Registration successful!');
+      toast.success('Registration successful! Check your email to verify your account.');
       navigate('/dashboard');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Registration failed');
