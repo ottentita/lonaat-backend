@@ -8,6 +8,7 @@ from flask import Blueprint, request, jsonify, redirect
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, ImportedProduct, AffiliateClick, Commission, Product
 from affiliate_manager import get_affiliate_manager
+from auth import is_admin_user
 from datetime import datetime
 import json
 import secrets

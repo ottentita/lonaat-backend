@@ -14,6 +14,25 @@ import secrets
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 
+def is_admin_user(user_id):
+    """
+    Check if a user is an admin.
+    Admin users bypass all subscription limits and payment checks.
+    """
+    import os
+    user = User.query.get(user_id)
+    if not user:
+        return False
+    
+    admin_email = os.getenv('ADMIN_EMAIL', 'admin@lonaat.com')
+    return user.role == 'admin' or user.email == admin_email
+
+
+def get_user_or_none(user_id):
+    """Get user by ID, return None if not found"""
+    return User.query.get(user_id)
+
+
 def is_valid_email(email):
     """Validate email format"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'

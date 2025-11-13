@@ -5,7 +5,9 @@ API routes for user profile and admin dashboard
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, Transaction
+from auth import is_admin_user
 from functools import wraps
+import os
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -21,7 +23,8 @@ def admin_required(fn):
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        if user.role != 'admin':
+        # Use centralized admin check
+        if not is_admin_user(current_user_id):
             return jsonify({'error': 'Admin access required'}), 403
         
         return fn(*args, **kwargs)

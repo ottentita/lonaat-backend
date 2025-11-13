@@ -7,6 +7,7 @@ AdBoost engine routes
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, AdBoost, Product, CreditWallet, User
+from auth import is_admin_user
 from datetime import datetime, timedelta
 import logging
 
@@ -68,23 +69,33 @@ def launch_ad():
         if existing_boost:
             return jsonify({'error': 'Product already has an active AdBoost campaign'}), 400
         
-        # Get or create wallet
+        # Check if user is admin - admins bypass ALL credit checks
+        is_admin = is_admin_user(user_id)
+        
+        # Get or create wallet (even for admins, for tracking)
         wallet = CreditWallet.query.filter_by(user_id=user_id).first()
         if not wallet:
             wallet = CreditWallet(user_id=user_id)
             db.session.add(wallet)
             db.session.commit()
         
-        # Check if user has enough credits for initial boost (1x = 10 credits)
+        # Check credits and deduct ONLY for non-admin users
         initial_cost = BOOST_COSTS[1]
-        if wallet.credits < initial_cost:
-            return jsonify({
-                'error': f'Insufficient credits. Need {initial_cost} credits, have {wallet.credits}'
-            }), 400
         
-        # Deduct credits
-        wallet.credits -= initial_cost
-        wallet.total_spent += initial_cost
+        if not is_admin:
+            # Regular users: check and deduct credits
+            if wallet.credits < initial_cost:
+                return jsonify({
+                    'error': f'Insufficient credits. Need {initial_cost} credits, have {wallet.credits}'
+                }), 400
+            
+            # Deduct credits
+            wallet.credits -= initial_cost
+            wallet.total_spent += initial_cost
+        else:
+            # Admin users: FREE unlimited access
+            logger.info(f"Admin user {user_id} launching AdBoost - bypassing credit check")
+            initial_cost = 0  # No cost for admin
         
         # Create AdBoost campaign
         expires_at = datetime.utcnow() + timedelta(hours=24)
