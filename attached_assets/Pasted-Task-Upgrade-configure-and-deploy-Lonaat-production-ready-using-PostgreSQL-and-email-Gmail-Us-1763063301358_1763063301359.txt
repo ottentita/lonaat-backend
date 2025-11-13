@@ -1,0 +1,133 @@
+Task: Upgrade, configure and deploy Lonaat (production-ready) using PostgreSQL and email (Gmail). Use only Digistore24 and Awin integrations now. Do NOT add CJ or ClickBank. Provide progress updates as you complete phases and return the final API list and live preview link.
+
+PHASE A — VERIFY ENV
+1. Read environment variables (Replit Secrets). Confirm presence of:
+   - SECRET_KEY
+   - JWT_SECRET_KEY
+   - DATABASE_URL
+   - EMAIL_HOST (smtp.gmail.com)
+   - EMAIL_PORT (587)
+   - EMAIL_ADDRESS (titasembi@gmail.com)
+   - EMAIL_APP_PASSWORD (uvifvruysnxihlgt)
+   - ADMIN_EMAIL
+   - ADMIN_PASSWORD
+   - DIGISTORE_API_KEY (1525095-Gx2z1rGeQ9WKIRgJz0LGOmco4EdQe5vzRjAur4Gl)
+   - AWIN_TOKEN (dc956ae2-0122-4851-8be9-a481bff82465)
+   - AWIN_PUBLISHER_ID (2651300)
+If any are missing, report which one(s) and stop.
+
+PHASE B — DEPENDENCIES & STRUCTURE
+2. Ensure project root has /backend and /frontend. If missing, create scaffold with structure:
+   backend/app/{_init_.py,config.py,models.py,extensions.py,run.py}
+   backend/app/api/{auth.py,users.py,offers.py,import_product.py,commissions.py,withdrawals.py,affiliate_providers/}
+   frontend/ (React + Vite + Tailwind)
+3. Install backend Python libs: pip install -r requirements.txt
+   requirements include:
+     Flask, Flask-CORS, Flask-SQLAlchemy, Flask-Migrate, Flask-JWT-Extended,
+     Flask-Mail, psycopg2-binary, requests, python-dotenv, marshmallow, gunicorn, apscheduler, flask-limiter
+4. Install frontend libs: npm ci (react, react-dom, react-router-dom, vite, axios, tailwindcss, zustand)
+
+PHASE C — DATABASE & MIGRATIONS
+5. Configure SQLALCHEMY to DATABASE_URL from env.
+6. Create SQLAlchemy models: User, AffiliateOffer, ImportedProduct, Click, Commission, Withdrawal, AuditLog.
+7. Run migrations:
+   flask db init (if not initialized)
+   flask db migrate -m "initial"
+   flask db upgrade
+8. Seed admin & two users using ADMIN_EMAIL/ADMIN_PASSWORD and test users:
+   - admin@example.com / Admin123  (create with ADMIN_EMAIL/ADMIN_PASSWORD env)
+   - user1@example.com / User123
+   - user2@example.com / User123
+
+PHASE D — AUTH, EMAIL & SESSIONS
+9. Implement auth endpoints:
+   POST /api/auth/register
+   POST /api/auth/login -> returns JWT (expires 12 hr)
+   POST /api/auth/refresh
+   GET /api/auth/me
+   Email verification + password reset (use EMAIL_* SMTP with app password)
+10. Configure JWT session lifetime to 12 hours and refresh tokens as needed.
+
+PHASE E — AFFILIATE INTEGRATIONS (ONLY DIGISTORE24 & AWIN NOW)
+11. Implement provider adapters:
+    backend/app/api/affiliate_providers/digistore.py
+      - Use DIGISTORE_API_KEY
+      - Endpoint to fetch product list & product detail
+    backend/app/api/affiliate_providers/awin.py
+      - Use AWIN_TOKEN & AWIN_PUBLISHER_ID
+      - Fetch offers and normalize fields (title, price, payout, image, landing_url)
+12. Unified endpoints:
+    GET /api/offers?network={digistore|awin}&q={query}&page=
+    GET /api/offers/{id}
+    POST /api/offers/import  { offer_id, network } -> creates ImportedProduct linked to user
+
+PHASE F — TRACKING, COMMISSIONS & WEBHOOKS
+13. Tracking link:
+    Create short redirect route: GET /t/<tracking_id>
+      - Record click (user_id optional, ip, ua)
+      - Redirect to merchant landing url with proper affiliate params
+14. Webhooks:
+    Expose POST /api/webhook/affiliate/digistore and /api/webhook/affiliate/awin
+      - Verify payload (if webhook secret exists)
+      - On sale event, create Commission record: {user_id, amount, network, product_id, status:'pending'}
+15. Commission endpoints:
+    GET /api/commissions/user
+    GET /api/commissions/all (admin)
+    POST /api/commissions/mark-paid (admin)
+
+PHASE G — IMPORT -> SHOP -> AUTO-ADS (Earn Mode)
+16. Implement POST /api/offers/import to:
+    - Create ImportedProduct
+    - Accept earn_mode: 'auto' or 'manual' (default 'auto')
+    - If earn_mode == 'auto', create AdCampaign record (status running) and schedule metrics collection
+17. APScheduler job every 5 minutes to update running campaigns' metrics (mocked initially if ad vendor not integrated)
+
+PHASE H — WITHDRAWALS & BANK PAYOUTS
+18. Implement withdrawal API (no Flutterwave):
+    POST /api/withdrawals/request {amount, bank_name, bank_account_number}
+    GET /api/withdrawals/user
+    GET /api/withdrawals/all (admin)
+    PUT /api/withdrawals/:id/approve (admin) -> mark commissions as paid, send email to user
+    PUT /api/withdrawals/:id/reject (admin)
+19. Add anti-fraud checks:
+    - Prevent >1 pending withdrawal per user
+    - Verify amount <= withdrawable balance
+    - Duplicate commission detection within 5 min
+    - Rate limits: max 3 withdrawals/day
+
+PHASE I — FRONTEND BUILD
+20. Build React frontend pages and wire to backend:
+    - Landing, Login/Register, Dashboard, Affiliate Networks, Offers listing (digistore/awin),
+      Import Product flow (earn mode), My Products, Commissions, Withdrawals, Settings (bank info),
+      Terms, Privacy, Contact, Admin dashboard (users, commissions, withdrawals, fraud center)
+21. Axios config uses backend baseURL from env. Persist JWT in localStorage. Show badges: Auto/Manual earn mode. Add promote-now button for manual posts.
+
+PHASE J — SECURITY & CORS
+22. Configure CORS to allow frontend origin(s). Enforce HTTPS in production.
+23. Store sensitive bank details encrypted (use a simple field encryption key if available).
+
+PHASE K — TESTS & SANITY
+24. Run sanity tests:
+    - Register/login with test users
+    - Fetch offers from Digistore & Awin (ensure real results)
+    - Import an offer and publish to shop
+    - Click tracking via /t/<tracking_id>
+    - Simulate webhook to create commission
+    - Request withdrawal as user; approve as admin; verify email notification
+25. Return a Postman collection for main flows + curl examples.
+
+PHASE L — BUILD & DELIVERABLES
+26. Prepare production build:
+    - Frontend: npm run build
+    - Backend: gunicorn "run:app" -b 0.0.0.0:$PORT
+27. Provide final deliverables in agent response:
+    - Live preview URL (Replit preview or deployed URL)
+    - List of API endpoints with brief description
+    - Database schema (models)
+    - Commands used to run migrations & seed data
+    - Exact environment variable names (list)
+    - Any missing keys reported
+
+IMPORTANT: DO NOT ADD CJ OR CLICKBANK integrations in this run. They will be integrated later upon user request.
+
+Start now and post progress updates for each Phase A → L. Stop and report immediately if any required secret is missing or any network call fails with a clear error message and remediation steps.
