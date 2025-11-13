@@ -138,11 +138,27 @@ def import_offer():
         )
         
         db.session.add(imported_product)
+        
+        # Also create Product record for main products table (for compatibility)
+        main_product = Product(
+            user_id=user.id,
+            name=product_data.get('name', f'Product {offer_id}'),
+            description=product_data.get('description', f'Imported from {network}'),
+            price=product_data.get('price', 'N/A'),
+            affiliate_link=product_data.get('link', ''),
+            network=network,
+            commission_rate=product_data.get('commission', 'N/A'),
+            image_url=product_data.get('image_url'),
+            is_active=True
+        )
+        
+        db.session.add(main_product)
         db.session.commit()
         
         return jsonify({
             'message': 'Product imported successfully',
             'product': imported_product.to_dict(),
+            'main_product_id': main_product.id,
             'earn_mode': earn_mode
         }), 201
         
@@ -197,15 +213,38 @@ def digistore24_webhook():
         # Note: Actual Digistore24 webhook format may vary
         external_ref = data.get('transaction_id') or data.get('order_id')
         amount = float(data.get('affiliate_earnings', 0))
-        product_id = data.get('product_id')
+        product_identifier = data.get('product_id') or data.get('product_name')
         
         if not external_ref or amount <= 0:
             return jsonify({'error': 'Invalid webhook data'}), 400
         
-        # Find user by product or create pending commission
-        # For now, we'll create a generic commission
+        # Find user by product mapping
+        user_id = None
+        imported_product = None
+        
+        if product_identifier:
+            imported_product = ImportedProduct.query.filter_by(
+                external_product_id=product_identifier,
+                network='digistore24'
+            ).first()
+            
+            if imported_product:
+                user_id = imported_product.user_id
+        
+        # If no product match found, log and return error instead of guessing
+        if not user_id:
+            error_msg = f"No product match for Digistore24 webhook. Product ID: {product_identifier}, Transaction: {external_ref}"
+            print(f"⚠️  WEBHOOK ERROR: {error_msg}")
+            print(f"Webhook data: {json.dumps(data)}")
+            
+            return jsonify({
+                'status': 'error',
+                'message': 'Product not found in system',
+                'transaction_id': external_ref
+            }), 404
+        
         commission = Commission(
-            user_id=1,  # Update based on product mapping
+            user_id=user_id,
             network='digistore24',
             amount=amount,
             status='pending',
@@ -216,7 +255,7 @@ def digistore24_webhook():
         db.session.add(commission)
         db.session.commit()
         
-        return jsonify({'status': 'success'}), 200
+        return jsonify({'status': 'success', 'user_id': user_id}), 200
         
     except Exception as e:
         db.session.rollback()
@@ -235,12 +274,38 @@ def awin_webhook():
         # Extract commission data
         external_ref = data.get('transaction_id') or data.get('awin_transaction_id')
         amount = float(data.get('commission_amount', 0))
+        product_identifier = data.get('advertiser_id') or data.get('product_id')
         
         if not external_ref or amount <= 0:
             return jsonify({'error': 'Invalid webhook data'}), 400
         
+        # Find user by product mapping
+        user_id = None
+        imported_product = None
+        
+        if product_identifier:
+            imported_product = ImportedProduct.query.filter_by(
+                external_product_id=str(product_identifier),
+                network='awin'
+            ).first()
+            
+            if imported_product:
+                user_id = imported_product.user_id
+        
+        # If no product match found, log and return error instead of guessing
+        if not user_id:
+            error_msg = f"No product match for Awin webhook. Product ID: {product_identifier}, Transaction: {external_ref}"
+            print(f"⚠️  WEBHOOK ERROR: {error_msg}")
+            print(f"Webhook data: {json.dumps(data)}")
+            
+            return jsonify({
+                'status': 'error',
+                'message': 'Product not found in system',
+                'transaction_id': external_ref
+            }), 404
+        
         commission = Commission(
-            user_id=1,  # Update based on product mapping
+            user_id=user_id,
             network='awin',
             amount=amount,
             status='pending',
@@ -251,7 +316,7 @@ def awin_webhook():
         db.session.add(commission)
         db.session.commit()
         
-        return jsonify({'status': 'success'}), 200
+        return jsonify({'status': 'success', 'user_id': user_id}), 200
         
     except Exception as e:
         db.session.rollback()
