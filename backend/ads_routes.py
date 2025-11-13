@@ -217,6 +217,8 @@ def handle_boost_click(product_id: int) -> dict:
     Internal function to handle AdBoost click
     Called when someone clicks a boosted product
     Doubles the boost level (up to 32x max)
+    
+    Admin users bypass ALL credit checks and get unlimited boost escalations
     """
     try:
         campaign = AdBoost.query.filter_by(
@@ -236,6 +238,9 @@ def handle_boost_click(product_id: int) -> dict:
         # Increment clicks
         campaign.clicks_received += 1
         
+        # Check if campaign owner is admin
+        is_admin = is_admin_user(campaign.user_id)
+        
         # Double boost level if not at max
         if campaign.boost_level < 32:
             old_level = campaign.boost_level
@@ -244,19 +249,25 @@ def handle_boost_click(product_id: int) -> dict:
             # Calculate additional credits needed
             additional_credits = BOOST_COSTS[new_level] - BOOST_COSTS[old_level]
             
-            # Get wallet
-            wallet = CreditWallet.query.filter_by(user_id=campaign.user_id).first()
-            
-            if wallet and wallet.credits >= additional_credits:
-                # Deduct credits and boost
-                wallet.credits -= additional_credits
-                wallet.total_spent += additional_credits
+            if is_admin:
+                # Admin bypass: FREE unlimited boost escalation
                 campaign.boost_level = new_level
-                campaign.credits_spent += additional_credits
-                
-                logger.info(f"Boost doubled: Campaign {campaign.id} from {old_level}x to {new_level}x")
+                # Don't add to credits_spent for admin (they don't pay)
+                logger.info(f"Admin boost escalation (FREE): Campaign {campaign.id} from {old_level}x to {new_level}x")
             else:
-                logger.warning(f"Insufficient credits for boost: Campaign {campaign.id}")
+                # Regular users: check and deduct credits
+                wallet = CreditWallet.query.filter_by(user_id=campaign.user_id).first()
+                
+                if wallet and wallet.credits >= additional_credits:
+                    # Deduct credits and boost
+                    wallet.credits -= additional_credits
+                    wallet.total_spent += additional_credits
+                    campaign.boost_level = new_level
+                    campaign.credits_spent += additional_credits
+                    
+                    logger.info(f"Boost doubled: Campaign {campaign.id} from {old_level}x to {new_level}x")
+                else:
+                    logger.warning(f"Insufficient credits for boost: Campaign {campaign.id}")
         
         db.session.commit()
         
