@@ -70,10 +70,10 @@ def send_welcome_email(user_email: str, user_name: str) -> bool:
         
         <h3>What's Next?</h3>
         <ul>
-            <li>Connect your favorite affiliate networks (Amazon, ShareASale, CJ, Impact, and more)</li>
-            <li>Import products or let our AI find winning offers</li>
+            <li>Connect to Digistore24 and Awin affiliate networks</li>
+            <li>Import products and let our AI create winning campaigns</li>
             <li>Generate AI-powered ad copy and descriptions</li>
-            <li>Post to social media and track your earnings</li>
+            <li>Track your earnings and commissions</li>
             <li>Withdraw your commissions via direct bank transfer</li>
         </ul>
         
@@ -82,6 +82,70 @@ def send_welcome_email(user_email: str, user_name: str) -> bool:
         <p>If you have any questions, contact us at {current_app.config['ADMIN_EMAIL']}</p>
         
         <p>Happy marketing!<br>
+        The Lonaat Team</p>
+    </body>
+    </html>
+    """
+    return send_email(user_email, subject, message)
+
+
+def send_verification_email(user_email: str, user_name: str, verification_url: str) -> bool:
+    """Send email verification link"""
+    subject = "Verify Your Email - Lonaat"
+    message = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #4F46E5;">Verify Your Email Address</h2>
+        <p>Hi {user_name},</p>
+        
+        <p>Please verify your email address to activate your Lonaat account and start earning with affiliate marketing.</p>
+        
+        <div style="margin: 30px 0;">
+            <a href="{verification_url}" 
+               style="background-color: #4F46E5; color: white; padding: 12px 30px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block;">
+                Verify Email Address
+            </a>
+        </div>
+        
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="color: #6B7280; word-break: break-all;">{verification_url}</p>
+        
+        <p><small>This link will expire in 24 hours. If you didn't create an account with Lonaat, you can safely ignore this email.</small></p>
+        
+        <p>Best regards,<br>
+        The Lonaat Team</p>
+    </body>
+    </html>
+    """
+    return send_email(user_email, subject, message)
+
+
+def send_password_reset_email(user_email: str, user_name: str, reset_url: str) -> bool:
+    """Send password reset link"""
+    subject = "Reset Your Password - Lonaat"
+    message = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #4F46E5;">Password Reset Request</h2>
+        <p>Hi {user_name},</p>
+        
+        <p>We received a request to reset your password for your Lonaat account.</p>
+        
+        <div style="margin: 30px 0;">
+            <a href="{reset_url}" 
+               style="background-color: #4F46E5; color: white; padding: 12px 30px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block;">
+                Reset Password
+            </a>
+        </div>
+        
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="color: #6B7280; word-break: break-all;">{reset_url}</p>
+        
+        <p><small>This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.</small></p>
+        
+        <p>Best regards,<br>
         The Lonaat Team</p>
     </body>
     </html>
