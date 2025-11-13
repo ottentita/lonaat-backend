@@ -21,8 +21,9 @@ class Digistore24Integration(AffiliateNetworkIntegration):
     
     def __init__(self):
         super().__init__()
-        self.api_key = os.getenv('DIGISTORE24_API_KEY')
-        self.affiliate_id = os.getenv('DIGISTORE24_AFFILIATE_ID')
+        # Note: User's secret is DIGISTORE_API_KEY (without "24")
+        self.api_key = os.getenv('DIGISTORE_API_KEY')
+        self.affiliate_id = os.getenv('DIGISTORE_AFFILIATE_ID')
         self.base_url = 'https://www.digistore24.com/api/call/'
     
     def fetch_products(self, max_results: int = 20, category: str = "Software", **kwargs) -> List[Dict[str, Any]]:

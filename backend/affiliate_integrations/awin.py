@@ -20,7 +20,8 @@ class AwinIntegration(AffiliateNetworkIntegration):
     
     def __init__(self):
         super().__init__()
-        self.api_token = os.getenv('AWIN_API_TOKEN')
+        # Note: User's secret is AWIN_TOKEN (not AWIN_API_TOKEN)
+        self.api_token = os.getenv('AWIN_TOKEN')
         self.publisher_id = os.getenv('AWIN_PUBLISHER_ID')
         self.advertiser_id = os.getenv('AWIN_ADVERTISER_ID')
         self.endpoint = 'https://productdata.awin.com/datafeed/list/apikey'
