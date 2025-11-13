@@ -69,6 +69,22 @@ migrate = Migrate(app, sqlalchemy_db)
 # Initialize JWT Manager
 jwt = JWTManager(app)
 
+# JWT Error Handlers
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    logger.warning(f"⚠️ JWT EXPIRED: {jwt_payload}")
+    return jsonify({'error': 'Token has expired', 'code': 'token_expired'}), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    logger.warning(f"⚠️ INVALID JWT: {error}")
+    return jsonify({'error': 'Invalid token', 'code': 'invalid_token'}), 422
+
+@jwt.unauthorized_loader
+def unauthorized_callback(error):
+    logger.warning(f"⚠️ NO JWT PROVIDED: {error}")
+    return jsonify({'error': 'Missing authorization token', 'code': 'no_token'}), 422
+
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(api_bp)
