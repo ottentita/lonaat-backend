@@ -27,8 +27,10 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='user', nullable=False)  # 'user' or 'admin'
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)  # True for admin with unlimited access
     balance = db.Column(db.Float, default=0.0, nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)  # For deactivating users
     referral_code = db.Column(db.String(20), unique=True, nullable=False, index=True)
     referred_by = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -56,6 +58,8 @@ class User(db.Model):
             'name': self.name,
             'email': self.email,
             'role': self.role,
+            'is_admin': self.is_admin,
+            'is_active': self.is_active,
             'verified': self.verified,
             'referral_code': self.referral_code,
             'referred_by': self.referred_by,
@@ -606,3 +610,32 @@ class Commission(db.Model):
     
     def __repr__(self):
         return f'<Commission ₦{self.amount} from {self.network} ({self.status})>'
+
+
+class AdminAudit(db.Model):
+    """Audit log for admin actions"""
+    __tablename__ = 'admin_audit'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    action = db.Column(db.String(100), nullable=False, index=True)  # 'login', 'autologin', 'deactivate_user', etc.
+    target_user_id = db.Column(db.Integer, nullable=True)  # For user-specific actions
+    details = db.Column(db.Text, nullable=True)  # JSON details
+    ip_address = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    admin = db.relationship('User', backref='admin_actions')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'admin_id': self.admin_id,
+            'action': self.action,
+            'target_user_id': self.target_user_id,
+            'details': self.details,
+            'ip_address': self.ip_address,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<AdminAudit {self.action} by {self.admin_id}>'

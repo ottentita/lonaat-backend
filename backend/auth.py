@@ -5,11 +5,13 @@ Production-ready with email verification and password reset
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, create_refresh_token
-from models import db, User, EmailVerificationToken, PasswordResetToken
+from models import db, User, EmailVerificationToken, PasswordResetToken, AdminAudit
 from email_service import send_welcome_email, send_verification_email, send_password_reset_email
 from datetime import datetime, timedelta
 import re
 import secrets
+import os
+import json
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -18,19 +20,38 @@ def is_admin_user(user_id):
     """
     Check if a user is an admin.
     Admin users bypass all subscription limits and payment checks.
+    Returns True if user.is_admin is True in database.
     """
-    import os
     user = User.query.get(user_id)
     if not user:
         return False
     
-    admin_email = os.getenv('ADMIN_EMAIL', 'admin@lonaat.com')
-    return user.role == 'admin' or user.email == admin_email
+    # Check database is_admin flag (set automatically on login for ADMIN_EMAIL)
+    return user.is_admin == True
 
 
 def get_user_or_none(user_id):
     """Get user by ID, return None if not found"""
     return User.query.get(user_id)
+
+
+def log_admin_action(admin_id, action, target_user_id=None, details=None, ip_address=None):
+    """
+    Log admin action to audit table
+    """
+    try:
+        audit = AdminAudit(
+            admin_id=admin_id,
+            action=action,
+            target_user_id=target_user_id,
+            details=json.dumps(details) if details else None,
+            ip_address=ip_address
+        )
+        db.session.add(audit)
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(f"Admin audit log error: {e}")
+        db.session.rollback()
 
 
 def is_valid_email(email):
@@ -150,6 +171,27 @@ def login():
         
         if not user or not user.check_password(password):
             return jsonify({'error': 'Invalid email or password'}), 401
+        
+        # Check if user is not active
+        if not user.is_active:
+            return jsonify({'error': 'Account has been deactivated'}), 403
+        
+        # Auto-set admin flag if email matches ADMIN_EMAIL
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@lonaat.com')
+        if email == admin_email.lower():
+            if not user.is_admin:
+                user.is_admin = True
+                user.role = 'admin'
+                db.session.commit()
+                current_app.logger.info(f"Auto-set admin flag for {email}")
+            
+            # Log admin login
+            log_admin_action(
+                admin_id=user.id,
+                action='admin_login',
+                ip_address=request.remote_addr,
+                details={'method': 'password'}
+            )
         
         # Generate tokens (identity must be string)
         access_token = create_access_token(identity=str(user.id))
@@ -372,3 +414,70 @@ def reset_password():
         db.session.rollback()
         print(f"Password reset error: {str(e)}")
         return jsonify({'error': 'Password reset failed'}), 500
+
+
+@auth_bp.route('/admin-autologin', methods=['GET', 'POST'])
+def admin_autologin():
+    """
+    Admin-only auto-login route
+    Usage: /api/auth/admin-autologin?token=YOUR_SECRET_KEY
+    
+    Automatically logs in the admin user if token matches SECRET_KEY
+    """
+    try:
+        # Get token from query params or JSON body
+        if request.method == 'GET':
+            token = request.args.get('token', '')
+        else:
+            data = request.get_json() or {}
+            token = data.get('token', '')
+        
+        if not token:
+            return jsonify({'error': 'Token required'}), 400
+        
+        # Verify token matches SECRET_KEY
+        secret_key = os.getenv('SECRET_KEY')
+        if not secret_key or token != secret_key:
+            current_app.logger.warning(f"Failed admin autologin attempt from {request.remote_addr}")
+            return jsonify({'error': 'Invalid token'}), 403
+        
+        # Get admin user by ADMIN_EMAIL
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@lonaat.com')
+        user = User.query.filter_by(email=admin_email).first()
+        
+        if not user:
+            return jsonify({'error': 'Admin user not found'}), 404
+        
+        # Auto-set admin flag if not already set
+        if not user.is_admin:
+            user.is_admin = True
+            user.role = 'admin'
+            db.session.commit()
+        
+        # Check if user is active
+        if not user.is_active:
+            return jsonify({'error': 'Admin account is deactivated'}), 403
+        
+        # Log admin autologin
+        log_admin_action(
+            admin_id=user.id,
+            action='admin_autologin',
+            ip_address=request.remote_addr,
+            details={'method': 'secret_token'}
+        )
+        
+        # Generate tokens
+        access_token = create_access_token(identity=str(user.id))
+        refresh_token = create_refresh_token(identity=str(user.id))
+        
+        return jsonify({
+            'message': 'Admin autologin successful',
+            'user': user.to_dict(),
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'redirect': '/admin/dashboard'  # Frontend can use this
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Admin autologin error: {str(e)}")
+        return jsonify({'error': 'Autologin failed'}), 500
