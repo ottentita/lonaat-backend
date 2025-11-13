@@ -30,6 +30,53 @@ def is_admin_user(user_id):
     return user.is_admin == True
 
 
+def can_add_products(user_id, count=1):
+    """
+    Check if user can add more products.
+    Admin users have unlimited product imports (bypass all limits).
+    Regular users are limited by their subscription plan's max_products.
+    
+    Returns: (can_add: bool, error_message: str or None, current_count: int, max_allowed: int or None)
+    """
+    from models import Product, Subscription, Plan
+    
+    user = User.query.get(user_id)
+    if not user:
+        return False, "User not found", 0, 0
+    
+    # Admin bypass: unlimited products
+    if user.is_admin:
+        current_count = Product.query.filter_by(user_id=user_id).count()
+        return True, None, current_count, None  # None = unlimited
+    
+    # Get user's current product count
+    current_count = Product.query.filter_by(user_id=user_id).count()
+    
+    # Get user's active subscription
+    active_subscription = Subscription.query.filter_by(
+        user_id=user_id,
+        status='active'
+    ).first()
+    
+    # Default to free plan if no subscription
+    if not active_subscription:
+        free_plan = Plan.query.filter_by(name='free').first()
+        max_products = free_plan.max_products if free_plan else 5  # Default to 5
+    else:
+        plan = Plan.query.get(active_subscription.plan_id)
+        max_products = plan.max_products if plan else 5
+    
+    # None means unlimited (business plan)
+    if max_products is None:
+        return True, None, current_count, None
+    
+    # Check if user would exceed limit
+    if current_count + count > max_products:
+        return False, f"Product limit reached. Your plan allows {max_products} products. You currently have {current_count}. Upgrade to add more.", current_count, max_products
+    
+    return True, None, current_count, max_products
+
+
 def get_user_or_none(user_id):
     """Get user by ID, return None if not found"""
     return User.query.get(user_id)

@@ -60,7 +60,11 @@ def get_products():
 @products_bp.route('', methods=['POST'])
 @jwt_required()
 def create_product():
-    """Create a new product"""
+    """
+    Create a new product
+    Admin users have unlimited products (bypass all limits).
+    Regular users are limited by their subscription plan's max_products.
+    """
     try:
         user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
@@ -72,6 +76,18 @@ def create_product():
         
         if not data or not data.get('name') or not data.get('affiliate_link'):
             return jsonify({'error': 'Name and affiliate_link are required'}), 400
+        
+        # Check product limits (admin bypasses this)
+        from auth import can_add_products
+        can_add, error_msg, current_count, max_allowed = can_add_products(user_id, 1)
+        
+        if not can_add:
+            return jsonify({
+                'error': error_msg,
+                'current_products': current_count,
+                'max_products': max_allowed,
+                'upgrade_required': True
+            }), 403
         
         product = Product(
             user_id=user_id,
@@ -173,6 +189,8 @@ def delete_product(product_id):
 def import_products():
     """
     Import products from affiliate networks
+    Admin users have unlimited imports (bypass all limits).
+    Regular users are limited by their subscription plan's max_products.
     
     Request body:
     {
@@ -202,6 +220,19 @@ def import_products():
         
         if not products:
             return jsonify({'error': f'No products found from {network}'}), 404
+        
+        # Check product limits (admin bypasses this)
+        from auth import can_add_products
+        can_add, error_msg, current_count, max_allowed = can_add_products(user_id, len(products))
+        
+        if not can_add:
+            return jsonify({
+                'error': error_msg,
+                'current_products': current_count,
+                'max_products': max_allowed,
+                'attempted_import': len(products),
+                'upgrade_required': True
+            }), 403
         
         imported_count = 0
         for product_data in products:

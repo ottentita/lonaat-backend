@@ -83,6 +83,8 @@ def get_offer_detail(offer_id):
 def import_offer():
     """
     Import an offer from Digistore24 or Awin
+    Admin users have unlimited imports (bypass all limits).
+    Regular users are limited by their subscription plan's max_products.
     
     Body:
         {
@@ -111,6 +113,18 @@ def import_offer():
         
         if earn_mode not in ['auto', 'manual']:
             return jsonify({'error': 'earn_mode must be auto or manual'}), 400
+        
+        # Check product limits (admin bypasses this)
+        from auth import can_add_products
+        can_add, error_msg, current_count, max_allowed = can_add_products(int(current_user_id), 1)
+        
+        if not can_add:
+            return jsonify({
+                'error': error_msg,
+                'current_products': current_count,
+                'max_products': max_allowed,
+                'upgrade_required': True
+            }), 403
         
         # Fetch product details from network
         products = affiliate_manager.fetch_from_network(network, max_results=50)
