@@ -143,7 +143,31 @@ export const notificationsAPI = {
 // Admin APIs
 export const adminAPI = {
   getUsers: (params) => api.get('/admin/users', { params }),
-  getStats: () => api.get('/admin/stats'),
+  getDashboard: async () => {
+    const response = await api.get('/admin/dashboard');
+    
+    const data = response.data;
+    const stats = data.statistics || {};
+    
+    return {
+      ...response,
+      data: {
+        stats: {
+          total_users: stats.users?.total || 0,
+          active_users: stats.users?.active || 0,
+          total_revenue: stats.commissions?.total_amount || stats.transactions?.total_commissions || 0,
+          pending_withdrawals: stats.transactions?.pending_withdrawals_count || 0,
+          total_withdrawals: stats.transactions?.total_withdrawals || 0,
+          total_campaigns: stats.ad_boosts?.total || 0,
+          total_products: stats.products?.total || 0,
+        },
+        raw: data
+      }
+    };
+  },
+  getStats: async () => {
+    return adminAPI.getDashboard();
+  },
   addCommission: (data) => api.post('/admin/add_commission', data),
 };
 
