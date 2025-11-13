@@ -123,11 +123,21 @@ export const walletAPI = {
 
 // Withdrawal APIs
 export const withdrawalAPI = {
-  create: (data) => api.post('/withdraw', data),
-  getMy: () => api.get('/withdrawals/my'),
-  getAll: (params) => api.get('/admin/withdrawals', { params }),
-  approve: (id, data) => api.post(`/admin/withdrawals/${id}/approve`, data),
-  reject: (id, data) => api.post(`/admin/withdrawals/${id}/reject`, data),
+  create: (data) => api.post('/bank/withdraw', data),
+  getMy: () => api.get('/bank/withdrawals'),
+  getAll: (params) => api.get('/bank/admin/withdrawals', { params }),
+  approve: (id, data) => api.post(`/bank/admin/withdrawals/${id}/approve`, data),
+  reject: (id, data) => api.post(`/bank/admin/withdrawals/${id}/reject`, data),
+};
+
+// Notifications (email-based, no API endpoints)
+export const notificationsAPI = {
+  // Note: Notifications are sent via email service automatically
+  // No direct API endpoints for notifications - they're triggered by events:
+  // - Registration → Welcome email
+  // - Email verification → Verification link
+  // - Withdrawal request → Confirmation email
+  // - Commission approved → Notification email
 };
 
 // Admin APIs
