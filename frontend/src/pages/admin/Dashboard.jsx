@@ -191,7 +191,7 @@ const AdminDashboard = () => {
           <h2 className="text-xl font-semibold text-dark-50 mb-4">Product Management</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <button
-              onClick={() => navigate('/user/products')}
+              onClick={() => navigate('/dashboard/products')}
               className="card-hover text-left group"
             >
               <div className="flex items-start justify-between mb-3">
@@ -205,7 +205,7 @@ const AdminDashboard = () => {
             </button>
 
             <button
-              onClick={() => navigate('/user/products')}
+              onClick={() => navigate('/dashboard/products')}
               className="card-hover text-left group"
             >
               <div className="flex items-start justify-between mb-3">
@@ -219,7 +219,7 @@ const AdminDashboard = () => {
             </button>
 
             <button
-              onClick={() => navigate('/user/ad-boosts')}
+              onClick={() => navigate('/dashboard/ads')}
               className="card-hover text-left group"
             >
               <div className="flex items-start justify-between mb-3">
@@ -233,7 +233,7 @@ const AdminDashboard = () => {
             </button>
 
             <button
-              onClick={() => navigate('/user/products')}
+              onClick={() => navigate('/dashboard/wallet')}
               className="card-hover text-left group"
             >
               <div className="flex items-start justify-between mb-3">
