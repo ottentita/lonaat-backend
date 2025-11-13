@@ -1,62 +1,26 @@
 """
 Affiliate Network Manager - Master Controller
-Central management for all affiliate network integrations
+Production-ready with ONLY Digistore24 and Awin integrations
+NOTE: Other networks (CJ, ClickBank, Amazon, etc.) have been removed per requirements
 """
 
 from typing import List, Dict, Any, Optional
 from affiliate_integrations import (
-    AmazonAssociates,
-    ClickBankIntegration,
     Digistore24Integration,
-    CJAffiliateIntegration,
-    ShareASaleIntegration,
-    ImpactIntegration,
-    RakutenAdvertisingIntegration,
-    AwinIntegration,
-    FlexOffersIntegration,
-    eBayPartnerIntegration,
-    ShopifyCollabsIntegration,
-    MoreNicheIntegration,
-    AvangateIntegration,
-    EtsyAffiliateIntegration,
-    ClickDealerIntegration,
-    MobideaIntegration,
-    TerraLeadsIntegration,
-    MaxWebIntegration,
-    LeadBitIntegration,
-    GiddyUpIntegration
+    AwinIntegration
 )
 
 
 class AffiliateNetworkManager:
     """
-    Central manager for all affiliate networks
-    Makes it easy to fetch products from multiple sources
+    Central manager for affiliate networks
+    Production version: ONLY Digistore24 and Awin
     """
     
     def __init__(self):
         self.networks = {
-            'amazon': AmazonAssociates(),
-            'cj': CJAffiliateIntegration(),
-            'shareasale': ShareASaleIntegration(),
-            'clickbank': ClickBankIntegration(),
-            'impact': ImpactIntegration(),
-            'partnerstack': ImpactIntegration(),
             'digistore24': Digistore24Integration(),
-            'rakuten': RakutenAdvertisingIntegration(),
-            'awin': AwinIntegration(),
-            'flexoffers': FlexOffersIntegration(),
-            'ebay': eBayPartnerIntegration(),
-            'shopify': ShopifyCollabsIntegration(),
-            'moreniche': MoreNicheIntegration(),
-            'avangate': AvangateIntegration(),
-            'etsy': EtsyAffiliateIntegration(),
-            'clickdealer': ClickDealerIntegration(),
-            'mobidea': MobideaIntegration(),
-            'terraleads': TerraLeadsIntegration(),
-            'maxweb': MaxWebIntegration(),
-            'leadbit': LeadBitIntegration(),
-            'giddyup': GiddyUpIntegration()
+            'awin': AwinIntegration()
         }
     
     def get_network(self, network_name: str):
