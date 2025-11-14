@@ -33,6 +33,8 @@ from wallet_routes import wallet_bp
 from ads_routes import ads_bp
 from affiliate_routes import affiliate_bp
 from leads_routes import leads_bp
+from commission_routes import commission_bp
+from payments_routes import payments_bp
 from routes.social import social_bp
 from routes.networks import networks_bp
 from routes.bank import bank_bp
@@ -93,6 +95,8 @@ app.register_blueprint(wallet_bp)
 app.register_blueprint(ads_bp)
 app.register_blueprint(affiliate_bp)
 app.register_blueprint(leads_bp)
+app.register_blueprint(commission_bp)
+app.register_blueprint(payments_bp)
 app.register_blueprint(social_bp)
 app.register_blueprint(networks_bp)
 app.register_blueprint(bank_bp)
@@ -128,9 +132,9 @@ try:
         
         # Create default subscription plans
         plans_data = [
-            {'name': 'free', 'price': 0, 'max_products': 5, 'max_ad_boosts': 1},
-            {'name': 'pro', 'price': 5000, 'max_products': 50, 'max_ad_boosts': 10},
-            {'name': 'business', 'price': 15000, 'max_products': None, 'max_ad_boosts': None}
+            {'name': 'free', 'price': 0, 'max_products': 5, 'max_ad_boosts': 1, 'priority_boost': False, 'commission_multiplier': 1.0},
+            {'name': 'pro', 'price': 5000, 'max_products': 50, 'max_ad_boosts': 10, 'priority_boost': True, 'commission_multiplier': 1.25},
+            {'name': 'business', 'price': 15000, 'max_products': None, 'max_ad_boosts': None, 'priority_boost': True, 'commission_multiplier': 1.5}
         ]
         
         for plan_data in plans_data:
@@ -138,6 +142,10 @@ try:
             if not existing_plan:
                 plan = Plan(**plan_data)
                 sqlalchemy_db.session.add(plan)
+            elif existing_plan:
+                # Update existing plans with new fields
+                existing_plan.priority_boost = plan_data.get('priority_boost', False)
+                existing_plan.commission_multiplier = plan_data.get('commission_multiplier', 1.0)
         
         try:
             sqlalchemy_db.session.commit()
@@ -145,6 +153,28 @@ try:
         except Exception as e:
             sqlalchemy_db.session.rollback()
             logger.warning(f"Plans initialization: {e}")
+        
+        # Create default credit packages
+        packages_data = [
+            {'name': '10 Credits Starter', 'credits': 10, 'price': 1000, 'bonus_credits': 0, 'display_order': 1},
+            {'name': '50 Credits Basic', 'credits': 50, 'price': 4500, 'bonus_credits': 5, 'display_order': 2},
+            {'name': '100 Credits Popular', 'credits': 100, 'price': 8000, 'bonus_credits': 15, 'display_order': 3},
+            {'name': '250 Credits Pro', 'credits': 250, 'price': 18000, 'bonus_credits': 50, 'display_order': 4},
+            {'name': '500 Credits Business', 'credits': 500, 'price': 32000, 'bonus_credits': 120, 'display_order': 5}
+        ]
+        
+        for package_data in packages_data:
+            existing_package = CreditPackage.query.filter_by(name=package_data['name']).first()
+            if not existing_package:
+                package = CreditPackage(**package_data)
+                sqlalchemy_db.session.add(package)
+        
+        try:
+            sqlalchemy_db.session.commit()
+            logger.info("✅ Default credit packages initialized")
+        except Exception as e:
+            sqlalchemy_db.session.rollback()
+            logger.warning(f"Credit packages initialization: {e}")
             
 except Exception as e:
     logger.error("=" * 80)
