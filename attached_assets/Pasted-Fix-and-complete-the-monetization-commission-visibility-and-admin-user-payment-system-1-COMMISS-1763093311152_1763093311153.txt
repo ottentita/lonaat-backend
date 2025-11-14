@@ -1,0 +1,72 @@
+Fix and complete the monetization, commission visibility, and admin/user payment system:
+
+1. COMMISSIONS SYSTEM:
+   - Enable admin to view all commission activity from all users.
+   - Add an Admin Commission Dashboard with:
+        * Total commissions earned across all networks
+        * Filter by network (Digistore24, Awin)
+        * Filter by date range
+        * Detailed commission logs
+   - Admin should NOT withdraw commissions.
+
+2. USER COMMISSION DASHBOARD:
+   - Ensure users see their own:
+        * Total commissions
+        * Pending commissions
+        * Paid commissions
+        * Commission history
+
+3. CREDIT PURCHASE SYSTEM:
+   Implement the following system:
+
+   A. Direct Bank Transfer (Primary Method):
+      - Add a “Buy Credits” page for users.
+      - User selects a package (⭑ e.g., 1000 XAF = 10 credits).
+      - Show admin bank account details.
+      - User uploads payment receipt.
+      - Admin approves payment → credits added to user account.
+      - Add admin panel to approve/deny payments.
+
+   B. Subscription Plan:
+      - Add monthly plans (e.g., Basic, Pro, Elite).
+      - User selects a plan → shows the bank transfer instruction.
+      - User uploads proof, admin approves → plan activates.
+      - Plan should control:
+           * Max products
+           * Max campaigns
+           * Priority ad boost
+           * Commission boost
+
+4. STRIPE CARD PAYMENT (Optional but prepare structure):
+   - Add Stripe placeholders:
+        STRIPE_PUBLIC_KEY
+        STRIPE_SECRET_KEY
+   - Build frontend hooks for automatic card payments.
+   - If Stripe keys are missing, fallback to Bank Transfer.
+
+5. CAMPAIGN COST FIX:
+   - Admin campaigns must always be FREE.
+   - Remove all balance checks for admin campaigns.
+   - Users must have enough credits to launch campaigns.
+   - Cost logic applies ONLY to normal users.
+
+6. AUTH FIXES:
+   - Ensure admin has unlimited access to:
+        /products, /ads, /campaigns, /networks, /commissions
+   - Remove redirect bugs that send admin back to login.
+
+7. DATABASE UPDATES:
+   - Add tables:
+        payments (id, user_id, amount, method, receipt_url, status, plan, credits_added)
+        subscription_plans
+        user_subscriptions
+        commission_logs
+
+8. FRONTEND UPDATES:
+   - Add “Buy Credits”
+   - Add “Upgrade Plan”
+   - Add “Upload Proof”
+   - Add “Commission Dashboard”
+   - Add “Admin Commission Center”
+
+Implement all features above, link backend + frontend fully, and test end-to-end for admin and user flows.

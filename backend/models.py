@@ -351,6 +351,8 @@ class Plan(db.Model):
     features = db.Column(db.Text, nullable=True)  # JSON string
     max_products = db.Column(db.Integer, nullable=True)
     max_ad_boosts = db.Column(db.Integer, nullable=True)
+    priority_boost = db.Column(db.Boolean, default=False, nullable=False)  # Priority ad placement
+    commission_multiplier = db.Column(db.Float, default=1.0, nullable=False)  # 1.0 = 100%, 1.5 = 150% commission
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
@@ -363,6 +365,8 @@ class Plan(db.Model):
             'features': self.features,
             'max_products': self.max_products,
             'max_ad_boosts': self.max_ad_boosts,
+            'priority_boost': self.priority_boost,
+            'commission_multiplier': self.commission_multiplier,
             'is_active': self.is_active
         }
     
@@ -639,3 +643,103 @@ class AdminAudit(db.Model):
     
     def __repr__(self):
         return f'<AdminAudit {self.action} by {self.admin_id}>'
+
+
+class CreditPackage(db.Model):
+    """Predefined credit packages for purchase"""
+    __tablename__ = 'credit_packages'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)  # '10 Credits', '50 Credits', etc.
+    credits = db.Column(db.Integer, nullable=False)  # Number of credits
+    price = db.Column(db.Float, nullable=False)  # Price in XAF
+    bonus_credits = db.Column(db.Integer, default=0, nullable=False)  # Bonus credits (e.g., buy 50 get 5 free)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    display_order = db.Column(db.Integer, default=0, nullable=False)  # For sorting packages
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'credits': self.credits,
+            'price': self.price,
+            'bonus_credits': self.bonus_credits,
+            'total_credits': self.credits + self.bonus_credits,
+            'price_per_credit': round(self.price / (self.credits + self.bonus_credits), 2),
+            'is_active': self.is_active
+        }
+    
+    def __repr__(self):
+        return f'<CreditPackage {self.name} - {self.credits} credits for {self.price} XAF>'
+
+
+class PaymentRequest(db.Model):
+    """Payment request for credit purchase or subscription"""
+    __tablename__ = 'payment_requests'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    purpose = db.Column(db.String(50), nullable=False, index=True)  # 'credit_purchase' or 'subscription'
+    amount = db.Column(db.Float, nullable=False)
+    currency = db.Column(db.String(10), default='XAF', nullable=False)
+    payment_method = db.Column(db.String(50), default='bank_transfer', nullable=False)  # 'bank_transfer' or 'stripe'
+    
+    # For credit purchases
+    package_id = db.Column(db.Integer, db.ForeignKey('credit_packages.id'), nullable=True)
+    credits_to_add = db.Column(db.Integer, nullable=True)
+    
+    # For subscriptions
+    plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'), nullable=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscriptions.id'), nullable=True)
+    
+    # Payment proof
+    receipt_url = db.Column(db.String(500), nullable=True)  # Path to uploaded receipt
+    receipt_filename = db.Column(db.String(255), nullable=True)
+    
+    # Status and approval
+    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'approved', 'denied'
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Admin who reviewed
+    review_note = db.Column(db.Text, nullable=True)  # Admin's note
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Stripe payment intent (if applicable)
+    stripe_payment_intent_id = db.Column(db.String(255), nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='payment_requests')
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by])
+    package = db.relationship('CreditPackage', backref='payment_requests')
+    plan = db.relationship('Plan', backref='payment_requests')
+    subscription = db.relationship('Subscription', backref='payment_requests')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'user_name': self.user.name if self.user else None,
+            'user_email': self.user.email if self.user else None,
+            'purpose': self.purpose,
+            'amount': self.amount,
+            'currency': self.currency,
+            'payment_method': self.payment_method,
+            'package_id': self.package_id,
+            'package_name': self.package.name if self.package else None,
+            'credits_to_add': self.credits_to_add,
+            'plan_id': self.plan_id,
+            'plan_name': self.plan.name if self.plan else None,
+            'subscription_id': self.subscription_id,
+            'receipt_url': self.receipt_url,
+            'receipt_filename': self.receipt_filename,
+            'status': self.status,
+            'reviewed_by': self.reviewed_by,
+            'reviewer_name': self.reviewer.name if self.reviewer else None,
+            'review_note': self.review_note,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<PaymentRequest {self.purpose} - {self.amount} {self.currency} ({self.status})>'
