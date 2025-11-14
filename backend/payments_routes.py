@@ -3,7 +3,7 @@ Payment and subscription management routes
 Handles credit purchases, subscriptions, and admin payment approval
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, CreditPackage, PaymentRequest, Plan, Subscription, CreditWallet, Transaction
 from auth import is_admin_user, log_admin_action
@@ -52,7 +52,12 @@ def initiate_credit_purchase():
     Initiate credit purchase
     Creates a payment request and optionally uploads receipt
     
-    Request:
+    Supports both JSON and multipart/form-data:
+    JSON Request:
+        - package_id: int (required)
+        - payment_method: str ('bank_transfer' or 'stripe')
+    
+    Multipart Form Request:
         - package_id: int (required)
         - payment_method: str ('bank_transfer' or 'stripe')
         - receipt: file (optional, can be uploaded later)
@@ -64,16 +69,23 @@ def initiate_credit_purchase():
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        # Get package
-        package_id = request.form.get('package_id', type=int)
+        # Support both JSON and form data
+        if request.is_json:
+            data = request.get_json()
+            package_id = data.get('package_id')
+            payment_method = data.get('payment_method', 'bank_transfer')
+            has_receipt = False
+        else:
+            package_id = request.form.get('package_id', type=int)
+            payment_method = request.form.get('payment_method', 'bank_transfer')
+            has_receipt = 'receipt' in request.files
+        
         if not package_id:
             return jsonify({'error': 'package_id is required'}), 400
         
         package = CreditPackage.query.get(package_id)
         if not package or not package.is_active:
             return jsonify({'error': 'Invalid package'}), 404
-        
-        payment_method = request.form.get('payment_method', 'bank_transfer')
         
         # Create payment request
         payment_request = PaymentRequest(
@@ -87,16 +99,17 @@ def initiate_credit_purchase():
             status='pending'
         )
         
-        # Handle receipt upload if provided
-        if 'receipt' in request.files:
+        # Handle receipt upload if provided (multipart only)
+        if has_receipt:
             receipt_file = request.files['receipt']
             success, result = save_receipt(receipt_file, user_id, 'credit_purchase')
             
             if not success:
                 return jsonify({'error': result}), 400
             
-            payment_request.receipt_url = result['path']
-            payment_request.receipt_filename = result['filename']
+            if isinstance(result, dict):
+                payment_request.receipt_url = result.get('path')
+                payment_request.receipt_filename = result.get('filename')
         
         db.session.add(payment_request)
         db.session.commit()
@@ -154,8 +167,9 @@ def upload_payment_receipt(payment_id):
         if not success:
             return jsonify({'error': result}), 400
         
-        payment_request.receipt_url = result['path']
-        payment_request.receipt_filename = result['filename']
+        if isinstance(result, dict):
+            payment_request.receipt_url = result.get('path')
+            payment_request.receipt_filename = result.get('filename')
         db.session.commit()
         
         logger.info(f"Receipt uploaded for payment {payment_id}")
@@ -195,7 +209,12 @@ def subscribe_to_plan():
     Subscribe to a plan
     Creates pending subscription and payment request
     
-    Request:
+    Supports both JSON and multipart/form-data:
+    JSON Request:
+        - plan_id: int (required)
+        - payment_method: str ('bank_transfer' or 'stripe')
+    
+    Multipart Form Request:
         - plan_id: int (required)
         - payment_method: str ('bank_transfer' or 'stripe')
         - receipt: file (optional)
@@ -207,8 +226,17 @@ def subscribe_to_plan():
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        # Get plan
-        plan_id = request.form.get('plan_id', type=int)
+        # Support both JSON and form data
+        if request.is_json:
+            data = request.get_json()
+            plan_id = data.get('plan_id')
+            payment_method = data.get('payment_method', 'bank_transfer')
+            has_receipt = False
+        else:
+            plan_id = request.form.get('plan_id', type=int)
+            payment_method = request.form.get('payment_method', 'bank_transfer')
+            has_receipt = 'receipt' in request.files
+        
         if not plan_id:
             return jsonify({'error': 'plan_id is required'}), 400
         
@@ -224,8 +252,6 @@ def subscribe_to_plan():
         
         if existing_sub:
             return jsonify({'error': 'You already have an active subscription. Cancel it first or wait for it to expire.'}), 400
-        
-        payment_method = request.form.get('payment_method', 'bank_transfer')
         
         # Create pending subscription
         expires_at = datetime.utcnow() + timedelta(days=plan.duration_days)
@@ -252,8 +278,8 @@ def subscribe_to_plan():
             status='pending'
         )
         
-        # Handle receipt upload if provided
-        if 'receipt' in request.files:
+        # Handle receipt upload if provided (multipart only)
+        if has_receipt:
             receipt_file = request.files['receipt']
             success, result = save_receipt(receipt_file, user_id, 'subscription')
             
@@ -261,8 +287,9 @@ def subscribe_to_plan():
                 db.session.rollback()
                 return jsonify({'error': result}), 400
             
-            payment_request.receipt_url = result['path']
-            payment_request.receipt_filename = result['filename']
+            if isinstance(result, dict):
+                payment_request.receipt_url = result.get('path')
+                payment_request.receipt_filename = result.get('filename')
         
         db.session.add(payment_request)
         db.session.commit()
@@ -539,3 +566,37 @@ def deny_payment(payment_id):
         db.session.rollback()
         logger.error(f"Deny payment error: {e}")
         return jsonify({'error': 'Failed to deny payment'}), 500
+
+
+# ============= RECEIPT SERVING =============
+
+@payments_bp.route('/receipts/<filename>', methods=['GET'])
+@jwt_required()
+def serve_receipt(filename):
+    """
+    Serve uploaded receipt file
+    Only accessible by admin or the user who uploaded it
+    """
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        # Find payment request with this receipt
+        payment_request = PaymentRequest.query.filter(
+            PaymentRequest.receipt_filename == filename
+        ).first()
+        
+        if not payment_request:
+            return jsonify({'error': 'Receipt not found'}), 404
+        
+        # Check authorization: admin or owner
+        if not is_admin_user(current_user_id) and payment_request.user_id != current_user_id:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        # Serve file from uploads/receipts directory
+        uploads_dir = os.path.join(current_app.root_path, 'uploads', 'receipts')
+        
+        return send_from_directory(uploads_dir, filename)
+        
+    except Exception as e:
+        logger.error(f"Serve receipt error: {e}")
+        return jsonify({'error': 'Failed to serve receipt'}), 500
