@@ -30,6 +30,38 @@ def is_admin_user(user_id):
     return user.is_admin == True
 
 
+def check_user_blocked(user_id):
+    """
+    Check if a user account is blocked.
+    Returns (is_blocked: bool, error_message: str or None)
+    
+    If blocked_until has passed, automatically unblocks the user.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return False, None
+    
+    # Check if user is blocked
+    if not user.is_blocked:
+        return False, None
+    
+    # Check if block has expired
+    if user.blocked_until and user.blocked_until < datetime.utcnow():
+        # Auto-unblock expired blocks
+        user.is_blocked = False
+        user.blocked_until = None
+        user.block_reason = None
+        db.session.commit()
+        return False, None
+    
+    # User is still blocked
+    block_msg = user.block_reason or "Account temporarily suspended"
+    if user.blocked_until:
+        block_msg += f" until {user.blocked_until.strftime('%Y-%m-%d %H:%M')} UTC"
+    
+    return True, block_msg
+
+
 def can_add_products(user_id, count=1):
     """
     Check if user can add more products.

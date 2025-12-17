@@ -7,7 +7,7 @@ AdBoost engine routes
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, AdBoost, Product, CreditWallet, User
-from auth import is_admin_user
+from auth import is_admin_user, check_user_blocked
 from datetime import datetime, timedelta
 import logging
 
@@ -48,6 +48,11 @@ def launch_ad():
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
+        
+        # Check if user is blocked
+        is_blocked, block_message = check_user_blocked(user_id)
+        if is_blocked:
+            return jsonify({'error': block_message}), 403
         
         data = request.get_json()
         product_id = data.get('product_id')
