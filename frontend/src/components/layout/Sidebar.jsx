@@ -13,7 +13,11 @@ import {
   LogOut,
   Zap,
   TrendingUp,
-  Home
+  Home,
+  Globe,
+  Crown,
+  ShieldAlert,
+  Package2
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -23,9 +27,11 @@ const Sidebar = ({ onLogout }) => {
   const userLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/dashboard/products', icon: Package, label: 'My Products' },
+    { to: '/dashboard/networks', icon: Globe, label: 'Affiliate Networks' },
     { to: '/dashboard/real-estate', icon: Home, label: 'Real Estate' },
     { to: '/dashboard/ads', icon: Megaphone, label: 'AdBoost' },
     { to: '/dashboard/wallet', icon: CreditCard, label: 'Wallet' },
+    { to: '/dashboard/subscriptions', icon: Crown, label: 'Subscriptions' },
     { to: '/dashboard/commissions', icon: TrendingUp, label: 'Commissions' },
     { to: '/dashboard/transactions', icon: DollarSign, label: 'Transactions' },
     { to: '/dashboard/withdrawals', icon: Wallet, label: 'Withdrawals' },
@@ -36,10 +42,13 @@ const Sidebar = ({ onLogout }) => {
   const adminLinks = [
     { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/users', icon: Users, label: 'Users' },
+    { to: '/admin/products', icon: Package2, label: 'Products' },
     { to: '/admin/real-estate', icon: Home, label: 'Real Estate' },
     { to: '/admin/ads', icon: Megaphone, label: 'Ad Campaigns' },
+    { to: '/admin/subscriptions', icon: Crown, label: 'Subscriptions' },
     { to: '/admin/withdrawals', icon: Wallet, label: 'Withdrawals' },
     { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
+    { to: '/admin/fraud', icon: ShieldAlert, label: 'Fraud Detection' },
     { to: '/admin/notifications', icon: Bell, label: 'Notifications' },
   ];
 
@@ -47,7 +56,6 @@ const Sidebar = ({ onLogout }) => {
 
   return (
     <div className="w-64 h-screen bg-dark-900 border-r border-dark-800 flex flex-col">
-      {/* Logo */}
       <div className="p-6 border-b border-dark-800">
         <div className="flex items-center gap-2">
           <Zap className="w-8 h-8 text-primary-500" />
@@ -60,13 +68,13 @@ const Sidebar = ({ onLogout }) => {
         </p>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
-        <div className="space-y-2">
+        <div className="space-y-1">
           {links.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
+              end={link.to === '/dashboard' || link.to === '/admin'}
               className={({ isActive }) =>
                 isActive ? 'sidebar-link-active' : 'sidebar-link'
               }
@@ -78,7 +86,6 @@ const Sidebar = ({ onLogout }) => {
         </div>
       </nav>
 
-      {/* Footer */}
       <div className="p-4 border-t border-dark-800">
         <button
           onClick={onLogout}

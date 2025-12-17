@@ -17,6 +17,8 @@ import Commissions from './pages/user/Commissions';
 import Notifications from './pages/user/Notifications';
 import Profile from './pages/user/Profile';
 import RealEstate from './pages/user/RealEstate';
+import AffiliateNetworks from './pages/user/AffiliateNetworks';
+import Subscriptions from './pages/user/Subscriptions';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -26,6 +28,9 @@ import AdminWithdrawals from './pages/admin/Withdrawals';
 import AdminPayments from './pages/admin/Payments';
 import AdminNotifications from './pages/admin/Notifications';
 import AdminRealEstate from './pages/admin/RealEstate';
+import AdminProducts from './pages/admin/Products';
+import AdminSubscriptions from './pages/admin/Subscriptions';
+import FraudDetection from './pages/admin/FraudDetection';
 
 // Legal Pages
 import Terms from './pages/Terms';
@@ -87,6 +92,8 @@ function App() {
         <Route path="/dashboard/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/dashboard/settings" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/dashboard/real-estate" element={<ProtectedRoute><RealEstate /></ProtectedRoute>} />
+        <Route path="/dashboard/networks" element={<ProtectedRoute><AffiliateNetworks /></ProtectedRoute>} />
+        <Route path="/dashboard/subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
@@ -95,6 +102,9 @@ function App() {
         <Route path="/admin/payments" element={<ProtectedRoute adminOnly><AdminPayments /></ProtectedRoute>} />
         <Route path="/admin/notifications" element={<ProtectedRoute adminOnly><AdminNotifications /></ProtectedRoute>} />
         <Route path="/admin/real-estate" element={<ProtectedRoute adminOnly><AdminRealEstate /></ProtectedRoute>} />
+        <Route path="/admin/products" element={<ProtectedRoute adminOnly><AdminProducts /></ProtectedRoute>} />
+        <Route path="/admin/subscriptions" element={<ProtectedRoute adminOnly><AdminSubscriptions /></ProtectedRoute>} />
+        <Route path="/admin/fraud" element={<ProtectedRoute adminOnly><FraudDetection /></ProtectedRoute>} />
 
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
