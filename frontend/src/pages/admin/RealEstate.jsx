@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { realEstateAPI } from '../../services/api';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -92,11 +91,7 @@ export default function AdminRealEstate() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 p-4"
-    >
+    <div className="space-y-6 p-4">
       <h1 className="text-2xl font-bold">Real Estate Management</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -240,6 +235,6 @@ export default function AdminRealEstate() {
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

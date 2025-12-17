@@ -538,7 +538,7 @@ def cancel_booking(booking_id):
         return jsonify({'error': 'Failed to cancel booking'}), 500
 
 
-@real_estate_bp.route('/admin/properties', methods=['GET'])
+@real_estate_bp.route('/api/admin/properties', methods=['GET'])
 @jwt_required()
 def admin_get_properties():
     """Admin: Get all properties with filters"""
@@ -581,7 +581,7 @@ def admin_get_properties():
         return jsonify({'error': 'Failed to fetch properties'}), 500
 
 
-@real_estate_bp.route('/admin/properties/<int:property_id>/approve', methods=['POST'])
+@real_estate_bp.route('/api/admin/properties/<int:property_id>/approve', methods=['POST'])
 @jwt_required()
 def admin_approve_property(property_id):
     """Admin: Approve a property listing"""
@@ -615,7 +615,7 @@ def admin_approve_property(property_id):
         return jsonify({'error': 'Failed to approve property'}), 500
 
 
-@real_estate_bp.route('/admin/properties/<int:property_id>/reject', methods=['POST'])
+@real_estate_bp.route('/api/admin/properties/<int:property_id>/reject', methods=['POST'])
 @jwt_required()
 def admin_reject_property(property_id):
     """Admin: Reject a property listing"""
