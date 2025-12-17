@@ -113,6 +113,10 @@ def request_withdrawal():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
+    # Admin users cannot make withdrawal requests (they manage the platform)
+    if user.is_admin:
+        return jsonify({'error': 'Admin accounts cannot request withdrawals'}), 403
+    
     if user.balance < amount:
         return jsonify({'error': 'Insufficient balance'}), 400
     
@@ -183,7 +187,7 @@ def get_all_withdrawals():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
     
-    if not user or user.role != 'admin':
+    if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
     
     status = request.args.get('status', 'pending')
@@ -214,7 +218,7 @@ def approve_withdrawal(withdrawal_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
     
-    if not user or user.role != 'admin':
+    if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
     
     withdrawal = WithdrawalRequest.query.get(withdrawal_id)
@@ -263,7 +267,7 @@ def reject_withdrawal(withdrawal_id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
     
-    if not user or user.role != 'admin':
+    if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
     
     withdrawal = WithdrawalRequest.query.get(withdrawal_id)
