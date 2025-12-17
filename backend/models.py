@@ -31,6 +31,9 @@ class User(db.Model):
     balance = db.Column(db.Float, default=0.0, nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)  # For deactivating users
+    is_blocked = db.Column(db.Boolean, default=False, nullable=False)  # Temporarily blocked for fraud
+    blocked_until = db.Column(db.DateTime, nullable=True)  # When block expires
+    block_reason = db.Column(db.String(255), nullable=True)  # Reason for blocking
     referral_code = db.Column(db.String(20), unique=True, nullable=False, index=True)
     referred_by = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -60,6 +63,8 @@ class User(db.Model):
             'role': self.role,
             'is_admin': self.is_admin,
             'is_active': self.is_active,
+            'is_blocked': self.is_blocked,
+            'blocked_until': self.blocked_until.isoformat() if self.blocked_until else None,
             'verified': self.verified,
             'referral_code': self.referral_code,
             'referred_by': self.referred_by,

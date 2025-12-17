@@ -69,8 +69,26 @@ def launch_ad():
         if existing_boost:
             return jsonify({'error': 'Product already has an active AdBoost campaign'}), 400
         
-        # Check if user is admin - admins bypass ALL credit checks
+        # Check if user is admin - admins bypass ALL credit checks AND limits
         is_admin = is_admin_user(user_id)
+        
+        # PREMIUM AI LIMIT: Regular users limited to 5 boosts per day
+        MAX_BOOSTS_PER_DAY = 5
+        
+        if not is_admin:
+            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_boosts = AdBoost.query.filter(
+                AdBoost.user_id == user_id,
+                AdBoost.started_at >= today_start
+            ).count()
+            
+            if today_boosts >= MAX_BOOSTS_PER_DAY:
+                return jsonify({
+                    'error': f'Daily boost limit reached. Premium users are limited to {MAX_BOOSTS_PER_DAY} boosts per day.',
+                    'boosts_today': today_boosts,
+                    'limit': MAX_BOOSTS_PER_DAY,
+                    'resets_at': (today_start + timedelta(days=1)).isoformat()
+                }), 429
         
         # Get or create wallet (even for admins, for tracking)
         wallet = CreditWallet.query.filter_by(user_id=user_id).first()
