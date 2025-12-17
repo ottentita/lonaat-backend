@@ -169,6 +169,17 @@ export const adminAPI = {
     return adminAPI.getDashboard();
   },
   addCommission: (data) => api.post('/admin/add_commission', data),
+  
+  // AI Bulk Operations (Admin only - free unlimited)
+  aiBulkImport: (data) => api.post('/admin/ai/bulk-import', data),
+  aiGenerateAds: (data) => api.post('/admin/ai/generate-ads', data),
+  
+  // Fraud Management
+  getFraudStats: () => api.get('/admin/fraud/stats'),
+  blockUser: (userId, data) => api.post(`/admin/users/${userId}/block`, data),
+  unblockUser: (userId) => api.post(`/admin/users/${userId}/unblock`),
+  deactivateUser: (userId) => api.post(`/admin/users/${userId}/deactivate`),
+  reactivateUser: (userId) => api.post(`/admin/users/${userId}/reactivate`),
 };
 
 // Affiliate APIs

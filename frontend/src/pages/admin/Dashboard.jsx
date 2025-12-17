@@ -16,12 +16,16 @@ import {
   Package,
   Megaphone,
   Globe,
-  ArrowRight
+  ArrowRight,
+  Sparkles,
+  Shield,
+  Bot
 } from 'lucide-react';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const [stats, setStats] = useState({
     total_users: 0,
     active_users: 0,
@@ -37,6 +41,23 @@ const AdminDashboard = () => {
     commissions: [],
     adminActions: []
   });
+  
+  const handleAiBulkImport = async () => {
+    try {
+      setAiLoading(true);
+      const response = await adminAPI.aiBulkImport({
+        networks: ['digistore24', 'awin'],
+        max_per_network: 20,
+        generate_ads: true
+      });
+      toast.success(response.data.message || 'AI bulk import complete!');
+      fetchStats();
+    } catch (error) {
+      toast.error('Failed to run AI bulk import');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchStats();
@@ -185,6 +206,68 @@ const AdminDashboard = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold text-dark-50 mb-4">AI Admin Tools</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="card bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-700/50">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-purple-500/20">
+                  <Bot className="w-8 h-8 text-purple-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-dark-50 mb-1">
+                    AI Bulk Import
+                  </h3>
+                  <p className="text-dark-300 text-sm mb-3">
+                    Automatically import products from Digistore24 & Awin with AI-generated ad copy. 
+                    <span className="text-green-400 font-medium"> Free & Unlimited for Admins!</span>
+                  </p>
+                  <button
+                    onClick={handleAiBulkImport}
+                    disabled={aiLoading}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Running AI Import...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Run AI Bulk Import
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="card bg-gradient-to-br from-red-900/20 to-orange-900/20 border-red-700/50">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-red-500/20">
+                  <Shield className="w-8 h-8 text-red-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-dark-50 mb-1">
+                    Fraud Detection
+                  </h3>
+                  <p className="text-dark-300 text-sm mb-3">
+                    Monitor suspicious activity and manage blocked accounts. Auto-blocks users with fraud score above 80.
+                  </p>
+                  <button
+                    onClick={() => navigate('/admin/users')}
+                    className="btn-secondary flex items-center gap-2"
+                  >
+                    <Shield className="w-4 h-4" />
+                    View Fraud Stats
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div>
