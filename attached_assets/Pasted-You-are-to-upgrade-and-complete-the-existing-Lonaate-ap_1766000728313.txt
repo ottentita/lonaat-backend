@@ -1,0 +1,440 @@
+You are to upgrade and complete the existing Lonaate app into a production-ready platform.
+
+Your goals in Phase A are to:
+
+1. Finalize the core backend system
+
+
+2. Implement real estate & rentals module
+
+
+3. Implement internal AI automation system
+
+
+4. Ensure admin has unrestricted/free access
+
+
+5. Ensure users are monetized correctly
+
+
+6. Prepare system for future expansion
+
+
+
+DO NOT deploy yet.
+DO NOT add Stripe/Flutterwave logic beyond placeholders.
+
+
+---
+
+TECH STACK (MANDATORY)
+
+Backend: Python (FastAPI preferred, Flask acceptable)
+
+Database: PostgreSQL (Render / Supabase)
+
+ORM: SQLAlchemy
+
+Auth: JWT (12-hour expiry)
+
+Frontend: Existing React / HTML structure (upgrade, don’t rewrite)
+
+AI Jobs: Background scheduler (Celery / APScheduler)
+
+Hosting: Render-ready configuration
+
+
+
+---
+
+1️⃣ CORE AUTH & USER SYSTEM
+
+Implement / Fix:
+
+JWT authentication with payload:
+
+
+{
+  "user_id": "...",
+  "email": "...",
+  "role": "admin | user",
+  "plan": "free | basic | pro | premium"
+}
+
+Session expiry: 12 hours
+
+Roles:
+
+Admin → unlimited access, zero cost, no credit checks
+
+User → subject to plans, credits, limits
+
+
+
+Fix bugs:
+
+Admin must NOT be redirected to login when accessing:
+
+/products
+
+/campaigns
+
+/ads
+
+/networks
+
+/commissions
+
+/real-estate
+
+
+
+
+---
+
+2️⃣ DATABASE SCHEMA (POSTGRESQL)
+
+Create / migrate these tables (upgrade if they exist):
+
+Core
+
+users
+
+roles
+
+plans
+
+user_plans
+
+credits
+
+sessions
+
+
+Affiliate & Ads
+
+products
+
+affiliate_networks
+
+campaigns
+
+ad_boosts
+
+clicks
+
+commission_logs
+
+
+Payments
+
+payments
+
+subscriptions
+
+withdrawal_requests
+
+
+Real Estate (NEW)
+
+properties
+
+property_images
+
+rentals
+
+bookings
+
+property_ads
+
+
+AI System (INTERNAL)
+
+ai_jobs
+
+ai_boost_logs
+
+ai_security_flags
+
+ai_commission_checks
+
+
+
+---
+
+3️⃣ REAL ESTATE & RENTALS MODULE (PHASE A REQUIRED)
+
+Features:
+
+Property types:
+
+Land
+
+Houses
+
+Rentals
+
+Guest houses
+
+Car rentals
+
+
+Only Cameroon for now
+
+
+User Flow:
+
+User creates property listing
+
+Admin approves listing
+
+Property can be boosted via ads
+
+Owner pays via:
+
+Credits
+
+Subscription plan
+
+
+Admin can list unlimited properties FREE
+
+
+
+---
+
+4️⃣ AI SYSTEM (INTERNAL & PREMIUM)
+
+AI CAPABILITIES (PHASE A):
+
+A. Product & Property Boost AI
+
+When campaign starts:
+
+Auto-boost traffic for 24 hours
+
+Max boosts per user/day = 5
+
+Admin = unlimited
+
+
+Boosts auto-stop after time window
+
+
+B. Commission Monitoring AI
+
+Track:
+
+Pending commissions
+
+Approved commissions
+
+Delayed commissions
+
+
+Flag anomalies for admin review
+
+
+C. Security AI
+
+Detect:
+
+Click fraud
+
+Abnormal traffic
+
+Duplicate accounts
+
+
+Auto-flag → admin review → suspend if needed
+
+
+❌ AI MUST NOT:
+
+Move money
+
+Approve withdrawals
+
+Send payments
+
+Interact with banks automatically
+
+
+
+---
+
+5️⃣ ADMIN RULES (VERY IMPORTANT)
+
+Admin must:
+
+Pay nothing
+
+Have unlimited campaigns
+
+Have free AI usage
+
+Have full visibility of:
+
+All users
+
+All commissions
+
+All payments
+
+All properties
+
+All AI logs
+
+
+
+Admin must NEVER:
+
+Be required to buy credits
+
+Be blocked by plan limits
+
+
+
+---
+
+6️⃣ MONETIZATION LOGIC (PREP ONLY)
+
+Credits:
+
+Users buy credits via manual bank transfer
+
+Upload receipt
+
+Admin approves → credits added
+
+
+Plans:
+
+Monthly plans control:
+
+Max products
+
+Max boosts
+
+AI access
+
+
+Admin plans ignored (always active)
+
+
+Payments:
+
+Store payment records
+
+No auto-withdrawals
+
+Admin does NOT withdraw commissions
+
+
+
+---
+
+7️⃣ FRONTEND TASKS
+
+Upgrade dashboards:
+
+User Dashboard
+
+Admin Dashboard (separate)
+
+
+Add sections:
+
+Real Estate
+
+Buy Credits
+
+Upgrade Plan
+
+Commission Dashboard
+
+AI Activity (Admin only)
+
+
+Hide cost UI when role === admin
+
+Show “FREE” for admin campaigns
+
+
+
+---
+
+8️⃣ SECURITY & COMPLIANCE
+
+Implement:
+
+Password hashing (bcrypt)
+
+SQL injection protection
+
+Rate limiting
+
+Audit logs
+
+Role-based access guards
+
+
+
+---
+
+9️⃣ TESTING REQUIREMENTS
+
+Before finishing Phase A, test:
+
+Admin can:
+
+Create campaigns without credits
+
+Add properties
+
+Run AI boosts
+
+
+User can:
+
+Register
+
+Buy credits (manual)
+
+Add product/property
+
+Launch campaign (if credits available)
+
+
+AI jobs run on schedule
+
+JWT expires after 12 hours
+
+
+
+---
+
+🔟 OUTPUT EXPECTATION
+
+At the end of Phase A, the app must have:
+
+✅ Working core system
+✅ Real estate & rentals active
+✅ AI running internally
+✅ Admin unrestricted
+✅ Users monetized
+✅ PostgreSQL stable
+✅ Ready for Phase B (payments automation & scaling)
+
+
+---
+
+DO NOT
+
+Rewrite entire app
+
+Remove existing working features
+
+Add auto-payments
+
+Deploy to production yet
