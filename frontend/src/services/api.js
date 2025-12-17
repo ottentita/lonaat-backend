@@ -187,4 +187,29 @@ export const affiliateAPI = {
   getStats: (productId) => api.get(`/affiliate/stats/${productId}`),
 };
 
+// Real Estate APIs
+export const realEstateAPI = {
+  getProperties: (params) => api.get('/properties', { params }),
+  getMyProperties: (params) => api.get('/properties', { params: { ...params, my_listings: true } }),
+  getProperty: (id) => api.get(`/properties/${id}`),
+  createProperty: (data) => api.post('/properties', data),
+  updateProperty: (id, data) => api.put(`/properties/${id}`, data),
+  deleteProperty: (id) => api.delete(`/properties/${id}`),
+  addPropertyImage: (id, data) => api.post(`/properties/${id}/images`, data),
+  boostProperty: (id) => api.post(`/properties/${id}/boost`),
+  getPropertyTypes: () => api.get('/properties/types'),
+  getPropertyStats: () => api.get('/properties/stats'),
+  
+  // Bookings
+  getMyBookings: (role = 'tenant') => api.get('/properties/bookings', { params: { role } }),
+  createBooking: (propertyId, data) => api.post(`/properties/${propertyId}/book`, data),
+  confirmBooking: (bookingId) => api.post(`/bookings/${bookingId}/confirm`),
+  cancelBooking: (bookingId) => api.post(`/bookings/${bookingId}/cancel`),
+  
+  // Admin
+  adminGetProperties: (params) => api.get('/admin/properties', { params }),
+  adminApproveProperty: (id, data) => api.post(`/admin/properties/${id}/approve`, data),
+  adminRejectProperty: (id, data) => api.post(`/admin/properties/${id}/reject`, data),
+};
+
 export default api;

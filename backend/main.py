@@ -41,6 +41,7 @@ from routes.bank import bank_bp
 from deployment_status import status_bp
 from db_guard import set_db_initialized
 from production_api import production_bp
+from real_estate_routes import real_estate_bp
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 
@@ -102,6 +103,7 @@ app.register_blueprint(networks_bp)
 app.register_blueprint(bank_bp)
 app.register_blueprint(status_bp)
 app.register_blueprint(production_bp)
+app.register_blueprint(real_estate_bp)
 
 # Create database tables
 # FAIL FAST in production if database unavailable to prevent runtime crashes

@@ -748,3 +748,362 @@ class PaymentRequest(db.Model):
     
     def __repr__(self):
         return f'<PaymentRequest {self.purpose} - {self.amount} {self.currency} ({self.status})>'
+
+
+# ============= REAL ESTATE MODULE =============
+
+class Property(db.Model):
+    """Property listing model for real estate module"""
+    __tablename__ = 'properties'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    
+    # Property details
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    property_type = db.Column(db.String(50), nullable=False, index=True)  # 'land', 'house', 'rental', 'guest_house', 'car_rental'
+    
+    # Location (Cameroon only for now)
+    country = db.Column(db.String(50), default='Cameroon', nullable=False)
+    city = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.String(255), nullable=True)
+    
+    # Pricing
+    price = db.Column(db.Float, nullable=True)  # Sale price or rental price
+    currency = db.Column(db.String(10), default='XAF', nullable=False)
+    price_type = db.Column(db.String(50), nullable=True)  # 'fixed', 'negotiable', 'per_day', 'per_month'
+    
+    # Property specs
+    bedrooms = db.Column(db.Integer, nullable=True)
+    bathrooms = db.Column(db.Integer, nullable=True)
+    size_sqm = db.Column(db.Float, nullable=True)  # Size in square meters
+    amenities = db.Column(db.Text, nullable=True)  # JSON string of amenities
+    
+    # Status and approval
+    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'approved', 'rejected', 'archived'
+    is_featured = db.Column(db.Boolean, default=False, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    
+    # Admin review
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    review_note = db.Column(db.Text, nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='properties')
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by])
+    images = db.relationship('PropertyImage', backref='property', lazy='dynamic', cascade='all, delete-orphan')
+    rental_details = db.relationship('RentalDetails', backref='property', uselist=False, cascade='all, delete-orphan')
+    bookings = db.relationship('PropertyBooking', backref='property', lazy='dynamic', cascade='all, delete-orphan')
+    ads = db.relationship('PropertyAd', backref='property', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def to_dict(self, include_images=True):
+        data = {
+            'id': self.id,
+            'user_id': self.user_id,
+            'owner_name': self.user.name if self.user else None,
+            'title': self.title,
+            'description': self.description,
+            'property_type': self.property_type,
+            'country': self.country,
+            'city': self.city,
+            'address': self.address,
+            'price': self.price,
+            'currency': self.currency,
+            'price_type': self.price_type,
+            'bedrooms': self.bedrooms,
+            'bathrooms': self.bathrooms,
+            'size_sqm': self.size_sqm,
+            'amenities': self.amenities,
+            'status': self.status,
+            'is_featured': self.is_featured,
+            'is_active': self.is_active,
+            'review_note': self.review_note,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+        if include_images:
+            data['images'] = [img.to_dict() for img in self.images.all()]
+        if self.rental_details:
+            data['rental_details'] = self.rental_details.to_dict()
+        return data
+    
+    def __repr__(self):
+        return f'<Property {self.title} ({self.property_type})>'
+
+
+class PropertyImage(db.Model):
+    """Property images model"""
+    __tablename__ = 'property_images'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), nullable=False, index=True)
+    image_url = db.Column(db.String(500), nullable=False)
+    caption = db.Column(db.String(255), nullable=True)
+    is_primary = db.Column(db.Boolean, default=False, nullable=False)
+    display_order = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'property_id': self.property_id,
+            'image_url': self.image_url,
+            'caption': self.caption,
+            'is_primary': self.is_primary,
+            'display_order': self.display_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<PropertyImage Property:{self.property_id}>'
+
+
+class RentalDetails(db.Model):
+    """Rental-specific details for rental properties"""
+    __tablename__ = 'rental_details'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), unique=True, nullable=False, index=True)
+    
+    # Rental rates
+    daily_rate = db.Column(db.Float, nullable=True)
+    weekly_rate = db.Column(db.Float, nullable=True)
+    monthly_rate = db.Column(db.Float, nullable=True)
+    
+    # Rental rules
+    min_stay_days = db.Column(db.Integer, default=1, nullable=False)
+    max_stay_days = db.Column(db.Integer, nullable=True)
+    max_guests = db.Column(db.Integer, nullable=True)
+    
+    # For car rentals
+    vehicle_make = db.Column(db.String(100), nullable=True)
+    vehicle_model = db.Column(db.String(100), nullable=True)
+    vehicle_year = db.Column(db.Integer, nullable=True)
+    vehicle_type = db.Column(db.String(50), nullable=True)  # 'sedan', 'suv', 'truck', etc.
+    
+    # Policies
+    deposit_required = db.Column(db.Float, nullable=True)
+    cancellation_policy = db.Column(db.String(50), default='flexible', nullable=False)  # 'flexible', 'moderate', 'strict'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'property_id': self.property_id,
+            'daily_rate': self.daily_rate,
+            'weekly_rate': self.weekly_rate,
+            'monthly_rate': self.monthly_rate,
+            'min_stay_days': self.min_stay_days,
+            'max_stay_days': self.max_stay_days,
+            'max_guests': self.max_guests,
+            'vehicle_make': self.vehicle_make,
+            'vehicle_model': self.vehicle_model,
+            'vehicle_year': self.vehicle_year,
+            'vehicle_type': self.vehicle_type,
+            'deposit_required': self.deposit_required,
+            'cancellation_policy': self.cancellation_policy
+        }
+    
+    def __repr__(self):
+        return f'<RentalDetails Property:{self.property_id}>'
+
+
+class PropertyBooking(db.Model):
+    """Property booking model for rentals"""
+    __tablename__ = 'property_bookings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)  # Tenant
+    
+    # Booking dates
+    check_in = db.Column(db.DateTime, nullable=False)
+    check_out = db.Column(db.DateTime, nullable=False)
+    
+    # Guests
+    guests = db.Column(db.Integer, default=1, nullable=False)
+    
+    # Pricing
+    total_price = db.Column(db.Float, nullable=False)
+    currency = db.Column(db.String(10), default='XAF', nullable=False)
+    deposit_paid = db.Column(db.Float, default=0, nullable=False)
+    
+    # Status
+    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'confirmed', 'cancelled', 'completed'
+    
+    # Notes
+    guest_notes = db.Column(db.Text, nullable=True)
+    owner_notes = db.Column(db.Text, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    confirmed_at = db.Column(db.DateTime, nullable=True)
+    cancelled_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    user = db.relationship('User', backref='property_bookings')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'property_id': self.property_id,
+            'property_title': self.property.title if self.property else None,
+            'user_id': self.user_id,
+            'tenant_name': self.user.name if self.user else None,
+            'check_in': self.check_in.isoformat() if self.check_in else None,
+            'check_out': self.check_out.isoformat() if self.check_out else None,
+            'guests': self.guests,
+            'total_price': self.total_price,
+            'currency': self.currency,
+            'deposit_paid': self.deposit_paid,
+            'status': self.status,
+            'guest_notes': self.guest_notes,
+            'owner_notes': self.owner_notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'confirmed_at': self.confirmed_at.isoformat() if self.confirmed_at else None,
+            'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None
+        }
+    
+    def __repr__(self):
+        return f'<PropertyBooking Property:{self.property_id} ({self.status})>'
+
+
+class PropertyAd(db.Model):
+    """Property ad boost model for real estate listings"""
+    __tablename__ = 'property_ads'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    
+    # Boost details
+    boost_level = db.Column(db.Integer, default=1, nullable=False)  # 1x, 2x, 4x, etc.
+    credits_spent = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Performance
+    views = db.Column(db.Integer, default=0, nullable=False)
+    clicks = db.Column(db.Integer, default=0, nullable=False)
+    inquiries = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Status and timing
+    status = db.Column(db.String(20), default='active', nullable=False, index=True)  # 'active', 'expired', 'paused'
+    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', backref='property_ads')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'property_id': self.property_id,
+            'property_title': self.property.title if self.property else None,
+            'user_id': self.user_id,
+            'boost_level': self.boost_level,
+            'credits_spent': self.credits_spent,
+            'views': self.views,
+            'clicks': self.clicks,
+            'inquiries': self.inquiries,
+            'status': self.status,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None
+        }
+    
+    def __repr__(self):
+        return f'<PropertyAd Property:{self.property_id} {self.boost_level}x>'
+
+
+# ============= AI SYSTEM TABLES =============
+
+class AIJob(db.Model):
+    """AI job tracking model"""
+    __tablename__ = 'ai_jobs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    job_type = db.Column(db.String(50), nullable=False, index=True)  # 'product_boost', 'property_boost', 'ad_generation', 'commission_check'
+    entity_type = db.Column(db.String(50), nullable=True)  # 'product', 'property'
+    entity_id = db.Column(db.Integer, nullable=True)
+    
+    # Job status
+    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'running', 'completed', 'failed'
+    result = db.Column(db.Text, nullable=True)  # JSON result
+    error_message = db.Column(db.Text, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    user = db.relationship('User', backref='ai_jobs')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'job_type': self.job_type,
+            'entity_type': self.entity_type,
+            'entity_id': self.entity_id,
+            'status': self.status,
+            'result': self.result,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
+    
+    def __repr__(self):
+        return f'<AIJob {self.job_type} ({self.status})>'
+
+
+class AISecurityFlag(db.Model):
+    """AI security flag for fraud detection"""
+    __tablename__ = 'ai_security_flags'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    flag_type = db.Column(db.String(50), nullable=False, index=True)  # 'click_fraud', 'duplicate_account', 'abnormal_traffic', 'suspicious_withdrawal'
+    severity = db.Column(db.String(20), default='medium', nullable=False)  # 'low', 'medium', 'high', 'critical'
+    description = db.Column(db.Text, nullable=True)
+    evidence = db.Column(db.Text, nullable=True)  # JSON evidence data
+    
+    # Status
+    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'reviewed', 'resolved', 'action_taken'
+    resolution = db.Column(db.Text, nullable=True)
+    
+    # Admin review
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='security_flags')
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by])
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'user_name': self.user.name if self.user else None,
+            'flag_type': self.flag_type,
+            'severity': self.severity,
+            'description': self.description,
+            'evidence': self.evidence,
+            'status': self.status,
+            'resolution': self.resolution,
+            'reviewed_by': self.reviewed_by,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<AISecurityFlag {self.flag_type} ({self.severity})>'

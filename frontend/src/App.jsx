@@ -16,6 +16,7 @@ import Withdrawals from './pages/user/Withdrawals';
 import Commissions from './pages/user/Commissions';
 import Notifications from './pages/user/Notifications';
 import Profile from './pages/user/Profile';
+import RealEstate from './pages/user/RealEstate';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -24,6 +25,7 @@ import AdminAds from './pages/admin/Ads';
 import AdminWithdrawals from './pages/admin/Withdrawals';
 import AdminPayments from './pages/admin/Payments';
 import AdminNotifications from './pages/admin/Notifications';
+import AdminRealEstate from './pages/admin/RealEstate';
 
 // Legal Pages
 import Terms from './pages/Terms';
@@ -84,6 +86,7 @@ function App() {
         <Route path="/dashboard/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
         <Route path="/dashboard/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/dashboard/settings" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/dashboard/real-estate" element={<ProtectedRoute><RealEstate /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
@@ -91,6 +94,7 @@ function App() {
         <Route path="/admin/withdrawals" element={<ProtectedRoute adminOnly><AdminWithdrawals /></ProtectedRoute>} />
         <Route path="/admin/payments" element={<ProtectedRoute adminOnly><AdminPayments /></ProtectedRoute>} />
         <Route path="/admin/notifications" element={<ProtectedRoute adminOnly><AdminNotifications /></ProtectedRoute>} />
+        <Route path="/admin/real-estate" element={<ProtectedRoute adminOnly><AdminRealEstate /></ProtectedRoute>} />
 
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
