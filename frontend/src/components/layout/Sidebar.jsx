@@ -12,7 +12,8 @@ import {
   Settings,
   LogOut,
   Zap,
-  TrendingUp
+  TrendingUp,
+  Home
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -22,6 +23,7 @@ const Sidebar = ({ onLogout }) => {
   const userLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/dashboard/products', icon: Package, label: 'My Products' },
+    { to: '/dashboard/real-estate', icon: Home, label: 'Real Estate' },
     { to: '/dashboard/ads', icon: Megaphone, label: 'AdBoost' },
     { to: '/dashboard/wallet', icon: CreditCard, label: 'Wallet' },
     { to: '/dashboard/commissions', icon: TrendingUp, label: 'Commissions' },
@@ -34,6 +36,7 @@ const Sidebar = ({ onLogout }) => {
   const adminLinks = [
     { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/users', icon: Users, label: 'Users' },
+    { to: '/admin/real-estate', icon: Home, label: 'Real Estate' },
     { to: '/admin/ads', icon: Megaphone, label: 'Ad Campaigns' },
     { to: '/admin/withdrawals', icon: Wallet, label: 'Withdrawals' },
     { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
