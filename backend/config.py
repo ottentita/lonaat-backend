@@ -27,14 +27,21 @@ class Config:
         )
     
     # Fix for SQLAlchemy 1.4+ which requires postgresql:// instead of postgres://
+    # Use psycopg2 driver explicitly for production
     if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg2://', 1)
+    elif DATABASE_URL.startswith('postgresql://') and '+' not in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg2://', 1)
     
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
+        'pool_size': 10,
+        'max_overflow': 20,
+        'pool_timeout': 30,
+        'echo': False,  # Set to True for SQL debugging
     }
     
     # JWT

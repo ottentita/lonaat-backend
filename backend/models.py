@@ -1,15 +1,22 @@
 """
 Database Models for Lonaat Affiliate Marketing Platform
-SQLAlchemy models with support for SQLite and PostgreSQL
+PostgreSQL-native models with JSONB, explicit ENUMs, and timezone-aware timestamps
 """
 
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timezone
 import secrets
 import string
+from sqlalchemy import Enum as SAEnum, text
+from sqlalchemy.dialects.postgresql import JSONB
 
 db = SQLAlchemy()
+
+
+def utc_now():
+    """Get current UTC time with timezone awareness"""
+    return datetime.now(timezone.utc)
 
 
 def generate_referral_code():
@@ -17,6 +24,92 @@ def generate_referral_code():
     chars = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(chars) for _ in range(8))
 
+
+# ============= ENUM TYPES =============
+# Using string-based enums for PostgreSQL compatibility
+
+class UserRole:
+    USER = 'user'
+    ADMIN = 'admin'
+
+
+class TransactionType:
+    COMMISSION = 'commission'
+    WITHDRAWAL = 'withdrawal'
+    BONUS = 'bonus'
+    CREDIT_PURCHASE = 'credit_purchase'
+    SUBSCRIPTION = 'subscription'
+    REFERRAL = 'referral'
+
+
+class TransactionStatus:
+    PENDING = 'pending'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+
+
+class WithdrawalStatus:
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+    PAID = 'paid'
+
+
+class CommissionStatus:
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+    PAID = 'paid'
+
+
+class AdBoostStatus:
+    ACTIVE = 'active'
+    EXPIRED = 'expired'
+    PAUSED = 'paused'
+
+
+class PropertyStatus:
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+    ARCHIVED = 'archived'
+
+
+class BookingStatus:
+    PENDING = 'pending'
+    CONFIRMED = 'confirmed'
+    CANCELLED = 'cancelled'
+    COMPLETED = 'completed'
+
+
+class PaymentStatus:
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    DENIED = 'denied'
+
+
+class AIJobStatus:
+    PENDING = 'pending'
+    RUNNING = 'running'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+
+
+class SecurityFlagSeverity:
+    LOW = 'low'
+    MEDIUM = 'medium'
+    HIGH = 'high'
+    CRITICAL = 'critical'
+
+
+class SecurityFlagStatus:
+    PENDING = 'pending'
+    REVIEWED = 'reviewed'
+    RESOLVED = 'resolved'
+    ACTION_TAKEN = 'action_taken'
+
+
+# ============= MODELS =============
 
 class User(db.Model):
     """User model for authentication and profile management"""
@@ -26,17 +119,17 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default='user', nullable=False)  # 'user' or 'admin'
-    is_admin = db.Column(db.Boolean, default=False, nullable=False)  # True for admin with unlimited access
+    role = db.Column(db.String(20), default=UserRole.USER, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
     balance = db.Column(db.Float, default=0.0, nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)  # For deactivating users
-    is_blocked = db.Column(db.Boolean, default=False, nullable=False)  # Temporarily blocked for fraud
-    blocked_until = db.Column(db.DateTime, nullable=True)  # When block expires
-    block_reason = db.Column(db.String(255), nullable=True)  # Reason for blocking
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_blocked = db.Column(db.Boolean, default=False, nullable=False)
+    blocked_until = db.Column(db.DateTime(timezone=True), nullable=True)
+    block_reason = db.Column(db.String(255), nullable=True)
     referral_code = db.Column(db.String(20), unique=True, nullable=False, index=True)
     referred_by = db.Column(db.String(20), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     # Relationships
     transactions = db.relationship('Transaction', backref='user', lazy='dynamic', cascade='all, delete-orphan')
@@ -84,12 +177,13 @@ class Transaction(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    type = db.Column(db.String(20), nullable=False)  # 'commission', 'withdrawal', 'bonus', 'credit_purchase', 'subscription'
+    type = db.Column(db.String(20), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(255), nullable=True)
-    status = db.Column(db.String(20), default='completed', nullable=False)  # 'pending', 'completed', 'failed'
-    reference = db.Column(db.String(100), nullable=True, index=True)  # Flutterwave reference
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    status = db.Column(db.String(20), default=TransactionStatus.COMPLETED, nullable=False)
+    reference = db.Column(db.String(100), nullable=True, index=True)
+    extra_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for extra data
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     
     def to_dict(self):
         """Convert transaction to dictionary"""
@@ -101,11 +195,12 @@ class Transaction(db.Model):
             'description': self.description,
             'status': self.status,
             'reference': self.reference,
+            'extra_data': self.extra_data,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
     def __repr__(self):
-        return f'<Transaction {self.type} ₦{self.amount}>'
+        return f'<Transaction {self.type} ${self.amount}>'
 
 
 class Product(db.Model):
@@ -118,12 +213,13 @@ class Product(db.Model):
     description = db.Column(db.Text, nullable=True)
     price = db.Column(db.String(50), nullable=True)
     affiliate_link = db.Column(db.String(500), nullable=False)
-    network = db.Column(db.String(50), nullable=True)  # 'clickbank', 'shareasale', etc.
+    network = db.Column(db.String(50), nullable=True)
     category = db.Column(db.String(100), nullable=True)
     image_url = db.Column(db.String(500), nullable=True)
     commission_rate = db.Column(db.String(50), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    extra_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for flexible data
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     # Relationships
     clicks = db.relationship('AffiliateClick', backref='product', lazy='dynamic', cascade='all, delete-orphan')
@@ -143,6 +239,7 @@ class Product(db.Model):
             'image_url': self.image_url,
             'commission_rate': self.commission_rate,
             'is_active': self.is_active,
+            'extra_data': self.extra_data,
             'total_clicks': self.clicks.count() if self.clicks else 0,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
@@ -157,10 +254,10 @@ class AffiliateClick(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # User who owns the product
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     ip_address = db.Column(db.String(50), nullable=True)
     user_agent = db.Column(db.String(255), nullable=True)
-    clicked_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    clicked_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     
     def to_dict(self):
         return {
@@ -187,8 +284,8 @@ class BankAccount(db.Model):
     bank_code = db.Column(db.String(20), nullable=True)
     is_primary = db.Column(db.Boolean, default=True, nullable=False)
     is_verified = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
     
     user = db.relationship('User', backref=db.backref('bank_accounts', lazy='dynamic'))
     
@@ -220,10 +317,10 @@ class WithdrawalRequest(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
     amount = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'rejected', 'paid'
+    status = db.Column(db.String(20), default=WithdrawalStatus.PENDING, nullable=False)
     admin_notes = db.Column(db.Text, nullable=True)
-    requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    reviewed_at = db.Column(db.DateTime, nullable=True)
+    requested_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
     user = db.relationship('User', foreign_keys=[user_id], backref='withdrawal_requests')
@@ -244,7 +341,7 @@ class WithdrawalRequest(db.Model):
         }
     
     def __repr__(self):
-        return f'<WithdrawalRequest XAF {self.amount} ({self.status})>'
+        return f'<WithdrawalRequest ${self.amount} ({self.status})>'
 
 
 class AuditLog(db.Model):
@@ -256,11 +353,11 @@ class AuditLog(db.Model):
     action = db.Column(db.String(100), nullable=False)
     entity_type = db.Column(db.String(50), nullable=False)
     entity_id = db.Column(db.Integer, nullable=True)
-    details = db.Column(db.Text, nullable=True)
+    details = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB
     ip_address = db.Column(db.String(50), nullable=True)
     fraud_score = db.Column(db.Integer, default=0, nullable=False)
     flagged = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     user = db.relationship('User', backref='audit_logs')
     
@@ -290,10 +387,11 @@ class Notification(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     title = db.Column(db.String(200), nullable=False)
     message = db.Column(db.Text, nullable=False)
-    type = db.Column(db.String(50), nullable=False)  # 'info', 'success', 'warning', 'error'
+    type = db.Column(db.String(50), nullable=False)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     link = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    extra_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     
     user = db.relationship('User', backref='notifications')
     
@@ -305,6 +403,7 @@ class Notification(db.Model):
             'type': self.type,
             'is_read': self.is_read,
             'link': self.link,
+            'extra_data': self.extra_data,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
@@ -321,15 +420,23 @@ class AdBoost(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True, index=True)
     imported_product_id = db.Column(db.Integer, db.ForeignKey('imported_products.id'), nullable=True, index=True)
     boost_type = db.Column(db.String(50), default='manual', nullable=False)
-    boost_level = db.Column(db.Integer, default=1, nullable=False)  # 1x, 2x, 4x, 8x, 16x, 32x
+    boost_level = db.Column(db.Integer, default=1, nullable=False)
     credits_spent = db.Column(db.Integer, default=0, nullable=False)
     clicks_received = db.Column(db.Integer, default=0, nullable=False)
-    status = db.Column(db.String(20), default='active', nullable=False)  # 'active', 'expired', 'paused'
-    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    expires_at = db.Column(db.DateTime, nullable=False)  # 24 hours from start
+    status = db.Column(db.String(20), default=AdBoostStatus.ACTIVE, nullable=False)
+    is_admin_campaign = db.Column(db.Boolean, default=False, nullable=False)  # Admin campaigns bypass credit checks
+    campaign_config = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for campaign settings
+    started_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
     
     user = db.relationship('User', backref='ad_boosts')
     imported_product = db.relationship('ImportedProduct', backref='ad_boosts')
+    
+    def get_credit_cost(self):
+        """Get credit cost - admin campaigns are always free"""
+        if self.is_admin_campaign:
+            return 0
+        return self.credits_spent
     
     def to_dict(self):
         return {
@@ -342,12 +449,15 @@ class AdBoost(db.Model):
             'credits_spent': self.credits_spent,
             'clicks_received': self.clicks_received,
             'status': self.status,
+            'is_admin_campaign': self.is_admin_campaign,
+            'campaign_config': self.campaign_config,
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'expires_at': self.expires_at.isoformat() if self.expires_at else None
         }
     
     def __repr__(self):
-        return f'<AdBoost {self.boost_level}x Product:{self.product_id or self.imported_product_id}>'
+        admin_marker = ' [ADMIN]' if self.is_admin_campaign else ''
+        return f'<AdBoost {self.boost_level}x Product:{self.product_id or self.imported_product_id}{admin_marker}>'
 
 
 class Plan(db.Model):
@@ -355,16 +465,16 @@ class Plan(db.Model):
     __tablename__ = 'plans'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)  # 'free', 'pro', 'business'
+    name = db.Column(db.String(50), unique=True, nullable=False)
     price = db.Column(db.Float, nullable=False)
     duration_days = db.Column(db.Integer, default=30, nullable=False)
-    features = db.Column(db.Text, nullable=True)  # JSON string
+    features = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for features list
     max_products = db.Column(db.Integer, nullable=True)
     max_ad_boosts = db.Column(db.Integer, nullable=True)
-    priority_boost = db.Column(db.Boolean, default=False, nullable=False)  # Priority ad placement
-    commission_multiplier = db.Column(db.Float, default=1.0, nullable=False)  # 1.0 = 100%, 1.5 = 150% commission
+    priority_boost = db.Column(db.Boolean, default=False, nullable=False)
+    commission_multiplier = db.Column(db.Float, default=1.0, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     def to_dict(self):
         return {
@@ -391,9 +501,9 @@ class Subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'), nullable=False)
-    status = db.Column(db.String(20), default='active', nullable=False)  # 'active', 'expired', 'cancelled'
-    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    expires_at = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(20), default='active', nullable=False)
+    started_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
     auto_renew = db.Column(db.Boolean, default=False, nullable=False)
     payment_reference = db.Column(db.String(100), nullable=True)
     
@@ -425,8 +535,8 @@ class CreditWallet(db.Model):
     credits = db.Column(db.Integer, default=0, nullable=False)
     total_purchased = db.Column(db.Integer, default=0, nullable=False)
     total_spent = db.Column(db.Integer, default=0, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
     
     user = db.relationship('User', backref='credit_wallet', uselist=False)
     
@@ -452,11 +562,11 @@ class ReferralPayout(db.Model):
     referrer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     referred_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    commission_type = db.Column(db.String(50), nullable=False)  # 'signup', 'purchase', 'subscription'
-    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'paid'
+    commission_type = db.Column(db.String(50), nullable=False)
+    status = db.Column(db.String(20), default='pending', nullable=False)
     transaction_id = db.Column(db.Integer, db.ForeignKey('transactions.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    paid_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    paid_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     referrer = db.relationship('User', foreign_keys=[referrer_id], backref='referrals_given')
     referred = db.relationship('User', foreign_keys=[referred_id], backref='referrals_received')
@@ -474,7 +584,7 @@ class ReferralPayout(db.Model):
         }
     
     def __repr__(self):
-        return f'<ReferralPayout ₦{self.amount} {self.commission_type}>'
+        return f'<ReferralPayout ${self.amount} {self.commission_type}>'
 
 
 class SocialConnection(db.Model):
@@ -488,10 +598,11 @@ class SocialConnection(db.Model):
     platform_username = db.Column(db.String(255), nullable=True)
     access_token = db.Column(db.Text, nullable=False)
     refresh_token = db.Column(db.Text, nullable=True)
-    token_expires_at = db.Column(db.DateTime, nullable=True)
+    token_expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    extra_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
     
     user = db.relationship('User', backref='social_connections')
     
@@ -518,14 +629,14 @@ class EmailVerificationToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     token = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
     used = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     user = db.relationship('User', backref='email_verification_tokens')
     
     def is_expired(self):
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
     
     def __repr__(self):
         return f'<EmailVerificationToken User:{self.user_id}>'
@@ -538,14 +649,14 @@ class PasswordResetToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     token = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
     used = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     user = db.relationship('User', backref='password_reset_tokens')
     
     def is_expired(self):
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
     
     def __repr__(self):
         return f'<PasswordResetToken User:{self.user_id}>'
@@ -557,7 +668,7 @@ class ImportedProduct(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24', 'awin', 'mylead', etc.
+    network = db.Column(db.String(50), nullable=False, index=True)
     external_product_id = db.Column(db.String(255), nullable=False)
     product_name = db.Column(db.String(255), nullable=False)
     product_url = db.Column(db.String(500), nullable=False)
@@ -565,9 +676,10 @@ class ImportedProduct(db.Model):
     commission_info = db.Column(db.String(255), nullable=True)
     price = db.Column(db.String(50), nullable=True)
     category = db.Column(db.String(100), nullable=True)
-    earn_mode = db.Column(db.String(20), default='auto', nullable=False)  # 'auto' or 'manual'
+    earn_mode = db.Column(db.String(20), default='auto', nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    extra_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     
     user = db.relationship('User', backref='imported_products')
     
@@ -585,6 +697,7 @@ class ImportedProduct(db.Model):
             'category': self.category,
             'earn_mode': self.earn_mode,
             'is_active': self.is_active,
+            'extra_data': self.extra_data,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     
@@ -598,18 +711,18 @@ class Commission(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24', 'awin', 'partnerstack'
-    product_id = db.Column(db.Integer, nullable=True)  # Reference to Product or ImportedProduct
-    campaign_id = db.Column(db.Integer, db.ForeignKey('ad_boosts.id'), nullable=True)  # Link to campaign
+    network = db.Column(db.String(50), nullable=False, index=True)
+    product_id = db.Column(db.Integer, nullable=True)
+    campaign_id = db.Column(db.Integer, db.ForeignKey('ad_boosts.id'), nullable=True)
     amount = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'rejected', 'paid'
-    external_ref = db.Column(db.String(255), nullable=True, index=True)  # External transaction ID
-    webhook_data = db.Column(db.Text, nullable=True)  # JSON data from webhook
-    rejection_reason = db.Column(db.String(255), nullable=True)  # Reason if rejected
-    approved_at = db.Column(db.DateTime, nullable=True)
-    approved_by = db.Column(db.Integer, nullable=True)  # Admin who approved
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    paid_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(20), default=CommissionStatus.PENDING, nullable=False)
+    external_ref = db.Column(db.String(255), nullable=True, index=True)
+    webhook_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for webhook payload
+    rejection_reason = db.Column(db.String(255), nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    approved_by = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    paid_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     user = db.relationship('User', backref='commissions')
     campaign = db.relationship('AdBoost', backref='commissions')
@@ -632,7 +745,7 @@ class Commission(db.Model):
         }
     
     def __repr__(self):
-        return f'<Commission ₦{self.amount} from {self.network} ({self.status})>'
+        return f'<Commission ${self.amount} from {self.network} ({self.status})>'
 
 
 class AdminAudit(db.Model):
@@ -641,11 +754,11 @@ class AdminAudit(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    action = db.Column(db.String(100), nullable=False, index=True)  # 'login', 'autologin', 'deactivate_user', etc.
-    target_user_id = db.Column(db.Integer, nullable=True)  # For user-specific actions
-    details = db.Column(db.Text, nullable=True)  # JSON details
+    action = db.Column(db.String(100), nullable=False, index=True)
+    target_user_id = db.Column(db.Integer, nullable=True)
+    details = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB
     ip_address = db.Column(db.String(50), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     
     admin = db.relationship('User', backref='admin_actions')
     
@@ -669,13 +782,13 @@ class CreditPackage(db.Model):
     __tablename__ = 'credit_packages'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)  # '10 Credits', '50 Credits', etc.
-    credits = db.Column(db.Integer, nullable=False)  # Number of credits
-    price = db.Column(db.Float, nullable=False)  # Price in XAF
-    bonus_credits = db.Column(db.Integer, default=0, nullable=False)  # Bonus credits (e.g., buy 50 get 5 free)
+    name = db.Column(db.String(100), nullable=False)
+    credits = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    bonus_credits = db.Column(db.Integer, default=0, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    display_order = db.Column(db.Integer, default=0, nullable=False)  # For sorting packages
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    display_order = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     def to_dict(self):
         return {
@@ -685,12 +798,12 @@ class CreditPackage(db.Model):
             'price': self.price,
             'bonus_credits': self.bonus_credits,
             'total_credits': self.credits + self.bonus_credits,
-            'price_per_credit': round(self.price / (self.credits + self.bonus_credits), 2),
+            'price_per_credit': round(self.price / (self.credits + self.bonus_credits), 2) if (self.credits + self.bonus_credits) > 0 else 0,
             'is_active': self.is_active
         }
     
     def __repr__(self):
-        return f'<CreditPackage {self.name} - {self.credits} credits for {self.price} XAF>'
+        return f'<CreditPackage {self.name} - {self.credits} credits for ${self.price}>'
 
 
 class PaymentRequest(db.Model):
@@ -699,10 +812,10 @@ class PaymentRequest(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    purpose = db.Column(db.String(50), nullable=False, index=True)  # 'credit_purchase' or 'subscription'
+    purpose = db.Column(db.String(50), nullable=False, index=True)
     amount = db.Column(db.Float, nullable=False)
-    currency = db.Column(db.String(10), default='XAF', nullable=False)
-    payment_method = db.Column(db.String(50), default='bank_transfer', nullable=False)  # 'bank_transfer' or 'stripe'
+    currency = db.Column(db.String(10), default='USD', nullable=False)
+    payment_method = db.Column(db.String(50), default='bank_transfer', nullable=False)
     
     # For credit purchases
     package_id = db.Column(db.Integer, db.ForeignKey('credit_packages.id'), nullable=True)
@@ -713,19 +826,22 @@ class PaymentRequest(db.Model):
     subscription_id = db.Column(db.Integer, db.ForeignKey('subscriptions.id'), nullable=True)
     
     # Payment proof
-    receipt_url = db.Column(db.String(500), nullable=True)  # Path to uploaded receipt
+    receipt_url = db.Column(db.String(500), nullable=True)
     receipt_filename = db.Column(db.String(255), nullable=True)
     
     # Status and approval
-    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'approved', 'denied'
-    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Admin who reviewed
-    review_note = db.Column(db.Text, nullable=True)  # Admin's note
-    reviewed_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(20), default=PaymentStatus.PENDING, nullable=False, index=True)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    review_note = db.Column(db.Text, nullable=True)
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     # Stripe payment intent (if applicable)
     stripe_payment_intent_id = db.Column(db.String(255), nullable=True)
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    # Extra metadata
+    extra_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB
+    
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     
     # Relationships
     user = db.relationship('User', foreign_keys=[user_id], backref='payment_requests')
@@ -761,7 +877,7 @@ class PaymentRequest(db.Model):
         }
     
     def __repr__(self):
-        return f'<PaymentRequest {self.purpose} - {self.amount} {self.currency} ({self.status})>'
+        return f'<PaymentRequest {self.purpose} - ${self.amount} ({self.status})>'
 
 
 # ============= REAL ESTATE MODULE =============
@@ -776,37 +892,37 @@ class Property(db.Model):
     # Property details
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    property_type = db.Column(db.String(50), nullable=False, index=True)  # 'land', 'house', 'rental', 'guest_house', 'car_rental'
+    property_type = db.Column(db.String(50), nullable=False, index=True)
     
-    # Location (Cameroon only for now)
+    # Location
     country = db.Column(db.String(50), default='Cameroon', nullable=False)
     city = db.Column(db.String(100), nullable=False)
     address = db.Column(db.String(255), nullable=True)
     
     # Pricing
-    price = db.Column(db.Float, nullable=True)  # Sale price or rental price
-    currency = db.Column(db.String(10), default='XAF', nullable=False)
-    price_type = db.Column(db.String(50), nullable=True)  # 'fixed', 'negotiable', 'per_day', 'per_month'
+    price = db.Column(db.Float, nullable=True)
+    currency = db.Column(db.String(10), default='USD', nullable=False)
+    price_type = db.Column(db.String(50), nullable=True)
     
     # Property specs
     bedrooms = db.Column(db.Integer, nullable=True)
     bathrooms = db.Column(db.Integer, nullable=True)
-    size_sqm = db.Column(db.Float, nullable=True)  # Size in square meters
-    amenities = db.Column(db.Text, nullable=True)  # JSON string of amenities
+    size_sqm = db.Column(db.Float, nullable=True)
+    amenities = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB
     
     # Status and approval
-    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'approved', 'rejected', 'archived'
+    status = db.Column(db.String(20), default=PropertyStatus.PENDING, nullable=False, index=True)
     is_featured = db.Column(db.Boolean, default=False, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     
     # Admin review
     reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     review_note = db.Column(db.Text, nullable=True)
-    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
     
     # Relationships
     user = db.relationship('User', foreign_keys=[user_id], backref='properties')
@@ -862,7 +978,7 @@ class PropertyImage(db.Model):
     caption = db.Column(db.String(255), nullable=True)
     is_primary = db.Column(db.Boolean, default=False, nullable=False)
     display_order = db.Column(db.Integer, default=0, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
     
     def to_dict(self):
         return {
@@ -900,11 +1016,11 @@ class RentalDetails(db.Model):
     vehicle_make = db.Column(db.String(100), nullable=True)
     vehicle_model = db.Column(db.String(100), nullable=True)
     vehicle_year = db.Column(db.Integer, nullable=True)
-    vehicle_type = db.Column(db.String(50), nullable=True)  # 'sedan', 'suv', 'truck', etc.
+    vehicle_type = db.Column(db.String(50), nullable=True)
     
     # Policies
     deposit_required = db.Column(db.Float, nullable=True)
-    cancellation_policy = db.Column(db.String(50), default='flexible', nullable=False)  # 'flexible', 'moderate', 'strict'
+    cancellation_policy = db.Column(db.String(50), default='flexible', nullable=False)
     
     def to_dict(self):
         return {
@@ -934,31 +1050,31 @@ class PropertyBooking(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)  # Tenant
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     # Booking dates
-    check_in = db.Column(db.DateTime, nullable=False)
-    check_out = db.Column(db.DateTime, nullable=False)
+    check_in = db.Column(db.DateTime(timezone=True), nullable=False)
+    check_out = db.Column(db.DateTime(timezone=True), nullable=False)
     
     # Guests
     guests = db.Column(db.Integer, default=1, nullable=False)
     
     # Pricing
     total_price = db.Column(db.Float, nullable=False)
-    currency = db.Column(db.String(10), default='XAF', nullable=False)
+    currency = db.Column(db.String(10), default='USD', nullable=False)
     deposit_paid = db.Column(db.Float, default=0, nullable=False)
     
     # Status
-    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'confirmed', 'cancelled', 'completed'
+    status = db.Column(db.String(20), default=BookingStatus.PENDING, nullable=False, index=True)
     
     # Notes
     guest_notes = db.Column(db.Text, nullable=True)
     owner_notes = db.Column(db.Text, nullable=True)
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    confirmed_at = db.Column(db.DateTime, nullable=True)
-    cancelled_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    cancelled_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     # Relationships
     user = db.relationship('User', backref='property_bookings')
@@ -997,8 +1113,9 @@ class PropertyAd(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     # Boost details
-    boost_level = db.Column(db.Integer, default=1, nullable=False)  # 1x, 2x, 4x, etc.
+    boost_level = db.Column(db.Integer, default=1, nullable=False)
     credits_spent = db.Column(db.Integer, default=0, nullable=False)
+    is_admin_campaign = db.Column(db.Boolean, default=False, nullable=False)  # Admin campaigns bypass credit checks
     
     # Performance
     views = db.Column(db.Integer, default=0, nullable=False)
@@ -1006,12 +1123,18 @@ class PropertyAd(db.Model):
     inquiries = db.Column(db.Integer, default=0, nullable=False)
     
     # Status and timing
-    status = db.Column(db.String(20), default='active', nullable=False, index=True)  # 'active', 'expired', 'paused'
-    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    expires_at = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(20), default=AdBoostStatus.ACTIVE, nullable=False, index=True)
+    started_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
     
     # Relationships
     user = db.relationship('User', backref='property_ads')
+    
+    def get_credit_cost(self):
+        """Get credit cost - admin campaigns are always free"""
+        if self.is_admin_campaign:
+            return 0
+        return self.credits_spent
     
     def to_dict(self):
         return {
@@ -1021,6 +1144,7 @@ class PropertyAd(db.Model):
             'user_id': self.user_id,
             'boost_level': self.boost_level,
             'credits_spent': self.credits_spent,
+            'is_admin_campaign': self.is_admin_campaign,
             'views': self.views,
             'clicks': self.clicks,
             'inquiries': self.inquiries,
@@ -1030,7 +1154,8 @@ class PropertyAd(db.Model):
         }
     
     def __repr__(self):
-        return f'<PropertyAd Property:{self.property_id} {self.boost_level}x>'
+        admin_marker = ' [ADMIN]' if self.is_admin_campaign else ''
+        return f'<PropertyAd Property:{self.property_id} {self.boost_level}x{admin_marker}>'
 
 
 # ============= AI SYSTEM TABLES =============
@@ -1041,19 +1166,19 @@ class AIJob(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
-    job_type = db.Column(db.String(50), nullable=False, index=True)  # 'product_boost', 'property_boost', 'ad_generation', 'commission_check'
-    entity_type = db.Column(db.String(50), nullable=True)  # 'product', 'property'
+    job_type = db.Column(db.String(50), nullable=False, index=True)
+    entity_type = db.Column(db.String(50), nullable=True)
     entity_id = db.Column(db.Integer, nullable=True)
     
     # Job status
-    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'running', 'completed', 'failed'
-    result = db.Column(db.Text, nullable=True)  # JSON result
+    status = db.Column(db.String(20), default=AIJobStatus.PENDING, nullable=False, index=True)
+    result = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for structured results
     error_message = db.Column(db.Text, nullable=True)
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    started_at = db.Column(db.DateTime, nullable=True)
-    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    started_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     # Relationships
     user = db.relationship('User', backref='ai_jobs')
@@ -1083,21 +1208,21 @@ class AISecurityFlag(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    flag_type = db.Column(db.String(50), nullable=False, index=True)  # 'click_fraud', 'duplicate_account', 'abnormal_traffic', 'suspicious_withdrawal'
-    severity = db.Column(db.String(20), default='medium', nullable=False)  # 'low', 'medium', 'high', 'critical'
+    flag_type = db.Column(db.String(50), nullable=False, index=True)
+    severity = db.Column(db.String(20), default=SecurityFlagSeverity.MEDIUM, nullable=False)
     description = db.Column(db.Text, nullable=True)
-    evidence = db.Column(db.Text, nullable=True)  # JSON evidence data
+    evidence = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for structured evidence
     
     # Status
-    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'pending', 'reviewed', 'resolved', 'action_taken'
+    status = db.Column(db.String(20), default=SecurityFlagStatus.PENDING, nullable=False, index=True)
     resolution = db.Column(db.Text, nullable=True)
     
     # Admin review
     reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     
     # Relationships
     user = db.relationship('User', foreign_keys=[user_id], backref='security_flags')
