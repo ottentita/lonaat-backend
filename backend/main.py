@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, session, Response, s
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
+from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, db
@@ -57,11 +58,18 @@ load_dotenv()
 
 # Detect environment - allow deployment without crashing, but warn about missing features
 # This allows initial deployment to succeed while prompting for proper configuration
-IS_PRODUCTION = bool(os.getenv('RENDER') or os.getenv('RAILWAY') or os.getenv('FLY_APP_NAME'))
+IS_PRODUCTION = bool(os.getenv('RENDER') or os.getenv('RAILWAY') or os.getenv('FLY_APP_NAME') or os.getenv('REPLIT_DEPLOYMENT'))
 logger.info(f"🔍 Environment: {'PRODUCTION' if IS_PRODUCTION else 'DEVELOPMENT'}")
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Apply ProxyFix for HTTPS in production (behind reverse proxy)
+if IS_PRODUCTION:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+
 CORS(app)
 
 # Initialize SQLAlchemy
@@ -749,6 +757,30 @@ def list_networks():
     return jsonify({
         "networks": [
             {
+                "id": "digistore24",
+                "name": "Digistore24",
+                "description": "40-60% commission, digital products (No API key needed!)",
+                "configured": True
+            },
+            {
+                "id": "awin",
+                "name": "Awin",
+                "description": "Global affiliate network with 16,500+ advertisers",
+                "configured": bool(os.getenv('AWIN_TOKEN'))
+            },
+            {
+                "id": "mylead",
+                "name": "MyLead",
+                "description": "CPA/CPL offers, global reach",
+                "configured": bool(os.getenv('MYLEAD_API_EMAIL'))
+            },
+            {
+                "id": "partnerstack",
+                "name": "PartnerStack",
+                "description": "Up to 30% recurring, SaaS products",
+                "configured": bool(os.getenv('PARTNERSTACK_API_KEY'))
+            },
+            {
                 "id": "amazon",
                 "name": "Amazon Associates",
                 "description": "1-10% commission, millions of products",
@@ -765,18 +797,6 @@ def list_networks():
                 "name": "ClickBank",
                 "description": "30-75% commission, digital products",
                 "configured": bool(os.getenv('CLICKBANK_AFFILIATE_ID'))
-            },
-            {
-                "id": "partnerstack",
-                "name": "PartnerStack",
-                "description": "Up to 30% recurring, SaaS products",
-                "configured": bool(os.getenv('PARTNERSTACK_API_KEY'))
-            },
-            {
-                "id": "digistore24",
-                "name": "Digistore24",
-                "description": "40-60% commission, digital products (No API key needed!)",
-                "configured": True  # Always available, no API key required
             }
         ]
     })

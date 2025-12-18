@@ -11,18 +11,20 @@ networks_bp = Blueprint('networks', __name__, url_prefix='/api/networks')
 
 
 @networks_bp.route('/list', methods=['GET'])
-@jwt_required()
+@jwt_required(optional=True)
 def list_networks():
     try:
         current_user_id = get_jwt_identity()
         networks = manager.get_available_networks()
         setup_instructions = manager.get_setup_instructions()
         
-        user_connections = NetworkConnection.query.filter_by(
-            user_id=current_user_id,
-            is_active=True
-        ).all()
-        connected_ids = {conn.network_id for conn in user_connections}
+        connected_ids = set()
+        if current_user_id:
+            user_connections = NetworkConnection.query.filter_by(
+                user_id=current_user_id,
+                is_active=True
+            ).all()
+            connected_ids = {conn.network_id for conn in user_connections}
         
         network_details = []
         for network in networks:

@@ -8,21 +8,23 @@ from typing import List, Dict, Any, Optional
 from affiliate_integrations import (
     Digistore24Integration,
     AwinIntegration,
-    MyLeadIntegration
+    MyLeadIntegration,
+    PartnerStackIntegration
 )
 
 
 class AffiliateNetworkManager:
     """
     Central manager for affiliate networks
-    Production version: Digistore24, Awin, and MyLead
+    Production version: Digistore24, Awin, MyLead, and PartnerStack
     """
     
     def __init__(self):
         self.networks = {
             'digistore24': Digistore24Integration(),
             'awin': AwinIntegration(),
-            'mylead': MyLeadIntegration()
+            'mylead': MyLeadIntegration(),
+            'partnerstack': PartnerStackIntegration()
         }
     
     def get_network(self, network_name: str):

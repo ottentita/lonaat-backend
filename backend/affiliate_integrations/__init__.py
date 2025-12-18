@@ -38,9 +38,16 @@ from .digistore24 import Digistore24Integration
 from .awin import AwinIntegration
 from .mylead import MyLeadIntegration
 
+# Import PartnerStack from legacy module
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from affiliate_integration import PartnerStackIntegration
+
 __all__ = [
     'AffiliateNetworkIntegration',
     'Digistore24Integration',
     'AwinIntegration',
-    'MyLeadIntegration'
+    'MyLeadIntegration',
+    'PartnerStackIntegration'
 ]
