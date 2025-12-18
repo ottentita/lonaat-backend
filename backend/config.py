@@ -55,14 +55,15 @@ class Config:
     if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
-    # Final database URI - fail with clear message if no valid database in production
+    # Final database URI
+    # In production without valid DATABASE_URL, use SQLite as fallback
+    # This allows deployment to work, but data won't persist between restarts
     if IS_PRODUCTION and not DATABASE_URL:
-        raise RuntimeError(
-            "Production deployment requires a valid DATABASE_URL. "
-            "Please enable Production Database in the Replit Database panel."
-        )
-    
-    SQLALCHEMY_DATABASE_URI = DATABASE_URL or 'sqlite:///app.db'
+        print("⚠️  No production database configured - using SQLite (data may not persist)")
+        print("⚠️  For persistent data, add an external PostgreSQL DATABASE_URL to deployment secrets")
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///app.db'
+    else:
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL or 'sqlite:///app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
