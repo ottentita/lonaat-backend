@@ -431,6 +431,37 @@ router.post('/ai/run-ads/products', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.post('/ai/bulk-import', async (req: AuthRequest, res: Response) => {
+  try {
+    const { networks, generate_ads } = req.body;
+    const targetNetworks = networks || ['digistore24', 'awin', 'partnerstack'];
+    
+    const job = await prisma.aIJob.create({
+      data: {
+        job_type: 'bulk_import',
+        status: 'pending',
+        input_data: { 
+          networks: targetNetworks,
+          generate_ads: generate_ads !== false
+        },
+        user_id: req.user!.id
+      }
+    });
+
+    processAIJob(job.id).catch(err => console.error('AI bulk import error:', err));
+
+    res.json({ 
+      message: 'Bulk import started', 
+      job_id: job.id,
+      networks: targetNetworks,
+      generate_ads: generate_ads !== false
+    });
+  } catch (error) {
+    console.error('Bulk import error:', error);
+    res.status(500).json({ error: 'Failed to start bulk import' });
+  }
+});
+
 router.post('/ai/run-ads/real-estate', async (req: AuthRequest, res: Response) => {
   try {
     const { property_ids } = req.body;
@@ -650,6 +681,63 @@ router.get('/products', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Products list error:', error);
     res.status(500).json({ error: 'Failed to get products' });
+  }
+});
+
+router.post('/products', async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, description, price, network, category, image_url, affiliate_link } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Product name is required' });
+    }
+
+    const product = await prisma.product.create({
+      data: {
+        name,
+        description: description || '',
+        price: price ? String(price) : null,
+        network: network || 'manual',
+        category: category || 'general',
+        image_url: image_url || null,
+        affiliate_link: affiliate_link || null,
+        is_active: true,
+        user_id: req.user!.id
+      }
+    });
+
+    res.json({ message: 'Product created', product });
+  } catch (error) {
+    console.error('Create product error:', error);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
+router.post('/products/sample', async (req: AuthRequest, res: Response) => {
+  try {
+    const sampleProducts = [
+      { name: 'Ultimate Affiliate Marketing Course', description: 'Learn to earn $10K/month with affiliate marketing', price: '97.00', network: 'digistore24', category: 'courses' },
+      { name: 'AI Content Generator Pro', description: 'Generate unlimited content with AI', price: '47.00', network: 'partnerstack', category: 'software' },
+      { name: 'Crypto Trading Masterclass', description: 'Master cryptocurrency trading strategies', price: '197.00', network: 'awin', category: 'courses' },
+      { name: 'Email Marketing Automation Tool', description: 'Automate your email campaigns', price: '29.00', network: 'partnerstack', category: 'software' },
+      { name: 'Social Media Growth Bundle', description: 'Grow your social media following fast', price: '67.00', network: 'digistore24', category: 'ebooks' }
+    ];
+
+    const created = [];
+    for (const product of sampleProducts) {
+      const exists = await prisma.product.findFirst({ where: { name: product.name } });
+      if (!exists) {
+        const p = await prisma.product.create({
+          data: { ...product, is_active: true, user_id: req.user!.id }
+        });
+        created.push(p);
+      }
+    }
+
+    res.json({ message: `Created ${created.length} sample products`, products: created });
+  } catch (error) {
+    console.error('Sample products error:', error);
+    res.status(500).json({ error: 'Failed to create sample products' });
   }
 });
 

@@ -169,6 +169,62 @@ export async function processAIJob(jobId: number): Promise<void> {
         break;
       }
 
+      case 'bulk_import': {
+        const { syncProductsFromNetwork } = await import('./networkSync');
+        const networks = inputData.networks || ['digistore24', 'awin', 'partnerstack'];
+        const generateAds = inputData.generate_ads !== false;
+        
+        const syncResults: any[] = [];
+        let totalProducts = 0;
+
+        for (const network of networks) {
+          try {
+            const synced = await syncProductsFromNetwork(network);
+            syncResults.push({ network, success: true, products_synced: synced });
+            totalProducts += synced;
+          } catch (err: any) {
+            syncResults.push({ network, success: false, error: err.message });
+          }
+        }
+
+        if (generateAds && totalProducts > 0) {
+          const products = await prisma.product.findMany({ 
+            where: { is_active: true, ai_generated_ad: null },
+            take: 50 
+          });
+
+          let adsGenerated = 0;
+          for (const product of products) {
+            try {
+              const adText = await generateProductAd(product);
+              await prisma.product.update({
+                where: { id: product.id },
+                data: { ai_generated_ad: adText }
+              });
+              adsGenerated++;
+            } catch (err) {
+              console.error(`Failed to generate ad for product ${product.id}:`, err);
+            }
+          }
+
+          result = {
+            message: 'Bulk import completed with AI ads',
+            networks_processed: networks.length,
+            total_products_synced: totalProducts,
+            ads_generated: adsGenerated,
+            sync_results: syncResults
+          };
+        } else {
+          result = {
+            message: 'Bulk import completed',
+            networks_processed: networks.length,
+            total_products_synced: totalProducts,
+            sync_results: syncResults
+          };
+        }
+        break;
+      }
+
       default:
         result = { message: 'Unknown job type' };
     }

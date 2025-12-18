@@ -245,3 +245,30 @@ export async function getNetworkStatus(): Promise<{network: string; configured: 
     { network: 'partnerstack', configured: !!process.env.PARTNERSTACK_API_KEY, key_name: 'PARTNERSTACK_API_KEY', sync_type: 'api' }
   ];
 }
+
+export async function syncProductsFromNetwork(network: string, userId?: number): Promise<number> {
+  let result: SyncResult;
+  
+  switch (network.toLowerCase()) {
+    case 'digistore24':
+      result = await syncDigistore24Products(userId);
+      break;
+    case 'awin':
+      result = await syncAwinProducts(userId);
+      break;
+    case 'mylead':
+      result = await syncMyLeadProducts(userId);
+      break;
+    case 'partnerstack':
+      result = await syncPartnerStackProducts(userId);
+      break;
+    default:
+      throw new Error(`Unknown network: ${network}`);
+  }
+
+  if (!result.success && result.error) {
+    throw new Error(result.error);
+  }
+
+  return result.products_synced;
+}
