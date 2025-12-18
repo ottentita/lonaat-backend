@@ -523,6 +523,109 @@ router.post('/ai/run-commission-scan', async (req: AuthRequest, res: Response) =
   }
 });
 
+router.post('/ai/discover-products', async (req: AuthRequest, res: Response) => {
+  try {
+    const { category, count, auto_import, generate_ads } = req.body;
+    const productCount = Math.min(count || 10, 20);
+
+    const discovered = await discoverProducts(category, productCount);
+
+    if (discovered.length === 0) {
+      return res.status(400).json({ error: 'No products discovered' });
+    }
+
+    if (auto_import) {
+      const result = await importDiscoveredProducts(discovered, req.user!.id, generate_ads !== false);
+      return res.json({
+        message: `Discovered and imported ${result.imported} products`,
+        discovered: discovered.length,
+        imported: result.imported,
+        products: result.products
+      });
+    }
+
+    res.json({
+      message: `Discovered ${discovered.length} products`,
+      products: discovered,
+      hint: 'Set auto_import=true to automatically add to marketplace'
+    });
+  } catch (error) {
+    console.error('Product discovery error:', error);
+    res.status(500).json({ error: 'Failed to discover products' });
+  }
+});
+
+router.post('/ai/search-products', async (req: AuthRequest, res: Response) => {
+  try {
+    const { query, count, auto_import, generate_ads } = req.body;
+
+    if (!query) {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    const productCount = Math.min(count || 5, 10);
+    const found = await searchProducts(query, productCount);
+
+    if (found.length === 0) {
+      return res.status(404).json({ error: 'No products found matching your search' });
+    }
+
+    if (auto_import) {
+      const result = await importDiscoveredProducts(found, req.user!.id, generate_ads !== false);
+      return res.json({
+        message: `Found and imported ${result.imported} products`,
+        search_query: query,
+        found: found.length,
+        imported: result.imported,
+        products: result.products
+      });
+    }
+
+    res.json({
+      message: `Found ${found.length} products`,
+      search_query: query,
+      products: found,
+      hint: 'Set auto_import=true to automatically add to marketplace'
+    });
+  } catch (error) {
+    console.error('Product search error:', error);
+    res.status(500).json({ error: 'Failed to search products' });
+  }
+});
+
+router.post('/ai/auto-import', async (req: AuthRequest, res: Response) => {
+  try {
+    const { category, count, generate_ads } = req.body;
+    const productCount = Math.min(count || 10, 25);
+
+    const discovered = await discoverProducts(category, productCount);
+
+    if (discovered.length === 0) {
+      return res.status(400).json({ error: 'No products to import' });
+    }
+
+    const result = await importDiscoveredProducts(discovered, req.user!.id, generate_ads !== false);
+
+    res.json({
+      message: `Auto-imported ${result.imported} products to marketplace`,
+      category: category || 'mixed',
+      discovered: discovered.length,
+      imported: result.imported,
+      products: result.products.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        category: p.category,
+        network: p.network,
+        has_ai_ad: !!p.ai_generated_ad
+      }))
+    });
+  } catch (error) {
+    console.error('Auto-import error:', error);
+    res.status(500).json({ error: 'Failed to auto-import products' });
+  }
+});
+
 router.post('/ai/stop-all', async (req: AuthRequest, res: Response) => {
   try {
     await prisma.aIJob.updateMany({
