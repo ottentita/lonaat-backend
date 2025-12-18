@@ -53,15 +53,20 @@ model Transaction {
 }
 
 model Commission {
-  id           Int      @id @default(autoincrement())
-  user_id      Int
-  amount       Float
-  source       String   @db.VarChar(100)
-  status       String   @default("pending") @db.VarChar(20)
-  network      String?  @db.VarChar(50)
-  product_id   Int?
-  webhook_data Json?    @db.JsonB
-  created_at   DateTime @default(now())
+  id               Int       @id @default(autoincrement())
+  user_id          Int
+  network          String?   @db.VarChar(50)
+  product_id       Int?
+  amount           Float
+  status           String    @default("pending") @db.VarChar(20)
+  external_ref     String?   @db.VarChar(255)
+  webhook_data     Json?     @db.JsonB
+  created_at       DateTime  @default(now())
+  paid_at          DateTime?
+  campaign_id      Int?
+  rejection_reason String?   @db.Text
+  approved_at      DateTime?
+  approved_by      Int?
 
   user User @relation(fields: [user_id], references: [id])
 
@@ -184,26 +189,30 @@ model CreditWallet {
 }
 
 model CreditPackage {
-  id          Int      @id @default(autoincrement())
-  name        String   @db.VarChar(100)
-  credits     Int
-  price       Float
-  bonus       Int      @default(0)
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(100)
+  credits       Int
+  price         Float
+  bonus_credits Int      @default(0)
+  is_active     Boolean  @default(true)
+  display_order Int?
+  created_at    DateTime @default(now())
 
   @@map("credit_packages")
 }
 
 model Plan {
-  id             Int      @id @default(autoincrement())
-  name           String   @db.VarChar(100)
-  price          Float
-  duration_days  Int
-  credits        Int      @default(0)
-  features       Json?    @db.JsonB
-  is_active      Boolean  @default(true)
-  created_at     DateTime @default(now())
+  id                    Int      @id @default(autoincrement())
+  name                  String   @db.VarChar(100)
+  price                 Float
+  duration_days         Int
+  features              Json?    @db.JsonB
+  max_products          Int?
+  max_ad_boosts         Int?
+  is_active             Boolean  @default(true)
+  created_at            DateTime @default(now())
+  priority_boost        Boolean  @default(false)
+  commission_multiplier Float?   @default(1.0)
 
   subscriptions Subscription[]
 
@@ -211,13 +220,14 @@ model Plan {
 }
 
 model Subscription {
-  id         Int       @id @default(autoincrement())
-  user_id    Int
-  plan_id    Int
-  status     String    @default("active") @db.VarChar(20)
-  starts_at  DateTime  @default(now())
-  expires_at DateTime?
-  created_at DateTime  @default(now())
+  id                Int       @id @default(autoincrement())
+  user_id           Int
+  plan_id           Int
+  status            String    @default("active") @db.VarChar(20)
+  started_at        DateTime  @default(now())
+  expires_at        DateTime?
+  auto_renew        Boolean   @default(false)
+  payment_reference String?   @db.VarChar(255)
 
   plan Plan @relation(fields: [plan_id], references: [id])
 
@@ -225,29 +235,40 @@ model Subscription {
 }
 
 model PaymentRequest {
-  id             Int      @id @default(autoincrement())
-  user_id        Int
-  amount         Float
-  type           String   @db.VarChar(50)
-  status         String   @default("pending") @db.VarChar(20)
-  receipt_url    String?  @db.Text
-  payment_method String?  @db.VarChar(50)
-  notes          String?  @db.Text
-  processed_at   DateTime?
-  created_at     DateTime @default(now())
+  id                      Int       @id @default(autoincrement())
+  user_id                 Int
+  purpose                 String?   @db.VarChar(50)
+  amount                  Float
+  currency                String?   @default("USD") @db.VarChar(10)
+  payment_method          String?   @db.VarChar(50)
+  package_id              Int?
+  credits_to_add          Int?
+  plan_id                 Int?
+  subscription_id         Int?
+  receipt_url             String?   @db.Text
+  receipt_filename        String?   @db.VarChar(255)
+  status                  String    @default("pending") @db.VarChar(20)
+  reviewed_by             Int?
+  review_note             String?   @db.Text
+  reviewed_at             DateTime?
+  stripe_payment_intent_id String?  @db.VarChar(255)
+  created_at              DateTime  @default(now())
+  extra_data              Json?     @db.JsonB
 
   @@map("payment_requests")
 }
 
 model AuditLog {
-  id         Int      @id @default(autoincrement())
-  user_id    Int?
-  action     String   @db.VarChar(100)
-  entity     String?  @db.VarChar(50)
-  entity_id  Int?
-  details    Json?    @db.JsonB
-  ip_address String?  @db.VarChar(45)
-  created_at DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  action      String   @db.VarChar(100)
+  entity_type String?  @db.VarChar(50)
+  entity_id   Int?
+  details     Json?    @db.JsonB
+  ip_address  String?  @db.VarChar(45)
+  fraud_score Int?     @default(0)
+  flagged     Boolean  @default(false)
+  created_at  DateTime @default(now())
 
   @@map("audit_logs")
 }

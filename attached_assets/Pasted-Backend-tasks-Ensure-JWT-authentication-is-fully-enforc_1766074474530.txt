@@ -1,0 +1,341 @@
+Backend tasks:
+
+Ensure JWT authentication is fully enforced on:
+
+/products
+
+/campaigns
+
+/ads
+
+/commissions
+
+/payments
+
+
+JWT payload must include:
+
+{
+  "user_id": "...",
+  "email": "...",
+  "role": "admin | user",
+  "exp": 12h
+}
+
+Session expiration: 12 hours
+
+Refresh token logic (optional but prepared)
+
+
+Fixes required:
+
+❌ Remove any redirect-to-login logic that affects admin
+
+✅ Admin must stay logged in across:
+
+Product Management
+
+Campaigns
+
+Commissions
+
+Payments
+
+
+Middleware must check role, not just token existence
+
+
+
+---
+
+A2.2 — ROLE-BASED ACCESS CONTROL (RBAC)
+
+Enforce strict rules:
+
+Admin:
+
+Unlimited access
+
+No credit checks
+
+No subscription required
+
+Campaign cost = 0
+
+Can:
+
+Add products
+
+Run ads
+
+View all users
+
+View all commissions
+
+Approve payments
+
+Approve withdrawals
+
+
+
+Users:
+
+Limited by:
+
+Credits
+
+Subscription plan
+
+
+Campaigns require sufficient credits
+
+Cannot access admin routes
+
+
+Required backend middleware:
+
+requireAuth
+
+requireAdmin
+
+requireUser
+
+
+
+---
+
+A2.3 — COMMISSION SYSTEM (STABILIZATION)
+
+Backend:
+
+Ensure commission_logs table is active:
+
+user_id
+
+network
+
+amount
+
+status (pending | approved | rejected)
+
+created_at
+
+
+Admin dashboard:
+
+View all commissions
+
+Filter by:
+
+Network
+
+Date
+
+Status
+
+
+
+Users:
+
+View only their commissions
+
+No admin data leakage
+
+
+
+Important rule:
+
+❌ Admin does NOT withdraw commissions
+
+Admin role = monitoring + approval only
+
+
+
+---
+
+A2.4 — PAYMENT & CREDIT SYSTEM (BANK TRANSFER CORE)
+
+Implement fully:
+
+User flow:
+
+1. User clicks Buy Credits
+
+
+2. Selects package (example):
+
+1,000 XAF = 10 credits
+
+5,000 XAF = 60 credits
+
+
+
+3. System displays admin bank details
+
+
+4. User uploads payment proof
+
+
+5. Status = pending
+
+
+6. Admin approves
+
+
+7. Credits added automatically
+
+
+
+Database tables required:
+
+payments
+
+user_balances
+
+credit_packages
+
+
+Rules:
+
+❌ No automatic credit without admin approval
+
+✅ All transactions logged
+
+✅ Admin sees all payments
+
+
+
+---
+
+A2.5 — SUBSCRIPTION SYSTEM (STRUCTURE ONLY)
+
+> No Stripe/Flutterwave execution yet — structure only.
+
+
+
+Backend:
+
+Create tables:
+
+subscription_plans
+
+user_subscriptions
+
+
+Plans control:
+
+Max products
+
+Max campaigns
+
+Commission boost %
+
+AI access (future)
+
+
+
+Payment method:
+
+Bank transfer (manual approval)
+
+
+
+---
+
+A2.6 — SECURITY & AUDIT LOGGING
+
+Mandatory:
+
+Log all critical actions:
+
+Login attempts
+
+Campaign launches
+
+Payment approvals
+
+Credit changes
+
+Role changes
+
+
+Table: audit_logs
+
+
+Fraud protection:
+
+Block:
+
+Rapid fake clicks
+
+Multiple failed logins
+
+Campaign abuse
+
+
+Auto-flag suspicious accounts
+
+
+
+---
+
+A2.7 — DATABASE CONSISTENCY CHECK
+
+Ensure:
+
+PostgreSQL only (no SQLite remnants)
+
+Foreign keys enforced
+
+Indexes on:
+
+user_id
+
+campaign_id
+
+commission_id
+
+
+No duplicate users or orphan records
+
+
+
+---
+
+A2.8 — API HEALTH & TESTING
+
+Required tests:
+
+Admin:
+
+Login → Add product → Run campaign → View commissions
+
+
+User:
+
+Register → Buy credits → Launch campaign → View commissions
+
+
+Edge cases:
+
+Insufficient credits
+
+Expired JWT
+
+Admin campaign cost = 0
+
+
+
+
+---
+
+OUTPUT OF STEP A2
+
+When STEP A2 is complete, you will have:
+
+✅ Stable authentication
+✅ Clear admin/user separation
+✅ Working commission tracking
+✅ Working credit purchase system
+✅ Secure audit trail
+✅ Production-ready backend base

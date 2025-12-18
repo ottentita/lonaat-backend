@@ -9,6 +9,9 @@ import userRoutes from './routes/users';
 import productRoutes from './routes/products';
 import campaignRoutes from './routes/campaigns';
 import adminRoutes from './routes/admin';
+import commissionRoutes from './routes/commissions';
+import paymentRoutes from './routes/payments';
+import subscriptionRoutes from './routes/subscriptions';
 
 dotenv.config();
 
@@ -36,6 +39,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/commissions', commissionRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {
@@ -48,13 +54,16 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Lonaat API v1.0',
+    message: 'Lonaat API v2.0',
     endpoints: {
       health: '/api/health',
       auth: '/api/auth',
       users: '/api/users',
       products: '/api/products',
       campaigns: '/api/campaigns',
+      commissions: '/api/commissions',
+      payments: '/api/payments',
+      subscriptions: '/api/subscriptions',
       admin: '/api/admin'
     }
   });
@@ -66,7 +75,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Lonaat API running on port ${PORT}`);
+  console.log(`🚀 Lonaat API v2.0 running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
