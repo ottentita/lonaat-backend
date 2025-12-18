@@ -33,13 +33,14 @@ class AffiliateNetworkIntegration:
                 _shown_warnings.add(warning_key)
 
 
-# Production-ready: ONLY Digistore24 and Awin integrations
-# Other networks removed per requirements
+# Production-ready integrations
 from .digistore24 import Digistore24Integration
 from .awin import AwinIntegration
+from .mylead import MyLeadIntegration
 
 __all__ = [
     'AffiliateNetworkIntegration',
     'Digistore24Integration',
-    'AwinIntegration'
+    'AwinIntegration',
+    'MyLeadIntegration'
 ]

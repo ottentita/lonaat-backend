@@ -212,7 +212,7 @@ def import_products():
             return jsonify({'error': 'User not found'}), 404
         
         data = request.get_json()
-        network = data.get('network', '').lower()
+        network = data.get('network', '').lower().strip()
         max_results = data.get('max_results', 10)
         
         if not network:
@@ -241,28 +241,54 @@ def import_products():
             }), 403
         
         imported_count = 0
+        updated_count = 0
+        skipped_count = 0
+        
         for product_data in products:
-            product = Product(
+            affiliate_link = product_data.get('link', product_data.get('affiliate_link', ''))
+            product_name = product_data.get('name', 'Untitled')
+            
+            if not affiliate_link:
+                skipped_count += 1
+                continue
+            
+            existing = Product.query.filter_by(
                 user_id=user_id,
-                name=product_data.get('name', 'Untitled'),
-                description=product_data.get('description', ''),
-                price=product_data.get('price', 'N/A'),
-                affiliate_link=product_data.get('link', product_data.get('affiliate_link', '')),
-                network=network,
-                category=product_data.get('category', ''),
-                image_url=product_data.get('image', product_data.get('image_url')),
-                commission_rate=product_data.get('commission', product_data.get('commission_rate'))
-            )
-            db.session.add(product)
-            imported_count += 1
+                affiliate_link=affiliate_link
+            ).first()
+            
+            if existing:
+                existing.name = product_name
+                existing.description = product_data.get('description', existing.description or '')
+                existing.price = product_data.get('price', existing.price or 'N/A')
+                existing.category = product_data.get('category', existing.category or '')
+                existing.image_url = product_data.get('image', product_data.get('image_url', existing.image_url))
+                existing.commission_rate = product_data.get('commission', product_data.get('commission_rate', existing.commission_rate))
+                updated_count += 1
+            else:
+                product = Product(
+                    user_id=user_id,
+                    name=product_name,
+                    description=product_data.get('description', ''),
+                    price=product_data.get('price', 'N/A'),
+                    affiliate_link=affiliate_link,
+                    network=network,
+                    category=product_data.get('category', ''),
+                    image_url=product_data.get('image', product_data.get('image_url')),
+                    commission_rate=product_data.get('commission', product_data.get('commission_rate'))
+                )
+                db.session.add(product)
+                imported_count += 1
         
         db.session.commit()
         
-        logger.info(f"Imported {imported_count} products from {network} for user {user_id}")
+        logger.info(f"Import from {network}: {imported_count} new, {updated_count} updated, {skipped_count} skipped for user {user_id}")
         
         return jsonify({
-            'message': f'Successfully imported {imported_count} products from {network}',
-            'count': imported_count,
+            'message': f'Successfully processed products from {network}',
+            'imported': imported_count,
+            'updated': updated_count,
+            'skipped': skipped_count,
             'network': network
         }), 201
         

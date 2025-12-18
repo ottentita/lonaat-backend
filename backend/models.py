@@ -552,12 +552,12 @@ class PasswordResetToken(db.Model):
 
 
 class ImportedProduct(db.Model):
-    """Imported affiliate product from external networks (Digistore24, Awin)"""
+    """Imported affiliate product from external networks"""
     __tablename__ = 'imported_products'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24' or 'awin'
+    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24', 'awin', 'mylead', etc.
     external_product_id = db.Column(db.String(255), nullable=False)
     product_name = db.Column(db.String(255), nullable=False)
     product_url = db.Column(db.String(500), nullable=False)

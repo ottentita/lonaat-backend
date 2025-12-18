@@ -7,20 +7,22 @@ NOTE: Other networks (CJ, ClickBank, Amazon, etc.) have been removed per require
 from typing import List, Dict, Any, Optional
 from affiliate_integrations import (
     Digistore24Integration,
-    AwinIntegration
+    AwinIntegration,
+    MyLeadIntegration
 )
 
 
 class AffiliateNetworkManager:
     """
     Central manager for affiliate networks
-    Production version: ONLY Digistore24 and Awin
+    Production version: Digistore24, Awin, and MyLead
     """
     
     def __init__(self):
         self.networks = {
             'digistore24': Digistore24Integration(),
-            'awin': AwinIntegration()
+            'awin': AwinIntegration(),
+            'mylead': MyLeadIntegration()
         }
     
     def get_network(self, network_name: str):
@@ -118,6 +120,7 @@ class AffiliateNetworkManager:
     def get_setup_instructions(self) -> Dict[str, str]:
         """Get setup instructions for all networks"""
         return {
+            'mylead': "MyLead: https://mylead.global/ | Secrets: MYLEAD_API_EMAIL, MYLEAD_API_PASSWORD, MYLEAD_API_BASE",
             'amazon': "Amazon Associates: https://affiliate-program.amazon.com/ | Secrets: AMAZON_ACCESS_KEY, AMAZON_SECRET_KEY, AMAZON_PARTNER_TAG",
             'cj': "CJ Affiliate: https://www.cj.com/ | Secrets: CJ_API_TOKEN, CJ_API_SECRET, CJ_AFFILIATE_ID",
             'shareasale': "ShareASale: https://www.shareasale.com/ | Secrets: SHAREASALE_TOKEN, SHAREASALE_SECRET, SHAREASALE_AFFILIATE_ID",
