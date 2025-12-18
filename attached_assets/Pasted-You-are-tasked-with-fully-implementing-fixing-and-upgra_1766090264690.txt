@@ -1,0 +1,474 @@
+You are tasked with fully implementing, fixing, and upgrading the existing Lonaate application.
+The app already exists and must be upgraded, not rebuilt from scratch.
+
+Your job is to implement ALL features below end-to-end, backend + frontend + database, using PostgreSQL and production-ready standards.
+
+
+---
+
+1. CORE ARCHITECTURE (MANDATORY)
+
+Backend: Python (FastAPI or Flask)
+
+Database: PostgreSQL (Render / Supabase compatible)
+
+Auth: JWT-based authentication
+
+Roles:
+
+admin
+
+user
+
+
+Session expiration: 12 hours
+
+Admin must NEVER be blocked by user restrictions.
+
+
+
+---
+
+2. UNLIMITED PRODUCTS ACROSS ALL AFFILIATE NETWORKS
+
+Implement a unified affiliate product engine:
+
+2.1 Supported Networks (ACTIVE NOW)
+
+Digistore24
+
+Awin / ShareASale
+
+PartnerStack
+
+MyLead
+
+
+2.2 Product Import Logic
+
+Users can:
+
+Click “Add Product”
+
+Choose Affiliate Network
+
+Browse ALL products from that network
+
+Select any product
+
+
+Once selected:
+
+Product is imported into the user’s Marketplace
+
+No product limit (unless plan limits apply)
+
+
+
+2.3 Admin Privileges
+
+Admin can:
+
+Import unlimited products
+
+Access all affiliate networks
+
+Add products to admin marketplace
+
+Run campaigns FREE
+
+
+
+
+---
+
+3. AUTOMATED ADS & BOOST SYSTEM (MANDATORY)
+
+3.1 User Campaign Flow
+
+When a product is added:
+
+User can click “Launch Campaign”
+
+
+Campaign rules:
+
+Runs for 24 hours
+
+Auto-boosts traffic continuously
+
+Each new click increases boost intensity
+
+
+Cost:
+
+Users: credit-based
+
+Admin: ALWAYS FREE
+
+
+
+3.2 Admin Campaign Rules
+
+Admin:
+
+No credit check
+
+No balance deduction
+
+Unlimited campaigns
+
+Unlimited boosts
+
+Must never see “insufficient balance”
+
+
+
+
+---
+
+4. AI SYSTEM (ADMIN FREE / USER PAID)
+
+4.1 AI Core Responsibilities
+
+Implement an internal AI service that:
+
+Automatically:
+
+Scans affiliate networks for new products
+
+Imports trending products
+
+Boosts admin products automatically
+
+Detects suspicious traffic
+
+Detects fraud attempts
+
+Blocks suspicious accounts immediately
+
+Logs all AI actions
+
+
+
+4.2 User AI (Premium)
+
+Users can buy AI Premium
+
+AI Premium allows:
+
+Auto product discovery
+
+Auto campaign launch
+
+Max 5 boosts per day
+
+Each boost lasts 24 hours
+
+
+After 5 boosts → user must wait OR re-subscribe
+
+
+4.3 AI Restrictions
+
+AI MUST NOT:
+
+Transfer money automatically
+
+Approve withdrawals
+
+Modify balances
+
+
+AI can only prepare & recommend, admin approves.
+
+
+
+---
+
+5. COMMISSION TRACKING → WITHDRAWAL PIPELINE
+
+5.1 Commission Flow (VERY IMPORTANT)
+
+Implement this exact flow:
+
+1. Affiliate network sends commission
+
+
+2. Commission is logged in:
+
+commission_logs
+
+
+
+3. Status:
+
+pending
+
+approved
+
+paid
+
+
+
+4. Once approved:
+
+Automatically appears in Withdrawals Section
+
+Ready for withdrawal
+
+
+
+
+5.2 User Dashboard
+
+Users must see:
+
+Total commissions
+
+Pending commissions
+
+Approved commissions
+
+Withdrawable balance
+
+Withdrawal history
+
+
+5.3 Admin Dashboard
+
+Admin must see:
+
+ALL commissions (all users)
+
+Filter by:
+
+User
+
+Network
+
+Date
+
+
+Admin CANNOT withdraw commissions
+
+Admin only approves/rejects withdrawals
+
+
+
+---
+
+6. BANK WITHDRAWAL SYSTEM (ONLY BANK TRANSFER)
+
+6.1 Withdrawal Logic
+
+Withdrawal method: Direct Bank Transfer ONLY
+
+Flow:
+
+1. User requests withdrawal
+
+
+2. Admin reviews
+
+
+3. Admin approves
+
+
+4. Status updates to paid
+
+
+
+
+6.2 Database Tables Required
+
+Create and connect:
+
+withdrawals
+
+commission_logs
+
+payments
+
+user_balances
+
+
+
+---
+
+7. CREDIT & SUBSCRIPTION SYSTEM
+
+7.1 Credits (Users)
+
+Users buy credits via Bank Transfer
+
+User uploads receipt
+
+Admin approves
+
+Credits added
+
+
+7.2 Subscription Plans
+
+Plans control:
+
+Max products
+
+Max campaigns
+
+AI access
+
+Priority boosts
+
+
+Admin:
+
+No subscription
+
+No payments
+
+Free forever
+
+
+
+---
+
+8. SECURITY & FRAUD PREVENTION
+
+Implement:
+
+IP monitoring
+
+Click anomaly detection
+
+AI fraud scoring
+
+Auto-block suspicious accounts
+
+Admin override available
+
+
+Blocked users:
+
+Cannot login
+
+Cannot withdraw
+
+Must contact support
+
+
+
+---
+
+9. AUTH & REDIRECT FIXES (CRITICAL)
+
+Fix ALL issues where:
+
+Admin gets redirected to login incorrectly
+
+Protected routes fail for admin
+
+
+Admin must access freely:
+
+/products
+
+/ads
+
+/campaigns
+
+/networks
+
+/commissions
+
+/withdrawals
+
+
+
+---
+
+10. FRONTEND REQUIREMENTS
+
+Frontend must include:
+
+User Dashboard
+
+Admin Dashboard (separate)
+
+Product Marketplace
+
+Campaign Manager
+
+Commission Dashboard
+
+Withdrawals Page
+
+AI Control Panel (Admin + Premium Users)
+
+Clean, modern UI
+
+
+
+---
+
+11. ENVIRONMENT VARIABLES REQUIRED
+
+DATABASE_URL=
+JWT_SECRET=
+DIGISTORE_API_KEY=
+AWIN_API_KEY=
+PARTNERSTACK_API_KEY=
+MYLEAD_API_EMAIL=
+MYLEAD_API_PASSWORD=
+EMAIL_HOST=
+EMAIL_USER=
+EMAIL_PASSWORD=
+
+
+---
+
+12. FINAL REQUIREMENTS
+
+Do NOT leave TODOs
+
+Do NOT say “future implementation”
+
+Everything must WORK
+
+Test:
+
+Admin flow
+
+User flow
+
+Campaign launch
+
+Commission → withdrawal
+
+AI automation
+
+
+App must be production-ready
+
+
+
+---
+
+DELIVERABLE
+
+A fully functional Lonaate platform where:
+
+Products are unlimited
+
+AI works automatically
+
+Admin runs free campaigns
+
+Commissions flow directly to withdrawals
+
+Bank withdrawals work
+
+Security is enforced
+
+System is stable and scalable

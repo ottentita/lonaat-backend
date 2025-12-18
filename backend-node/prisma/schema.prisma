@@ -23,6 +23,13 @@ model User {
   is_blocked    Boolean   @default(false)
   blocked_until DateTime?
   block_reason  String?   @db.VarChar(255)
+  ai_premium           Boolean   @default(false)
+  ai_premium_expires   DateTime?
+  ai_boosts_today      Int       @default(0)
+  ai_boosts_reset_at   DateTime?
+  fraud_score          Int       @default(0)
+  last_ip              String?   @db.VarChar(45)
+  withdrawable_balance Float     @default(0)
 
   transactions        Transaction[]
   commissions         Commission[]
@@ -75,15 +82,20 @@ model Commission {
 }
 
 model WithdrawalRequest {
-  id               Int      @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   user_id          Int
   amount           Float
-  status           String   @default("pending") @db.VarChar(20)
-  payment_method   String   @db.VarChar(50)
-  payment_details  String?  @db.Text
+  status           String    @default("pending") @db.VarChar(20)
+  payment_method   String    @default("bank_transfer") @db.VarChar(50)
+  payment_details  String?   @db.Text
+  bank_name        String?   @db.VarChar(100)
+  account_number   String?   @db.VarChar(50)
+  account_name     String?   @db.VarChar(100)
+  bank_code        String?   @db.VarChar(20)
   processed_at     DateTime?
-  rejection_reason String?  @db.Text
-  created_at       DateTime @default(now())
+  processed_by     Int?
+  rejection_reason String?   @db.Text
+  created_at       DateTime  @default(now())
 
   user User @relation(fields: [user_id], references: [id])
 
@@ -104,6 +116,10 @@ model AdBoost {
   boost_type          String?   @db.VarChar(50)
   is_admin_campaign   Boolean   @default(false)
   campaign_config     Json?     @db.JsonB
+  auto_boost          Boolean   @default(true)
+  boost_intensity     Int       @default(1)
+  last_boost_at       DateTime?
+  total_impressions   Int       @default(0)
 
   user User @relation(fields: [user_id], references: [id])
 
