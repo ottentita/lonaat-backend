@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
 import { processAIJob, processPendingJobs } from '../services/ai';
+import { syncAllNetworks, syncDigistore24Products, syncAwinProducts, syncMyLeadProducts, syncPartnerStackProducts, getNetworkStatus } from '../services/networkSync';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -537,6 +538,233 @@ router.post('/create-admin', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create admin' });
+  }
+});
+
+router.get('/networks/status', async (req: AuthRequest, res: Response) => {
+  try {
+    const status = await getNetworkStatus();
+    const productCounts = await prisma.product.groupBy({
+      by: ['network'],
+      _count: { id: true }
+    });
+
+    const networksWithCounts = status.map(s => ({
+      ...s,
+      product_count: productCounts.find(p => p.network === s.network)?._count.id || 0
+    }));
+
+    res.json({ networks: networksWithCounts });
+  } catch (error) {
+    console.error('Network status error:', error);
+    res.status(500).json({ error: 'Failed to get network status' });
+  }
+});
+
+router.post('/networks/sync/all', async (req: AuthRequest, res: Response) => {
+  try {
+    const results = await syncAllNetworks(req.user!.id);
+    const totalSynced = results.reduce((sum, r) => sum + r.products_synced, 0);
+
+    res.json({ 
+      message: `Synced ${totalSynced} products from all networks`,
+      results 
+    });
+  } catch (error) {
+    console.error('Sync all error:', error);
+    res.status(500).json({ error: 'Failed to sync networks' });
+  }
+});
+
+router.post('/networks/sync/:network', async (req: AuthRequest, res: Response) => {
+  try {
+    const { network } = req.params;
+    let result;
+
+    switch (network) {
+      case 'digistore24':
+        result = await syncDigistore24Products(req.user!.id);
+        break;
+      case 'awin':
+        result = await syncAwinProducts(req.user!.id);
+        break;
+      case 'mylead':
+        result = await syncMyLeadProducts(req.user!.id);
+        break;
+      case 'partnerstack':
+        result = await syncPartnerStackProducts(req.user!.id);
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid network' });
+    }
+
+    res.json({ 
+      message: `Synced ${result.products_synced} products from ${network}`,
+      result 
+    });
+  } catch (error) {
+    console.error('Network sync error:', error);
+    res.status(500).json({ error: 'Failed to sync network' });
+  }
+});
+
+router.get('/products', async (req: AuthRequest, res: Response) => {
+  try {
+    const { network, page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where = network ? { network: String(network) } : {};
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: Number(limit),
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          network: true,
+          category: true,
+          image_url: true,
+          affiliate_link: true,
+          ai_generated_ad: true,
+          is_active: true,
+          created_at: true
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    res.json({
+      products,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Products list error:', error);
+    res.status(500).json({ error: 'Failed to get products' });
+  }
+});
+
+router.delete('/products/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.product.delete({ where: { id: Number(id) } });
+    res.json({ message: 'Product deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
+});
+
+router.get('/properties', async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where = status ? { is_active: status === 'approved' } : {};
+
+    const [properties, total, pendingCount, approvedCount] = await Promise.all([
+      prisma.realEstateProperty.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: Number(limit)
+      }),
+      prisma.realEstateProperty.count({ where }),
+      prisma.realEstateProperty.count({ where: { is_active: false } }),
+      prisma.realEstateProperty.count({ where: { is_active: true } })
+    ]);
+
+    res.json({
+      properties,
+      pending_count: pendingCount,
+      approved_count: approvedCount,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Properties list error:', error);
+    res.status(500).json({ error: 'Failed to get properties' });
+  }
+});
+
+router.post('/properties', async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, description, property_type, location, price, bedrooms, bathrooms, area_sqft, image_url, affiliate_link } = req.body;
+
+    const property = await prisma.realEstateProperty.create({
+      data: {
+        user_id: req.user!.id,
+        title,
+        description,
+        property_type,
+        location,
+        price: price ? parseFloat(price) : null,
+        bedrooms: bedrooms ? parseInt(bedrooms) : null,
+        bathrooms: bathrooms ? parseInt(bathrooms) : null,
+        area_sqft: area_sqft ? parseInt(area_sqft) : null,
+        image_url,
+        affiliate_link,
+        is_active: true
+      }
+    });
+
+    res.status(201).json({ message: 'Property created', property });
+  } catch (error) {
+    console.error('Create property error:', error);
+    res.status(500).json({ error: 'Failed to create property' });
+  }
+});
+
+router.post('/properties/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { is_featured } = req.body;
+
+    const property = await prisma.realEstateProperty.update({
+      where: { id: Number(id) },
+      data: { is_active: true }
+    });
+
+    res.json({ message: 'Property approved', property });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to approve property' });
+  }
+});
+
+router.post('/properties/:id/reject', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const property = await prisma.realEstateProperty.update({
+      where: { id: Number(id) },
+      data: { is_active: false }
+    });
+
+    res.json({ message: 'Property rejected', property });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reject property' });
+  }
+});
+
+router.delete('/properties/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.realEstateProperty.delete({ where: { id: Number(id) } });
+    res.json({ message: 'Property deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete property' });
   }
 });
 
