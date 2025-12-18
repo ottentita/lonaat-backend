@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
+import { processAIJob, processPendingJobs } from '../services/ai';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -421,9 +422,11 @@ router.post('/ai/run-ads/products', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    res.json({ message: 'Product ad generation queued', job_id: job.id });
+    processAIJob(job.id).catch(err => console.error('AI job processing error:', err));
+
+    res.json({ message: 'Product ad generation started', job_id: job.id });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to queue task' });
+    res.status(500).json({ error: 'Failed to start task' });
   }
 });
 
@@ -440,9 +443,11 @@ router.post('/ai/run-ads/real-estate', async (req: AuthRequest, res: Response) =
       }
     });
 
-    res.json({ message: 'Real estate ad generation queued', job_id: job.id });
+    processAIJob(job.id).catch(err => console.error('AI job processing error:', err));
+
+    res.json({ message: 'Real estate ad generation started', job_id: job.id });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to queue task' });
+    res.status(500).json({ error: 'Failed to start task' });
   }
 });
 
@@ -457,9 +462,11 @@ router.post('/ai/run-ads/all', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    res.json({ message: 'All ads generation queued', job_id: job.id });
+    processAIJob(job.id).catch(err => console.error('AI job processing error:', err));
+
+    res.json({ message: 'All ads generation started', job_id: job.id });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to queue task' });
+    res.status(500).json({ error: 'Failed to start task' });
   }
 });
 
@@ -476,9 +483,11 @@ router.post('/ai/run-commission-scan', async (req: AuthRequest, res: Response) =
       }
     });
 
-    res.json({ message: 'Commission scan queued', job_id: job.id });
+    processAIJob(job.id).catch(err => console.error('AI job processing error:', err));
+
+    res.json({ message: 'Commission scan started', job_id: job.id });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to queue task' });
+    res.status(500).json({ error: 'Failed to start task' });
   }
 });
 
