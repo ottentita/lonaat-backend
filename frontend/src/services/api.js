@@ -101,9 +101,11 @@ export const productsAPI = {
 
 // Commissions APIs
 export const commissionsAPI = {
-  getMy: () => api.get('/commissions/user'),
-  getAll: (params) => api.get('/commissions/all', { params }),
-  markPaid: (id) => api.post(`/commissions/${id}/mark-paid`),
+  getMy: (params) => api.get('/commissions', { params }),
+  getAll: (params) => api.get('/admin/commissions', { params }),
+  approve: (id) => api.post(`/admin/commissions/${id}/approve`),
+  reject: (id, data) => api.post(`/admin/commissions/${id}/reject`, data),
+  markPaid: (id) => api.post(`/admin/commissions/${id}/mark-paid`),
 };
 
 // AdBoost APIs
@@ -112,6 +114,8 @@ export const adsAPI = {
   getStatus: () => api.get('/ads/status'),
   getCampaign: (id) => api.get(`/ads/${id}`),
   pause: (id) => api.post(`/ads/${id}/pause`),
+  resume: (id) => api.post(`/ads/${id}/resume`),
+  stop: (id) => api.post(`/ads/${id}/stop`),
 };
 
 // Wallet APIs
@@ -175,9 +179,9 @@ export const adminAPI = {
   aiGenerateAds: (data) => api.post('/admin/ai/generate-ads', data),
   
   // Fraud Management
-  getFraudStats: () => api.get('/admin/fraud/stats'),
-  blockUser: (userId, data) => api.post(`/admin/users/${userId}/block`, data),
-  unblockUser: (userId) => api.post(`/admin/users/${userId}/unblock`),
+  getFraudStats: () => api.get('/admin/fraud/flagged-users'),
+  blockUser: (userId, data) => api.post(`/admin/fraud/block/${userId}`, data),
+  unblockUser: (userId) => api.post(`/admin/fraud/unblock/${userId}`),
   deactivateUser: (userId) => api.post(`/admin/users/${userId}/deactivate`),
   reactivateUser: (userId) => api.post(`/admin/users/${userId}/reactivate`),
 };

@@ -258,19 +258,37 @@ def digistore24_webhook():
                 'transaction_id': external_ref
             }), 404
         
+        # Check for duplicate commission (idempotent handling)
+        existing_commission = Commission.query.filter_by(
+            network='digistore24',
+            external_ref=external_ref
+        ).first()
+        
+        if existing_commission:
+            return jsonify({
+                'status': 'duplicate',
+                'message': 'Commission already recorded',
+                'commission_id': existing_commission.id
+            }), 200
+        
         commission = Commission(
             user_id=user_id,
             network='digistore24',
             amount=amount,
             status='pending',
             external_ref=external_ref,
+            product_id=imported_product.id if imported_product else None,
             webhook_data=json.dumps(data)
         )
         
         db.session.add(commission)
         db.session.commit()
         
-        return jsonify({'status': 'success', 'user_id': user_id}), 200
+        return jsonify({
+            'status': 'success',
+            'user_id': user_id,
+            'commission_id': commission.id
+        }), 200
         
     except Exception as e:
         db.session.rollback()
@@ -319,23 +337,120 @@ def awin_webhook():
                 'transaction_id': external_ref
             }), 404
         
+        # Check for duplicate commission (idempotent handling)
+        existing_commission = Commission.query.filter_by(
+            network='awin',
+            external_ref=external_ref
+        ).first()
+        
+        if existing_commission:
+            return jsonify({
+                'status': 'duplicate',
+                'message': 'Commission already recorded',
+                'commission_id': existing_commission.id
+            }), 200
+        
         commission = Commission(
             user_id=user_id,
             network='awin',
             amount=amount,
             status='pending',
             external_ref=external_ref,
+            product_id=imported_product.id if imported_product else None,
             webhook_data=json.dumps(data)
         )
         
         db.session.add(commission)
         db.session.commit()
         
-        return jsonify({'status': 'success', 'user_id': user_id}), 200
+        return jsonify({
+            'status': 'success',
+            'user_id': user_id,
+            'commission_id': commission.id
+        }), 200
         
     except Exception as e:
         db.session.rollback()
         print(f"Awin webhook error: {str(e)}")
+        return jsonify({'error': 'Webhook processing failed'}), 500
+
+
+@production_bp.route('/webhook/affiliate/partnerstack', methods=['POST'])
+def partnerstack_webhook():
+    """
+    Webhook endpoint for PartnerStack commission notifications
+    """
+    try:
+        data = request.get_json() or request.form.to_dict()
+        
+        # Extract commission data
+        external_ref = data.get('transaction_key') or data.get('id') or data.get('event_id')
+        amount = float(data.get('amount', 0) or data.get('commission_amount', 0))
+        product_identifier = data.get('product_key') or data.get('partner_key') or data.get('action')
+        
+        if not external_ref or amount <= 0:
+            return jsonify({'error': 'Invalid webhook data'}), 400
+        
+        # Check for duplicate commission
+        existing_commission = Commission.query.filter_by(
+            network='partnerstack',
+            external_ref=external_ref
+        ).first()
+        
+        if existing_commission:
+            return jsonify({
+                'status': 'duplicate',
+                'message': 'Commission already recorded',
+                'commission_id': existing_commission.id
+            }), 200
+        
+        # Find user by product mapping
+        user_id = None
+        imported_product = None
+        
+        if product_identifier:
+            imported_product = ImportedProduct.query.filter_by(
+                external_product_id=str(product_identifier),
+                network='partnerstack'
+            ).first()
+            
+            if imported_product:
+                user_id = imported_product.user_id
+        
+        # If no product match found, log and return error
+        if not user_id:
+            error_msg = f"No product match for PartnerStack webhook. Product: {product_identifier}, Transaction: {external_ref}"
+            print(f"⚠️  WEBHOOK ERROR: {error_msg}")
+            print(f"Webhook data: {json.dumps(data)}")
+            
+            return jsonify({
+                'status': 'error',
+                'message': 'Product not found in system',
+                'transaction_id': external_ref
+            }), 404
+        
+        commission = Commission(
+            user_id=user_id,
+            network='partnerstack',
+            amount=amount,
+            status='pending',
+            external_ref=external_ref,
+            product_id=imported_product.id if imported_product else None,
+            webhook_data=json.dumps(data)
+        )
+        
+        db.session.add(commission)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'user_id': user_id,
+            'commission_id': commission.id
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"PartnerStack webhook error: {str(e)}")
         return jsonify({'error': 'Webhook processing failed'}), 500
 
 

@@ -235,6 +235,71 @@ def pause_campaign(campaign_id):
         return jsonify({'error': 'Failed to pause campaign'}), 500
 
 
+@ads_bp.route('/<int:campaign_id>/resume', methods=['POST'])
+@jwt_required()
+def resume_campaign(campaign_id):
+    """Resume a paused campaign"""
+    try:
+        user_id = int(get_jwt_identity())
+        
+        campaign = AdBoost.query.filter_by(
+            id=campaign_id,
+            user_id=user_id,
+            status='paused'
+        ).first()
+        
+        if not campaign:
+            return jsonify({'error': 'Paused campaign not found'}), 404
+        
+        # Check if campaign hasn't expired yet
+        if datetime.utcnow() > campaign.expires_at:
+            campaign.status = 'expired'
+            db.session.commit()
+            return jsonify({'error': 'Campaign has expired and cannot be resumed'}), 400
+        
+        campaign.status = 'active'
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Campaign resumed successfully',
+            'campaign': campaign.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Resume campaign error: {e}")
+        return jsonify({'error': 'Failed to resume campaign'}), 500
+
+
+@ads_bp.route('/<int:campaign_id>/stop', methods=['POST'])
+@jwt_required()
+def stop_campaign(campaign_id):
+    """Stop/complete a campaign manually"""
+    try:
+        user_id = int(get_jwt_identity())
+        
+        campaign = AdBoost.query.filter_by(
+            id=campaign_id,
+            user_id=user_id
+        ).filter(AdBoost.status.in_(['active', 'paused'])).first()
+        
+        if not campaign:
+            return jsonify({'error': 'Campaign not found or already completed'}), 404
+        
+        campaign.status = 'completed'
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Campaign stopped successfully',
+            'campaign': campaign.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Stop campaign error: {e}")
+        return jsonify({'error': 'Failed to stop campaign'}), 500
+
+
 def handle_boost_click(product_id: int) -> dict:
     """
     Internal function to handle AdBoost click

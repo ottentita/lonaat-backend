@@ -593,16 +593,21 @@ class Commission(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24' or 'awin'
+    network = db.Column(db.String(50), nullable=False, index=True)  # 'digistore24', 'awin', 'partnerstack'
     product_id = db.Column(db.Integer, nullable=True)  # Reference to Product or ImportedProduct
+    campaign_id = db.Column(db.Integer, db.ForeignKey('ad_boosts.id'), nullable=True)  # Link to campaign
     amount = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'paid'
-    external_ref = db.Column(db.String(255), nullable=True)  # External transaction ID
+    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'rejected', 'paid'
+    external_ref = db.Column(db.String(255), nullable=True, index=True)  # External transaction ID
     webhook_data = db.Column(db.Text, nullable=True)  # JSON data from webhook
+    rejection_reason = db.Column(db.String(255), nullable=True)  # Reason if rejected
+    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_by = db.Column(db.Integer, nullable=True)  # Admin who approved
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     paid_at = db.Column(db.DateTime, nullable=True)
     
     user = db.relationship('User', backref='commissions')
+    campaign = db.relationship('AdBoost', backref='commissions')
     
     def to_dict(self):
         return {
@@ -610,9 +615,13 @@ class Commission(db.Model):
             'user_id': self.user_id,
             'network': self.network,
             'product_id': self.product_id,
+            'campaign_id': self.campaign_id,
             'amount': self.amount,
             'status': self.status,
             'external_ref': self.external_ref,
+            'rejection_reason': self.rejection_reason,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'approved_by': self.approved_by,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'paid_at': self.paid_at.isoformat() if self.paid_at else None
         }

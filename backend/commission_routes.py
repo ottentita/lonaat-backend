@@ -2,11 +2,14 @@
 Commission tracking and viewing routes
 User API: /api/commissions - View own commissions
 Admin API: /api/admin/commissions - View all commissions with filters
+Admin API: /api/admin/commissions/<id>/approve - Approve commission
+Admin API: /api/admin/commissions/<id>/reject - Reject commission
+Admin API: /api/admin/commissions/<id>/mark-paid - Mark as paid
 """
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, User, Commission
+from models import db, User, Commission, AdBoost
 from auth import is_admin_user
 from datetime import datetime, timedelta
 from sqlalchemy import func
@@ -15,6 +18,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 commission_bp = Blueprint('commissions', __name__, url_prefix='/api')
+
+VALID_STATUSES = ['pending', 'approved', 'rejected', 'paid']
+VALID_NETWORKS = ['digistore24', 'awin', 'partnerstack']
 
 
 @commission_bp.route('/commissions', methods=['GET'])
@@ -48,11 +54,11 @@ def get_user_commissions():
         
         # Apply filters
         status_filter = request.args.get('status')
-        if status_filter and status_filter in ['pending', 'approved', 'paid']:
+        if status_filter and status_filter in VALID_STATUSES:
             query = query.filter_by(status=status_filter)
         
         network_filter = request.args.get('network')
-        if network_filter and network_filter in ['digistore24', 'awin']:
+        if network_filter and network_filter in VALID_NETWORKS:
             query = query.filter_by(network=network_filter)
         
         start_date = request.args.get('start_date')
@@ -79,9 +85,11 @@ def get_user_commissions():
             'total_amount': sum(c.amount for c in all_commissions),
             'pending_amount': sum(c.amount for c in all_commissions if c.status == 'pending'),
             'approved_amount': sum(c.amount for c in all_commissions if c.status == 'approved'),
+            'rejected_amount': sum(c.amount for c in all_commissions if c.status == 'rejected'),
             'paid_amount': sum(c.amount for c in all_commissions if c.status == 'paid'),
             'pending_count': len([c for c in all_commissions if c.status == 'pending']),
             'approved_count': len([c for c in all_commissions if c.status == 'approved']),
+            'rejected_count': len([c for c in all_commissions if c.status == 'rejected']),
             'paid_count': len([c for c in all_commissions if c.status == 'paid'])
         }
         
@@ -147,11 +155,11 @@ def get_all_commissions():
             query = query.filter_by(user_id=user_filter)
         
         status_filter = request.args.get('status')
-        if status_filter and status_filter in ['pending', 'approved', 'paid']:
+        if status_filter and status_filter in VALID_STATUSES:
             query = query.filter_by(status=status_filter)
         
         network_filter = request.args.get('network')
-        if network_filter and network_filter in ['digistore24', 'awin']:
+        if network_filter and network_filter in VALID_NETWORKS:
             query = query.filter_by(network=network_filter)
         
         start_date = request.args.get('start_date')
@@ -178,13 +186,16 @@ def get_all_commissions():
             'total_amount': sum(c.amount for c in all_commissions),
             'pending_amount': sum(c.amount for c in all_commissions if c.status == 'pending'),
             'approved_amount': sum(c.amount for c in all_commissions if c.status == 'approved'),
+            'rejected_amount': sum(c.amount for c in all_commissions if c.status == 'rejected'),
             'paid_amount': sum(c.amount for c in all_commissions if c.status == 'paid'),
             'pending_count': len([c for c in all_commissions if c.status == 'pending']),
             'approved_count': len([c for c in all_commissions if c.status == 'approved']),
+            'rejected_count': len([c for c in all_commissions if c.status == 'rejected']),
             'paid_count': len([c for c in all_commissions if c.status == 'paid']),
             'total_users': db.session.query(func.count(func.distinct(Commission.user_id))).scalar() or 0,
             'digistore24_total': sum(c.amount for c in all_commissions if c.network == 'digistore24'),
-            'awin_total': sum(c.amount for c in all_commissions if c.network == 'awin')
+            'awin_total': sum(c.amount for c in all_commissions if c.network == 'awin'),
+            'partnerstack_total': sum(c.amount for c in all_commissions if c.network == 'partnerstack')
         }
         
         # Paginate filtered results
@@ -220,3 +231,171 @@ def get_all_commissions():
     except Exception as e:
         logger.error(f"Get all commissions error: {e}")
         return jsonify({'error': 'Failed to fetch commissions'}), 500
+
+
+@commission_bp.route('/admin/commissions/<int:commission_id>/approve', methods=['POST'])
+@jwt_required()
+def approve_commission(commission_id):
+    """Admin-only: Approve a pending commission"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        if not is_admin_user(current_user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        commission = Commission.query.get(commission_id)
+        if not commission:
+            return jsonify({'error': 'Commission not found'}), 404
+        
+        if commission.status != 'pending':
+            return jsonify({'error': f'Commission is already {commission.status}'}), 400
+        
+        commission.status = 'approved'
+        commission.approved_at = datetime.utcnow()
+        commission.approved_by = current_user_id
+        db.session.commit()
+        
+        logger.info(f"Commission {commission_id} approved by admin {current_user_id}")
+        
+        return jsonify({
+            'message': 'Commission approved successfully',
+            'commission': commission.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Approve commission error: {e}")
+        return jsonify({'error': 'Failed to approve commission'}), 500
+
+
+@commission_bp.route('/admin/commissions/<int:commission_id>/reject', methods=['POST'])
+@jwt_required()
+def reject_commission(commission_id):
+    """Admin-only: Reject a pending commission"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        if not is_admin_user(current_user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        commission = Commission.query.get(commission_id)
+        if not commission:
+            return jsonify({'error': 'Commission not found'}), 404
+        
+        if commission.status not in ['pending', 'approved']:
+            return jsonify({'error': f'Cannot reject a {commission.status} commission'}), 400
+        
+        data = request.get_json() or {}
+        reason = data.get('reason', 'Rejected by admin')
+        
+        commission.status = 'rejected'
+        commission.rejection_reason = reason
+        db.session.commit()
+        
+        logger.info(f"Commission {commission_id} rejected by admin {current_user_id}: {reason}")
+        
+        return jsonify({
+            'message': 'Commission rejected',
+            'commission': commission.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Reject commission error: {e}")
+        return jsonify({'error': 'Failed to reject commission'}), 500
+
+
+@commission_bp.route('/admin/commissions/<int:commission_id>/mark-paid', methods=['POST'])
+@jwt_required()
+def mark_commission_paid(commission_id):
+    """Admin-only: Mark an approved commission as paid and add to user balance"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        if not is_admin_user(current_user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        commission = Commission.query.get(commission_id)
+        if not commission:
+            return jsonify({'error': 'Commission not found'}), 404
+        
+        if commission.status == 'paid':
+            return jsonify({'error': 'Commission is already paid'}), 400
+        
+        if commission.status == 'rejected':
+            return jsonify({'error': 'Cannot pay a rejected commission'}), 400
+        
+        # Update commission status
+        commission.status = 'paid'
+        commission.paid_at = datetime.utcnow()
+        
+        # Add amount to user balance
+        user = User.query.get(commission.user_id)
+        if user:
+            user.balance += commission.amount
+        
+        db.session.commit()
+        
+        logger.info(f"Commission {commission_id} marked as paid by admin {current_user_id}")
+        
+        return jsonify({
+            'message': 'Commission marked as paid',
+            'commission': commission.to_dict(),
+            'user_balance': user.balance if user else None
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Mark commission paid error: {e}")
+        return jsonify({'error': 'Failed to mark commission as paid'}), 500
+
+
+def check_duplicate_commission(network, external_ref):
+    """Check if a commission with this external reference already exists"""
+    if not external_ref:
+        return False
+    
+    existing = Commission.query.filter_by(
+        network=network,
+        external_ref=external_ref
+    ).first()
+    
+    return existing is not None
+
+
+def create_commission_with_duplicate_check(user_id, network, amount, external_ref=None, 
+                                           product_id=None, campaign_id=None, webhook_data=None):
+    """
+    Create a commission record with duplicate prevention
+    
+    Returns:
+        tuple: (commission, created) - commission object and whether it was newly created
+    """
+    # Check for duplicate
+    if external_ref:
+        existing = Commission.query.filter_by(
+            network=network,
+            external_ref=external_ref
+        ).first()
+        
+        if existing:
+            logger.warning(f"Duplicate commission detected: {network} - {external_ref}")
+            return existing, False
+    
+    # Create new commission
+    commission = Commission(
+        user_id=user_id,
+        network=network,
+        amount=amount,
+        status='pending',
+        external_ref=external_ref,
+        product_id=product_id,
+        campaign_id=campaign_id,
+        webhook_data=webhook_data
+    )
+    
+    db.session.add(commission)
+    db.session.commit()
+    
+    logger.info(f"New commission created: {network} - ₦{amount} for user {user_id}")
+    return commission, True
