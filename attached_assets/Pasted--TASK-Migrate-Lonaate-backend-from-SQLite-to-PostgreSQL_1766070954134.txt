@@ -1,0 +1,266 @@
+> TASK: Migrate Lonaate backend from SQLite to PostgreSQL safely, without data loss, and make PostgreSQL the single source of truth.
+
+
+
+STEP 1 — DATABASE SETUP
+
+1. Remove SQLite usage completely.
+
+
+2. Configure PostgreSQL connection using environment variables:
+
+DATABASE_URL
+
+
+
+3. Use SQLAlchemy + Alembic for migrations.
+
+
+
+STEP 2 — MODELS
+
+Ensure all models are PostgreSQL-compatible:
+
+users
+
+admin_users
+
+products
+
+campaigns
+
+payments
+
+credits
+
+subscription_plans
+
+user_subscriptions
+
+commission_logs
+
+affiliate_networks
+
+audit_logs
+
+ai_jobs
+
+real_estate_listings
+
+
+Add:
+
+Proper foreign keys
+
+Indexes on:
+
+user_id
+
+email
+
+affiliate_network
+
+commission_status
+
+created_at
+
+
+
+STEP 3 — MIGRATION (NO DATA LOSS)
+
+1. Create Alembic migrations from existing models.
+
+
+2. If SQLite data exists:
+
+Export SQLite data
+
+Transform
+
+Import into PostgreSQL
+
+
+
+3. Validate row counts before and after migration.
+
+
+
+STEP 4 — BACKEND UPDATE
+
+Update all queries to use PostgreSQL session.
+
+Ensure:
+
+Admin role bypasses credit checks
+
+Campaign cost = 0 for admin
+
+Admin unlimited campaigns
+
+
+Fix login/session bugs caused by DB mismatch.
+
+
+STEP 5 — TRANSACTIONS & SAFETY
+
+Wrap payments, credits, commissions in DB transactions.
+
+Add rollback on failure.
+
+Prevent double crediting.
+
+
+STEP 6 — TESTING
+
+Create 3 test users + 1 admin.
+
+Test:
+
+Login
+
+Credit purchase (bank transfer)
+
+Campaign launch
+
+Admin free campaigns
+
+Commission logging
+
+
+Confirm no SQLite file is used anywhere.
+
+
+STEP 7 — FINAL CHECK
+
+Remove sqlite imports
+
+Remove sqlite files
+
+Confirm app boots only with PostgreSQL
+
+
+> END GOAL:
+Lonaate must run entirely on PostgreSQL, safely, with no data loss, and be production-ready.
+
+
+
+
+---
+
+3. Migration-Safe Plan (No Data Loss, Step-by-Step)
+
+This is the safe migration strategy your developer or Replit agent must follow.
+
+
+---
+
+🟢 PHASE A — PREPARE
+
+1. Freeze schema (no new features during migration).
+
+
+2. Back up:
+
+SQLite .db file
+
+Current backend code
+
+
+
+3. Add PostgreSQL connection without removing SQLite yet.
+
+
+
+
+---
+
+🟢 PHASE B — SCHEMA MIGRATION
+
+1. Convert models to PostgreSQL-safe SQLAlchemy models.
+
+
+2. Generate Alembic migration:
+
+alembic revision --autogenerate -m "postgres_init"
+alembic upgrade head
+
+
+
+
+---
+
+🟢 PHASE C — DATA MIGRATION
+
+If SQLite has data:
+
+1. Export SQLite tables:
+
+sqlite3 old.db .dump > dump.sql
+
+
+2. Transform data types (if needed).
+
+
+3. Import into PostgreSQL.
+
+
+4. Validate:
+
+Row counts
+
+User IDs
+
+Foreign key integrity
+
+
+
+
+
+---
+
+🟢 PHASE D — SWITCHOVER
+
+1. Update DATABASE_URL to PostgreSQL only.
+
+
+2. Remove SQLite engine references.
+
+
+3. Restart backend.
+
+
+4. Run smoke tests.
+
+
+
+
+---
+
+🟢 PHASE E — POST-MIGRATION SAFETY
+
+Enable:
+
+Transactions
+
+Unique constraints (email, affiliate txn id)
+
+Audit logs
+
+
+Schedule daily DB backups (Supabase/Render)
+
+
+
+---
+
+4. Final Verdict (Very Important)
+
+✅ Best DB: PostgreSQL (Supabase preferred)
+
+✅ SQLite must be removed
+
+✅ Migration must use Alembic
+
+✅ No feature work until migration is done
+
+✅ Admin logic must be enforced at DB + API level
