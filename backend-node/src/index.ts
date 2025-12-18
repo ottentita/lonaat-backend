@@ -12,6 +12,8 @@ import adminRoutes from './routes/admin';
 import commissionRoutes from './routes/commissions';
 import paymentRoutes from './routes/payments';
 import subscriptionRoutes from './routes/subscriptions';
+import walletRoutes from './routes/wallet';
+import webhookRoutes from './routes/webhooks';
 
 dotenv.config();
 
@@ -42,6 +44,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/commissions', commissionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {
@@ -64,6 +68,8 @@ app.get('/', (req, res) => {
       commissions: '/api/commissions',
       payments: '/api/payments',
       subscriptions: '/api/subscriptions',
+      wallet: '/api/wallet',
+      webhooks: '/api/webhooks',
       admin: '/api/admin'
     }
   });

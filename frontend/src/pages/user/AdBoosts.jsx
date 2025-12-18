@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adsAPI, productsAPI, walletAPI } from '@/services/api';
+import { isAdmin } from '@/utils/auth';
 import toast from 'react-hot-toast';
 import { 
   Megaphone, 
@@ -11,7 +12,8 @@ import {
   Zap,
   Loader2,
   X,
-  Wallet
+  Wallet,
+  Crown
 } from 'lucide-react';
 
 const AdBoosts = () => {
@@ -49,7 +51,10 @@ const AdBoosts = () => {
     }
   };
 
+  const userIsAdmin = isAdmin();
+  
   const calculateCost = () => {
+    if (userIsAdmin) return 0;
     const baseDaily = 100;
     const multiplier = formData.boost_level;
     return baseDaily * multiplier * formData.duration_days;
@@ -59,7 +64,7 @@ const AdBoosts = () => {
     e.preventDefault();
     const cost = calculateCost();
     
-    if (balance < cost) {
+    if (!userIsAdmin && balance < cost) {
       toast.error('Insufficient balance. Please buy more credits.');
       return;
     }

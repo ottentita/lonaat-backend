@@ -1,0 +1,88 @@
+Analyze the existing Lonaate project and perform a full backend + frontend upgrade without breaking existing functionality.
+
+STEP A3 – IMPLEMENT MONETIZATION, COMMISSIONS, PAYMENTS & ADMIN LOGIC
+
+1. DATABASE (PostgreSQL on Render):
+   - Migrate from SQLite to PostgreSQL.
+   - Create/update tables:
+        users (id, role, email, password, balance, plan, created_at)
+        commissions (id, user_id, network, amount, status, created_at)
+        commission_logs (id, user_id, network, amount, status, reference, created_at)
+        payments (id, user_id, amount, method, receipt_url, status, credits_added, plan, created_at)
+        subscription_plans (id, name, price, duration, max_products, max_campaigns, ai_access)
+        user_subscriptions (id, user_id, plan_id, start_date, end_date, status)
+        campaigns (id, user_id, product_id, cost, status, is_admin_campaign)
+   - Ensure admin balance is ignored everywhere.
+
+2. AUTH & ROLES:
+   - Ensure JWT payload includes { user_id, role }.
+   - Admin role = unlimited access, no credits required, no payment restrictions.
+   - Fix redirect bug sending admin back to login.
+   - Session expiry = 12 hours.
+
+3. COMMISSIONS SYSTEM:
+   - User dashboard:
+        * total commissions
+        * pending commissions
+        * approved commissions
+        * commission history
+   - Admin dashboard:
+        * view ALL commissions
+        * filter by user, date, network
+        * admin cannot withdraw commissions
+   - Integrate Digistore24 and Awin using existing API keys.
+
+4. PAYMENT SYSTEM (BANK TRANSFER ONLY):
+   - Implement “Buy Credits” flow:
+        * user selects package
+        * show admin bank details
+        * user uploads payment receipt
+        * admin approves → credits added
+   - Implement Subscription Plans:
+        * Basic, Pro, Elite
+        * bank transfer only
+        * admin approval activates plan
+   - Create admin panel for approving/denying payments.
+
+5. CAMPAIGN COST LOGIC:
+   - If role === "admin":
+        * campaign_cost = 0
+        * skip credit checks
+        * unlimited campaigns
+   - If role === "user":
+        * deduct credits
+        * block if insufficient balance
+
+6. FRONTEND UPDATES:
+   - Add pages/components:
+        * Buy Credits
+        * Upload Payment Proof
+        * Subscription Plans
+        * Commission Dashboard
+        * Admin Commission Center
+   - Hide all cost/balance UI for admin.
+   - Show “FREE” campaigns for admin.
+
+7. SECURITY:
+   - Add audit logs for:
+        * payments
+        * campaigns
+        * commission updates
+   - Block suspicious activity automatically.
+
+8. ENV VARIABLES:
+   - Ensure usage of:
+        DATABASE_URL
+        JWT_SECRET
+        DIGISTORE24_API_KEY
+        AWIN_TOKEN
+        EMAIL_HOST, EMAIL_USER, EMAIL_PASS
+
+9. TESTING:
+   - Test full flow:
+        * admin login → free campaigns
+        * user login → buy credits → launch campaign
+        * commission tracking
+        * admin approval workflows
+
+Deliver a stable, production-ready system with backend and frontend fully connected.

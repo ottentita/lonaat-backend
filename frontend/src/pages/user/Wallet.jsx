@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Wallet as WalletIcon, Plus, Copy, Check, History } from 'lucide-react';
+import { Wallet as WalletIcon, Plus, Copy, Check, History, Package, CreditCard, Upload, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const Wallet = () => {
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
+  const [showBankDetails, setShowBankDetails] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [amount, setAmount] = useState('');
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [bankDetails, setBankDetails] = useState(null);
+  const [paymentId, setPaymentId] = useState(null);
   const [referralLink, setReferralLink] = useState('');
 
   useEffect(() => {
@@ -18,13 +22,15 @@ const Wallet = () => {
 
   const fetchWalletData = async () => {
     try {
-      const [walletRes, transactionsRes, profileRes] = await Promise.all([
+      const [walletRes, transactionsRes, profileRes, packagesRes] = await Promise.all([
         api.get('/wallet'),
         api.get('/wallet/transactions'),
-        api.get('/user/profile')
+        api.get('/user/profile'),
+        api.get('/wallet/packages')
       ]);
       setWallet(walletRes.data.wallet);
       setTransactions(transactionsRes.data.transactions);
+      setPackages(packagesRes.data.packages || []);
       
       const userId = profileRes.data.user?.id || 'USER';
       setReferralLink(`${window.location.origin}/register?ref=${userId}`);
@@ -36,25 +42,30 @@ const Wallet = () => {
     }
   };
 
-  const handleBuyCredits = async () => {
-    if (!amount || isNaN(amount) || Number(amount) < 100) {
-      toast.error('Minimum purchase is $100');
-      return;
-    }
-
+  const handleSelectPackage = async (pkg) => {
+    setSelectedPackage(pkg);
     try {
       const { data } = await api.post('/wallet/buy_credits', {
-        amount: Number(amount)
+        amount: pkg.price,
+        package_id: pkg.id
       });
 
-      if (data.payment_link) {
-        window.open(data.payment_link, '_blank');
-        toast.success('Redirecting to payment...');
-        setShowBuyModal(false);
-      }
+      setBankDetails(data.bank_details);
+      setPaymentId(data.payment_id);
+      setShowBuyModal(false);
+      setShowBankDetails(true);
+      toast.success('Payment request created! Please complete the bank transfer.');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to initiate payment');
     }
+  };
+
+  const handleBuyCredits = async () => {
+    if (!selectedPackage) {
+      toast.error('Please select a package');
+      return;
+    }
+    await handleSelectPackage(selectedPackage);
   };
 
   const copyReferralLink = () => {
@@ -210,44 +221,115 @@ const Wallet = () => {
         )}
       </div>
 
-      {/* Buy Credits Modal */}
+      {/* Buy Credits Modal - Package Selection */}
       {showBuyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="card max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h3 className="text-2xl font-bold mb-4">Buy AdBoost Credits</h3>
             <p className="text-dark-400 mb-6">
-              Enter amount in USD. You'll be redirected to Flutterwave for secure payment.
+              Select a credit package. Payment is via bank transfer.
             </p>
             
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Amount ($)</label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="100"
-                className="input"
-                min="100"
-              />
-              <p className="text-xs text-dark-500 mt-1">
-                You'll receive {amount ? Math.floor(Number(amount) / 10) : 0} credits
-              </p>
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              {packages.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  onClick={() => setSelectedPackage(pkg)}
+                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    selectedPackage?.id === pkg.id
+                      ? 'border-primary-500 bg-primary-500/10'
+                      : 'border-dark-700 hover:border-dark-500'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-bold text-lg">{pkg.name}</h4>
+                    {pkg.bonus_credits > 0 && (
+                      <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded">
+                        +{pkg.bonus_credits} bonus
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-3xl font-bold text-primary-400">${pkg.price}</p>
+                  <p className="text-dark-400 text-sm mt-1">
+                    {pkg.credits} credits {pkg.bonus_credits > 0 && `+ ${pkg.bonus_credits} bonus`}
+                  </p>
+                </div>
+              ))}
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={() => setShowBuyModal(false)}
+                onClick={() => { setShowBuyModal(false); setSelectedPackage(null); }}
                 className="btn-secondary flex-1"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBuyCredits}
-                className="btn-primary flex-1"
+                disabled={!selectedPackage}
+                className="btn-primary flex-1 disabled:opacity-50"
               >
                 Continue to Payment
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bank Transfer Details Modal */}
+      {showBankDetails && bankDetails && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full">
+            <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              <CreditCard className="w-6 h-6 text-primary-500" />
+              Bank Transfer Details
+            </h3>
+            
+            <div className="bg-dark-800 rounded-lg p-4 mb-4 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-dark-400">Bank Name:</span>
+                <span className="font-semibold">{bankDetails.bank_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-dark-400">Account Name:</span>
+                <span className="font-semibold">{bankDetails.account_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-dark-400">Account Number:</span>
+                <span className="font-semibold text-primary-400">{bankDetails.account_number}</span>
+              </div>
+              {bankDetails.swift_code && (
+                <div className="flex justify-between">
+                  <span className="text-dark-400">SWIFT Code:</span>
+                  <span className="font-semibold">{bankDetails.swift_code}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-dark-400">Amount:</span>
+                <span className="font-bold text-green-400">${selectedPackage?.price}</span>
+              </div>
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
+              <p className="text-yellow-400 text-sm">
+                <strong>Important:</strong> {bankDetails.instructions}
+              </p>
+              <p className="text-yellow-400 text-sm mt-1">
+                Payment ID: <strong>#{paymentId}</strong> - Include this in your transfer reference.
+              </p>
+            </div>
+
+            <p className="text-dark-400 text-sm mb-4">
+              After completing the transfer, go to <strong>Transactions</strong> to upload your payment receipt.
+              Credits will be added after admin approval.
+            </p>
+
+            <button
+              onClick={() => { setShowBankDetails(false); setSelectedPackage(null); fetchWalletData(); }}
+              className="btn-primary w-full"
+            >
+              I've Noted the Details
+            </button>
           </div>
         </div>
       )}

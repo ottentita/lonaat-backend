@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { walletAPI, productsAPI, adsAPI, commissionsAPI } from '@/services/api';
+import { isAdmin } from '@/utils/auth';
 import toast from 'react-hot-toast';
 import { 
   Package, 
@@ -12,7 +13,8 @@ import {
   TrendingUp,
   Activity,
   Loader2,
-  DollarSign
+  DollarSign,
+  Crown
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -88,6 +90,8 @@ const Dashboard = () => {
     }
   };
 
+  const userIsAdmin = isAdmin();
+  
   const statCards = [
     {
       title: 'Total Products',
@@ -110,7 +114,14 @@ const Dashboard = () => {
       color: 'bg-yellow-500/10 text-yellow-500',
       link: '/dashboard/commissions'
     },
-    {
+    userIsAdmin ? {
+      title: 'Admin Status',
+      value: 'UNLIMITED',
+      icon: Crown,
+      color: 'bg-amber-500/10 text-amber-500',
+      link: '/admin',
+      isAdmin: true
+    } : {
       title: 'Account Balance',
       value: `$${stats.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: Wallet,

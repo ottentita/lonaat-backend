@@ -212,6 +212,129 @@ router.get('/transactions', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/commissions', async (req: AuthRequest, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.per_page as string) || 20;
+    const skip = (page - 1) * limit;
+    const status = req.query.status as string;
+    const network = req.query.network as string;
+    const search = req.query.search as string;
+    const userId = req.query.user_id as string;
+    const startDate = req.query.start_date as string;
+    const endDate = req.query.end_date as string;
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (network) where.network = network;
+    if (userId) where.user_id = parseInt(userId);
+    if (startDate || endDate) {
+      where.created_at = {};
+      if (startDate) where.created_at.gte = new Date(startDate);
+      if (endDate) where.created_at.lte = new Date(endDate);
+    }
+    if (search) {
+      where.user = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } }
+        ]
+      };
+    }
+
+    const commissions = await prisma.commission.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: limit,
+      skip,
+      include: { user: { select: { id: true, name: true, email: true } } }
+    });
+
+    const total = await prisma.commission.count({ where });
+
+    const [totalStats, pendingStats, approvedStats, paidStats, rejectedStats] = await Promise.all([
+      prisma.commission.aggregate({ _sum: { amount: true }, _count: true }),
+      prisma.commission.aggregate({ where: { status: 'pending' }, _sum: { amount: true }, _count: true }),
+      prisma.commission.aggregate({ where: { status: 'approved' }, _sum: { amount: true } }),
+      prisma.commission.aggregate({ where: { status: 'paid' }, _sum: { amount: true } }),
+      prisma.commission.aggregate({ where: { status: 'rejected' }, _sum: { amount: true } })
+    ]);
+
+    res.json({
+      commissions,
+      summary: {
+        total_amount: totalStats._sum.amount || 0,
+        total_count: totalStats._count,
+        pending_amount: pendingStats._sum.amount || 0,
+        pending_count: pendingStats._count,
+        approved_amount: approvedStats._sum.amount || 0,
+        paid_amount: paidStats._sum.amount || 0,
+        rejected_amount: rejectedStats._sum.amount || 0
+      },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
+  } catch (error) {
+    console.error('Admin commissions error:', error);
+    res.status(500).json({ error: 'Failed to get commissions' });
+  }
+});
+
+router.post('/commissions/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const commissionId = parseInt(req.params.id);
+    const commission = await prisma.commission.findUnique({ where: { id: commissionId } });
+
+    if (!commission) {
+      return res.status(404).json({ error: 'Commission not found' });
+    }
+
+    const updated = await prisma.commission.update({
+      where: { id: commissionId },
+      data: { status: 'approved', approved_at: new Date(), approved_by: req.user!.id }
+    });
+
+    await prisma.user.update({
+      where: { id: commission.user_id },
+      data: { balance: { increment: commission.amount } }
+    });
+
+    res.json({ message: 'Commission approved', commission: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to approve commission' });
+  }
+});
+
+router.post('/commissions/:id/reject', async (req: AuthRequest, res: Response) => {
+  try {
+    const { reason } = req.body;
+    const commissionId = parseInt(req.params.id);
+
+    const updated = await prisma.commission.update({
+      where: { id: commissionId },
+      data: { status: 'rejected', rejection_reason: reason }
+    });
+
+    res.json({ message: 'Commission rejected', commission: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reject commission' });
+  }
+});
+
+router.post('/commissions/:id/mark-paid', async (req: AuthRequest, res: Response) => {
+  try {
+    const commissionId = parseInt(req.params.id);
+
+    const updated = await prisma.commission.update({
+      where: { id: commissionId },
+      data: { status: 'paid', paid_at: new Date() }
+    });
+
+    res.json({ message: 'Commission marked as paid', commission: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark commission as paid' });
+  }
+});
+
 router.post('/create-admin', async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password } = req.body;
