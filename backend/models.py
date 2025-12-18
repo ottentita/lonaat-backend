@@ -318,7 +318,9 @@ class AdBoost(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True, index=True)
+    imported_product_id = db.Column(db.Integer, db.ForeignKey('imported_products.id'), nullable=True, index=True)
+    boost_type = db.Column(db.String(50), default='manual', nullable=False)
     boost_level = db.Column(db.Integer, default=1, nullable=False)  # 1x, 2x, 4x, 8x, 16x, 32x
     credits_spent = db.Column(db.Integer, default=0, nullable=False)
     clicks_received = db.Column(db.Integer, default=0, nullable=False)
@@ -327,12 +329,15 @@ class AdBoost(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)  # 24 hours from start
     
     user = db.relationship('User', backref='ad_boosts')
+    imported_product = db.relationship('ImportedProduct', backref='ad_boosts')
     
     def to_dict(self):
         return {
             'id': self.id,
             'user_id': self.user_id,
             'product_id': self.product_id,
+            'imported_product_id': self.imported_product_id,
+            'boost_type': self.boost_type,
             'boost_level': self.boost_level,
             'credits_spent': self.credits_spent,
             'clicks_received': self.clicks_received,
@@ -342,7 +347,7 @@ class AdBoost(db.Model):
         }
     
     def __repr__(self):
-        return f'<AdBoost {self.boost_level}x Product:{self.product_id}>'
+        return f'<AdBoost {self.boost_level}x Product:{self.product_id or self.imported_product_id}>'
 
 
 class Plan(db.Model):
