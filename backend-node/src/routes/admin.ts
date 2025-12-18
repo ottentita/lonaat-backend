@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
-import { processAIJob, processPendingJobs } from '../services/ai';
+import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts } from '../services/ai';
 import { syncAllNetworks, syncDigistore24Products, syncAwinProducts, syncMyLeadProducts, syncPartnerStackProducts, getNetworkStatus } from '../services/networkSync';
 
 const router = Router();

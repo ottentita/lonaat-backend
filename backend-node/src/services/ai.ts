@@ -8,6 +8,143 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
 });
 
+export interface DiscoveredProduct {
+  name: string;
+  description: string;
+  price: string;
+  category: string;
+  network: string;
+  affiliate_link?: string;
+  keywords?: string[];
+}
+
+export async function discoverProducts(category?: string, count: number = 10): Promise<DiscoveredProduct[]> {
+  try {
+    const categoryPrompt = category 
+      ? `Focus on the "${category}" category.` 
+      : 'Include diverse categories like courses, software, ebooks, health, finance, and lifestyle.';
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert affiliate marketing product researcher. Your job is to discover trending, high-converting affiliate products that are commonly available on major affiliate networks like Digistore24, ClickBank, PartnerStack, and similar platforms.
+
+Generate realistic product listings based on current market trends. Each product should be something that could realistically exist on affiliate networks.`
+        },
+        {
+          role: 'user',
+          content: `Discover ${count} trending affiliate products for a marketplace. ${categoryPrompt}
+
+For each product, provide:
+- name: Product name (realistic and marketable)
+- description: Brief compelling description (1-2 sentences)
+- price: Realistic price in USD (e.g., "47.00", "97.00", "197.00")
+- category: One of: courses, software, ebooks, health, finance, lifestyle, marketing, business
+- network: One of: digistore24, partnerstack, awin, clickbank
+- keywords: 3-5 relevant keywords
+
+Return ONLY a valid JSON array with no additional text or markdown.`
+        }
+      ],
+      max_tokens: 2000,
+      temperature: 0.8
+    });
+
+    const content = response.choices[0]?.message?.content || '[]';
+    const cleaned = content.replace(/```json\n?|\n?```/g, '').trim();
+    const products = JSON.parse(cleaned);
+    
+    return Array.isArray(products) ? products : [];
+  } catch (error) {
+    console.error('Error discovering products:', error);
+    return [];
+  }
+}
+
+export async function searchProducts(query: string, count: number = 5): Promise<DiscoveredProduct[]> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert affiliate product researcher. Based on search queries, you find and recommend relevant affiliate products that match what users are looking for.`
+        },
+        {
+          role: 'user',
+          content: `Search for ${count} affiliate products matching: "${query}"
+
+Return products that would be available on major affiliate networks.
+
+For each product, provide:
+- name: Product name
+- description: Brief description (1-2 sentences)
+- price: Price in USD (e.g., "47.00")
+- category: One of: courses, software, ebooks, health, finance, lifestyle, marketing, business
+- network: One of: digistore24, partnerstack, awin, clickbank
+- keywords: 3-5 relevant keywords
+
+Return ONLY a valid JSON array with no additional text.`
+        }
+      ],
+      max_tokens: 1500,
+      temperature: 0.7
+    });
+
+    const content = response.choices[0]?.message?.content || '[]';
+    const cleaned = content.replace(/```json\n?|\n?```/g, '').trim();
+    const products = JSON.parse(cleaned);
+    
+    return Array.isArray(products) ? products : [];
+  } catch (error) {
+    console.error('Error searching products:', error);
+    return [];
+  }
+}
+
+export async function importDiscoveredProducts(products: DiscoveredProduct[], userId: number, generateAds: boolean = true): Promise<{ imported: number; products: any[] }> {
+  const importedProducts: any[] = [];
+
+  for (const product of products) {
+    try {
+      const existing = await prisma.product.findFirst({
+        where: { name: product.name }
+      });
+
+      if (!existing) {
+        let adText: string | null = null;
+        
+        if (generateAds) {
+          adText = await generateProductAd(product);
+        }
+
+        const created = await prisma.product.create({
+          data: {
+            user_id: userId,
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            category: product.category,
+            network: product.network,
+            affiliate_link: product.affiliate_link || null,
+            ai_generated_ad: adText,
+            extra_data: { keywords: product.keywords, ai_discovered: true },
+            is_active: true
+          }
+        });
+        
+        importedProducts.push(created);
+      }
+    } catch (err) {
+      console.error(`Failed to import product ${product.name}:`, err);
+    }
+  }
+
+  return { imported: importedProducts.length, products: importedProducts };
+}
+
 export async function generateProductAd(product: any): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
