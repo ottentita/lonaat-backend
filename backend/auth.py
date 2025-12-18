@@ -231,7 +231,7 @@ def register():
         
     except Exception as e:
         db.session.rollback()
-        email_for_log = data.get('email', 'unknown') if 'data' in dir() and data else 'unknown'
+        email_for_log = locals().get('email', 'unknown') or 'unknown'
         logger.error(f"Registration error for {email_for_log}: {str(e)}")
         return jsonify({'error': 'Registration failed. Please try again.'}), 500
 
@@ -405,6 +405,8 @@ def verify_email():
         
         # Mark user as verified
         user = User.query.get(verification_token.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
         user.verified = True
         verification_token.used = True
         
@@ -494,6 +496,8 @@ def reset_password():
         
         # Update password
         user = User.query.get(reset_token.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
         user.set_password(new_password)
         reset_token.used = True
         
