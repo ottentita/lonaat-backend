@@ -231,7 +231,7 @@ const Products = () => {
           <div className="card text-center py-12">
             <Package className="w-16 h-16 text-dark-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No products yet</h3>
-            <p className="text-dark-400 mb-6">Import products from Digistore24 or Awin to get started</p>
+            <p className="text-dark-400 mb-6">Import products from Digistore24, Awin, MyLead, or PartnerStack to get started</p>
             <button onClick={() => setShowImportModal(true)} className="btn-primary">
               <Download className="w-5 h-5 inline mr-2" />
               Import from Network
@@ -282,6 +282,8 @@ const Products = () => {
                     <option value="">Select network</option>
                     <option value="digistore24">Digistore24</option>
                     <option value="awin">Awin</option>
+                    <option value="mylead">MyLead</option>
+                    <option value="partnerstack">PartnerStack</option>
                   </select>
                 </div>
                 <div>
@@ -341,6 +343,8 @@ const Products = () => {
                     >
                       <option value="digistore24">Digistore24</option>
                       <option value="awin">Awin</option>
+                      <option value="mylead">MyLead</option>
+                      <option value="partnerstack">PartnerStack</option>
                     </select>
                   </div>
                   <div>
