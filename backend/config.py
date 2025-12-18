@@ -1,7 +1,6 @@
 """
 Configuration for Flask application
-Supports both SQLite (development) and PostgreSQL (production)
-Production deployment ready for Render with email notifications
+PostgreSQL database - production ready
 """
 
 import os
@@ -17,53 +16,21 @@ class Config:
     # Flask
     SECRET_KEY = os.getenv('FLASK_SECRET', 'dev_secret_lonaat_2025_change_in_production')
     
-    # Database - PostgreSQL for production, SQLite for development fallback
-    # CRITICAL: For production deployment, DATABASE_URL must be used
-    # Replit development uses PGHOST=helium (internal hostname) which won't work in production
-    
-    # Check if we're in production deployment
-    IS_PRODUCTION = bool(os.getenv('REPLIT_DEPLOYMENT'))
-    
-    # Get DATABASE_URL - this is the canonical connection string
+    # Database - PostgreSQL only (no SQLite)
+    # Replit provides DATABASE_URL automatically when PostgreSQL is enabled
     DATABASE_URL = os.getenv('DATABASE_URL')
-    PGHOST = os.getenv('PGHOST')
     
-    # Validate database configuration for production
-    if IS_PRODUCTION:
-        # In production, if DATABASE_URL contains 'helium', it's the wrong (dev) database
-        if DATABASE_URL and 'helium' in DATABASE_URL:
-            print("⚠️  WARNING: Development DATABASE_URL detected in production!")
-            print("⚠️  Please enable Production Database in Replit Database panel")
-            # Clear it so we can try to use a fallback or fail clearly
-            DATABASE_URL = None
-        
-        # Also check if PGHOST points to internal dev hostname
-        if PGHOST and 'helium' in PGHOST:
-            print("⚠️  WARNING: Development PGHOST detected in production!")
-            # Clear all PG* vars to prevent psycopg2 from using them
-            for pg_var in ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']:
-                if pg_var in os.environ:
-                    del os.environ[pg_var]
-    
-    # Always clear PG* vars if DATABASE_URL exists (use DATABASE_URL as single source of truth)
-    if DATABASE_URL:
-        for pg_var in ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']:
-            if pg_var in os.environ:
-                del os.environ[pg_var]
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is required. "
+            "Please enable PostgreSQL in Replit's Database panel."
+        )
     
     # Fix for SQLAlchemy 1.4+ which requires postgresql:// instead of postgres://
-    if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+    if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
-    # Final database URI
-    # In production without valid DATABASE_URL, use SQLite as fallback
-    # This allows deployment to work, but data won't persist between restarts
-    if IS_PRODUCTION and not DATABASE_URL:
-        print("⚠️  No production database configured - using SQLite (data may not persist)")
-        print("⚠️  For persistent data, add an external PostgreSQL DATABASE_URL to deployment secrets")
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///app.db'
-    else:
-        SQLALCHEMY_DATABASE_URI = DATABASE_URL or 'sqlite:///app.db'
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
