@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, Response, send_file, redirect
+from flask import Flask, render_template, request, jsonify, session, Response, send_file, redirect, send_from_directory
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
@@ -110,6 +110,22 @@ app.register_blueprint(fraud_bp)
 # Import and register Admin AI blueprint
 from admin_ai_routes import admin_ai_bp
 app.register_blueprint(admin_ai_bp)
+
+# Serve React frontend static files in production
+FRONTEND_BUILD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """Serve React frontend - only for non-API routes"""
+    if path.startswith('api/') or path.startswith('auth/'):
+        return jsonify({'error': 'Not found'}), 404
+    
+    if os.path.exists(FRONTEND_BUILD_DIR):
+        if path and os.path.exists(os.path.join(FRONTEND_BUILD_DIR, path)):
+            return send_from_directory(FRONTEND_BUILD_DIR, path)
+        return send_from_directory(FRONTEND_BUILD_DIR, 'index.html')
+    return jsonify({'message': 'API is running. Frontend not built yet.'}), 200
 
 # Create database tables
 # FAIL FAST in production if database unavailable to prevent runtime crashes

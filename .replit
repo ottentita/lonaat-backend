@@ -12,7 +12,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["bash", "-c", "cd backend && gunicorn --bind=0.0.0.0:5000 --workers=2 --reuse-port main:app"]
+run = ["bash", "-c", "cd backend && gunicorn --bind=0.0.0.0:5000 --workers=2 --timeout=120 main:app"]
 deploymentTarget = "autoscale"
 build = ["bash", "-c", "cd frontend && npm run build"]
 
