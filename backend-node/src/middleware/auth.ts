@@ -18,13 +18,13 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
   const token = authHeader.split(' ')[1];
   const payload = verifyToken(token);
 
-  if (!payload) {
+  if (!payload || !payload.id) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
   try {
     const user = await prisma.user.findUnique({
-      where: { id: payload.id },
+      where: { id: Number(payload.id) },
       select: { id: true, role: true, email: true, is_admin: true, balance: true, is_blocked: true, is_active: true }
     });
 

@@ -335,6 +335,166 @@ router.post('/commissions/:id/mark-paid', async (req: AuthRequest, res: Response
   }
 });
 
+router.get('/ai/stats', async (req: AuthRequest, res: Response) => {
+  try {
+    const [totalJobs, completedJobs, failedJobs, pendingJobs] = await Promise.all([
+      prisma.aIJob.count(),
+      prisma.aIJob.count({ where: { status: 'completed' } }),
+      prisma.aIJob.count({ where: { status: 'failed' } }),
+      prisma.aIJob.count({ where: { status: 'pending' } })
+    ]);
+
+    res.json({
+      stats: {
+        total_jobs: totalJobs,
+        completed_jobs: completedJobs,
+        failed_jobs: failedJobs,
+        pending_jobs: pendingJobs,
+        success_rate: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0
+      }
+    });
+  } catch (error) {
+    console.error('AI stats error:', error);
+    res.json({ stats: { total_jobs: 0, completed_jobs: 0, failed_jobs: 0, pending_jobs: 0, success_rate: 0 } });
+  }
+});
+
+router.get('/ai/logs', async (req: AuthRequest, res: Response) => {
+  try {
+    const status = req.query.status as string;
+    const jobType = req.query.job_type as string;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (jobType) where.job_type = jobType;
+
+    const logs = await prisma.aIJob.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        job_type: true,
+        status: true,
+        result: true,
+        error_message: true,
+        created_at: true,
+        completed_at: true
+      }
+    });
+
+    res.json({ logs });
+  } catch (error) {
+    console.error('AI logs error:', error);
+    res.json({ logs: [] });
+  }
+});
+
+router.get('/ai/status', async (req: AuthRequest, res: Response) => {
+  try {
+    const runningTasks = await prisma.aIJob.findMany({
+      where: { status: 'running' },
+      select: { id: true, job_type: true, created_at: true }
+    });
+
+    res.json({
+      running_tasks: runningTasks,
+      is_busy: runningTasks.length > 0
+    });
+  } catch (error) {
+    console.error('AI status error:', error);
+    res.json({ running_tasks: [], is_busy: false });
+  }
+});
+
+router.post('/ai/run-ads/products', async (req: AuthRequest, res: Response) => {
+  try {
+    const { product_ids } = req.body;
+    
+    const job = await prisma.aIJob.create({
+      data: {
+        job_type: 'generate_product_ads',
+        status: 'pending',
+        input_data: { product_ids: product_ids || [] },
+        user_id: req.user!.id
+      }
+    });
+
+    res.json({ message: 'Product ad generation queued', job_id: job.id });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to queue task' });
+  }
+});
+
+router.post('/ai/run-ads/real-estate', async (req: AuthRequest, res: Response) => {
+  try {
+    const { property_ids } = req.body;
+    
+    const job = await prisma.aIJob.create({
+      data: {
+        job_type: 'generate_real_estate_ads',
+        status: 'pending',
+        input_data: { property_ids: property_ids || [] },
+        user_id: req.user!.id
+      }
+    });
+
+    res.json({ message: 'Real estate ad generation queued', job_id: job.id });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to queue task' });
+  }
+});
+
+router.post('/ai/run-ads/all', async (req: AuthRequest, res: Response) => {
+  try {
+    const job = await prisma.aIJob.create({
+      data: {
+        job_type: 'generate_all_ads',
+        status: 'pending',
+        input_data: {},
+        user_id: req.user!.id
+      }
+    });
+
+    res.json({ message: 'All ads generation queued', job_id: job.id });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to queue task' });
+  }
+});
+
+router.post('/ai/run-commission-scan', async (req: AuthRequest, res: Response) => {
+  try {
+    const { networks } = req.body;
+    
+    const job = await prisma.aIJob.create({
+      data: {
+        job_type: 'commission_scan',
+        status: 'pending',
+        input_data: { networks: networks || ['all'] },
+        user_id: req.user!.id
+      }
+    });
+
+    res.json({ message: 'Commission scan queued', job_id: job.id });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to queue task' });
+  }
+});
+
+router.post('/ai/stop-all', async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.aIJob.updateMany({
+      where: { status: { in: ['running', 'pending'] } },
+      data: { status: 'cancelled' }
+    });
+
+    res.json({ message: 'All AI tasks stopped' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to stop tasks' });
+  }
+});
+
 router.post('/create-admin', async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password } = req.body;
