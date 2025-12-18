@@ -159,15 +159,17 @@ model Notification {
 }
 
 model AIJob {
-  id         Int      @id @default(autoincrement())
-  user_id    Int
-  job_type   String   @db.VarChar(50)
-  status     String   @default("pending") @db.VarChar(20)
-  input_data Json?    @db.JsonB
-  result     Json?    @db.JsonB
-  error      String?  @db.Text
-  created_at DateTime @default(now())
-  completed_at DateTime?
+  id            Int       @id @default(autoincrement())
+  user_id       Int
+  job_type      String    @db.VarChar(50)
+  status        String    @default("pending") @db.VarChar(20)
+  entity_type   String?   @db.VarChar(50)
+  entity_id     Int?
+  result        Json?     @db.JsonB
+  error_message String?   @db.Text
+  created_at    DateTime  @default(now())
+  started_at    DateTime?
+  completed_at  DateTime?
 
   user User @relation(fields: [user_id], references: [id])
 
