@@ -98,21 +98,21 @@ const Dashboard = () => {
     },
     {
       title: 'Total Commissions',
-      value: `₦${stats.totalCommissions.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      value: `$${stats.totalCommissions.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: DollarSign,
       color: 'bg-green-500/10 text-green-500',
       link: '/dashboard/commissions'
     },
     {
       title: 'Pending Payout',
-      value: `₦${stats.pendingCommissions.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      value: `$${stats.pendingCommissions.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: TrendingUp,
       color: 'bg-yellow-500/10 text-yellow-500',
       link: '/dashboard/commissions'
     },
     {
       title: 'Account Balance',
-      value: `₦${stats.balance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      value: `$${stats.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       icon: Wallet,
       color: 'bg-purple-500/10 text-purple-500',
       link: '/dashboard/wallet'

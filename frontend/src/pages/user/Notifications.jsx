@@ -190,7 +190,7 @@ const Notifications = () => {
               <div className="flex-1">
                 <h3 className="font-semibold mb-1">Example: Commission Earned</h3>
                 <p className="text-dark-300 text-sm mb-2">
-                  💰 You earned ₦250 commission from product sales!
+                  💰 You earned $250 commission from product sales!
                 </p>
                 <p className="text-xs text-dark-500">This is an example notification</p>
               </div>

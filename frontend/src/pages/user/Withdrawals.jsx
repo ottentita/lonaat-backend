@@ -56,8 +56,8 @@ const Withdrawals = () => {
       return;
     }
 
-    if (parseFloat(formData.amount) < 1000) {
-      toast.error('Minimum withdrawal amount is ₦1,000');
+    if (parseFloat(formData.amount) < 10) {
+      toast.error('Minimum withdrawal amount is $10');
       return;
     }
 
@@ -123,7 +123,7 @@ const Withdrawals = () => {
               <div className="flex items-center gap-2 text-sm">
                 <Wallet className="w-4 h-4 text-green-500" />
                 <span className="text-dark-400">Available:</span>
-                <span className="text-dark-50 font-semibold">₦{balance.toLocaleString()}</span>
+                <span className="text-dark-50 font-semibold">${balance.toLocaleString()}</span>
               </div>
             </div>
             <button
@@ -150,7 +150,7 @@ const Withdrawals = () => {
                       <div>
                         <div className="flex items-center gap-3">
                           <h3 className="text-lg font-semibold text-dark-50">
-                            ₦{withdrawal.amount.toLocaleString()}
+                            ${withdrawal.amount.toLocaleString()}
                           </h3>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(withdrawal.status)}`}>
                             {withdrawal.status}
@@ -206,11 +206,11 @@ const Withdrawals = () => {
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                     required
-                    min="1000"
+                    min="10"
                     max={balance}
                   />
                   <p className="text-xs text-dark-500 mt-1">
-                    Available balance: ₦{balance.toLocaleString()} • Min: ₦1,000
+                    Available balance: ${balance.toLocaleString()} • Min: $10
                   </p>
                 </div>
 

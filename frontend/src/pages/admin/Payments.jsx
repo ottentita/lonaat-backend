@@ -119,7 +119,7 @@ const AdminPayments = () => {
               <DollarSign className="w-5 h-5 text-green-500" />
               <span className="text-dark-400 text-sm">Total Revenue</span>
             </div>
-            <p className="text-2xl font-bold text-green-500">₦{totalAmount.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-green-500">${totalAmount.toLocaleString()}</p>
             <p className="text-xs text-dark-500 mt-1">From completed payments</p>
           </div>
           <div className="card">
@@ -225,7 +225,7 @@ const AdminPayments = () => {
                           <div className="flex items-center justify-end gap-2">
                             <TrendingUp className="w-4 h-4 text-green-500" />
                             <span className="text-green-500 font-semibold text-lg">
-                              ₦{payment.amount.toLocaleString()}
+                              ${payment.amount.toLocaleString()}
                             </span>
                           </div>
                         </td>
@@ -248,7 +248,7 @@ const AdminPayments = () => {
               </div>
               <div className="card px-4 py-2 bg-dark-800">
                 <span className="text-dark-400 text-sm mr-2">Total:</span>
-                <span className="text-green-500 font-bold text-lg">₦{totalAmount.toLocaleString()}</span>
+                <span className="text-green-500 font-bold text-lg">${totalAmount.toLocaleString()}</span>
               </div>
             </div>
           </div>

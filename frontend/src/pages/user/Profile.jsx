@@ -134,7 +134,7 @@ const Profile = () => {
               <span className="text-dark-400 text-sm">Total Earnings</span>
             </div>
             <p className="text-2xl font-bold text-dark-50">
-              ₦{(profile.total_earnings || 0).toLocaleString()}
+              ${(profile.total_earnings || 0).toLocaleString()}
             </p>
           </div>
           <div className="card">

@@ -107,7 +107,7 @@ export default function Subscriptions() {
             <CardHeader>
               <CardTitle>{plan.name}</CardTitle>
               <div className="text-3xl font-bold">
-                ₦{plan.price?.toLocaleString()}
+                ${plan.price?.toLocaleString()}
                 <span className="text-sm font-normal text-muted-foreground">/{plan.duration_days} days</span>
               </div>
             </CardHeader>

@@ -38,7 +38,7 @@ const Wallet = () => {
 
   const handleBuyCredits = async () => {
     if (!amount || isNaN(amount) || Number(amount) < 100) {
-      toast.error('Minimum purchase is ₦100');
+      toast.error('Minimum purchase is $100');
       return;
     }
 
@@ -91,7 +91,7 @@ const Wallet = () => {
           <div>
             <p className="text-sm opacity-80">Available Credits</p>
             <p className="text-5xl font-bold mt-2">{wallet?.credits || 0}</p>
-            <p className="text-sm opacity-80 mt-2">1 Credit = ₦10</p>
+            <p className="text-sm opacity-80 mt-2">1 Credit = $1</p>
           </div>
           <WalletIcon className="w-24 h-24 opacity-20" />
         </div>
@@ -216,11 +216,11 @@ const Wallet = () => {
           <div className="card max-w-md w-full mx-4">
             <h3 className="text-2xl font-bold mb-4">Buy AdBoost Credits</h3>
             <p className="text-dark-400 mb-6">
-              Enter amount in Naira. You'll be redirected to Flutterwave for secure payment.
+              Enter amount in USD. You'll be redirected to Flutterwave for secure payment.
             </p>
             
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Amount (₦)</label>
+              <label className="block text-sm font-medium mb-2">Amount ($)</label>
               <input
                 type="number"
                 value={amount}

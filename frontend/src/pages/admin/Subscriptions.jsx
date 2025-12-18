@@ -92,7 +92,7 @@ export default function AdminSubscriptions() {
         <Card>
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground">Revenue</p>
-            <p className="text-2xl font-bold">₦{(stats?.revenue || 0).toLocaleString()}</p>
+            <p className="text-2xl font-bold">${(stats?.revenue || 0).toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
@@ -125,7 +125,7 @@ export default function AdminSubscriptions() {
                     <div>
                       <h3 className="font-semibold">{sub.user_name || sub.user_email}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Plan: {sub.plan_name} | ₦{sub.amount?.toLocaleString()}
+                        Plan: {sub.plan_name} | ${sub.amount?.toLocaleString()}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {new Date(sub.created_at).toLocaleDateString()} - {sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'N/A'}

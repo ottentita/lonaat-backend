@@ -208,7 +208,7 @@ const Transactions = () => {
                                 : 'text-red-500'
                             }`}>
                               {transaction.type === 'credit' || transaction.type === 'deposit' ? '+' : '-'}
-                              ₦{transaction.amount.toLocaleString()}
+                              ${transaction.amount.toLocaleString()}
                             </span>
                           </td>
                           <td className="py-4 px-4 text-center">
