@@ -668,9 +668,9 @@ router.get('/properties', async (req: AuthRequest, res: Response) => {
     const { status, page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where = status ? { is_active: status === 'approved' } : {};
+    const where = status ? { status: String(status) } : {};
 
-    const [properties, total, pendingCount, approvedCount] = await Promise.all([
+    const [properties, total, pendingCount, approvedCount, rejectedCount] = await Promise.all([
       prisma.realEstateProperty.findMany({
         where,
         orderBy: { created_at: 'desc' },
@@ -678,14 +678,16 @@ router.get('/properties', async (req: AuthRequest, res: Response) => {
         take: Number(limit)
       }),
       prisma.realEstateProperty.count({ where }),
-      prisma.realEstateProperty.count({ where: { is_active: false } }),
-      prisma.realEstateProperty.count({ where: { is_active: true } })
+      prisma.realEstateProperty.count({ where: { status: 'pending' } }),
+      prisma.realEstateProperty.count({ where: { status: 'approved' } }),
+      prisma.realEstateProperty.count({ where: { status: 'rejected' } })
     ]);
 
     res.json({
       properties,
       pending_count: pendingCount,
       approved_count: approvedCount,
+      rejected_count: rejectedCount,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -734,7 +736,13 @@ router.post('/properties/:id/approve', async (req: AuthRequest, res: Response) =
 
     const property = await prisma.realEstateProperty.update({
       where: { id: Number(id) },
-      data: { is_active: true }
+      data: { 
+        status: 'approved',
+        is_active: true,
+        is_featured: is_featured || false,
+        approved_at: new Date(),
+        rejection_reason: null
+      }
     });
 
     res.json({ message: 'Property approved', property });
@@ -746,10 +754,15 @@ router.post('/properties/:id/approve', async (req: AuthRequest, res: Response) =
 router.post('/properties/:id/reject', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const { reason } = req.body;
 
     const property = await prisma.realEstateProperty.update({
       where: { id: Number(id) },
-      data: { is_active: false }
+      data: { 
+        status: 'rejected',
+        is_active: false,
+        rejection_reason: reason || 'No reason provided'
+      }
     });
 
     res.json({ message: 'Property rejected', property });

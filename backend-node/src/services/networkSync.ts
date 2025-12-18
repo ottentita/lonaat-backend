@@ -152,70 +152,12 @@ export async function syncAwinProducts(userId?: number): Promise<SyncResult> {
 }
 
 export async function syncMyLeadProducts(userId?: number): Promise<SyncResult> {
-  const apiKey = process.env.MYLEAD_API_KEY;
-  
-  if (!apiKey) {
-    return { network: 'mylead', success: false, products_synced: 0, error: 'API key not configured' };
-  }
-
-  try {
-    const response = await fetch('https://mylead.global/api/external/v1/offers', {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`MyLead API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const offers = data.data || data.offers || data;
-    
-    if (!Array.isArray(offers) || offers.length === 0) {
-      return { network: 'mylead', success: true, products_synced: 0, error: 'No offers found' };
-    }
-
-    let synced = 0;
-    for (const offer of offers.slice(0, 50)) {
-      const existing = await prisma.product.findFirst({
-        where: {
-          network: 'mylead',
-          extra_data: { path: ['mylead_offer_id'], equals: offer.id }
-        }
-      });
-
-      if (!existing) {
-        await prisma.product.create({
-          data: {
-            user_id: userId || null,
-            name: offer.name || offer.title || 'MyLead Offer',
-            description: offer.description || null,
-            price: offer.payout?.toString() || offer.commission?.toString() || null,
-            affiliate_link: offer.tracking_url || offer.url || null,
-            network: 'mylead',
-            category: offer.category || offer.vertical || null,
-            image_url: offer.image || offer.logo || null,
-            extra_data: {
-              mylead_offer_id: offer.id,
-              payout: offer.payout,
-              countries: offer.countries,
-              status: offer.status,
-              raw: offer
-            },
-            is_active: true
-          }
-        });
-        synced++;
-      }
-    }
-
-    return { network: 'mylead', success: true, products_synced: synced };
-  } catch (error: any) {
-    console.error('MyLead sync error:', error);
-    return { network: 'mylead', success: false, products_synced: 0, error: error.message };
-  }
+  return { 
+    network: 'mylead', 
+    success: true, 
+    products_synced: 0, 
+    error: 'MyLead is a link-based CPA network - product sync not available. Use affiliate links directly.' 
+  };
 }
 
 export async function syncPartnerStackProducts(userId?: number): Promise<SyncResult> {
@@ -295,11 +237,11 @@ export async function syncAllNetworks(userId?: number): Promise<SyncResult[]> {
   return results;
 }
 
-export async function getNetworkStatus(): Promise<{network: string; configured: boolean; key_name: string}[]> {
+export async function getNetworkStatus(): Promise<{network: string; configured: boolean; key_name: string; sync_type: string}[]> {
   return [
-    { network: 'digistore24', configured: !!process.env.DIGISTORE_API_KEY, key_name: 'DIGISTORE_API_KEY' },
-    { network: 'awin', configured: !!process.env.AWIN_TOKEN, key_name: 'AWIN_TOKEN' },
-    { network: 'mylead', configured: !!process.env.MYLEAD_API_KEY, key_name: 'MYLEAD_API_KEY' },
-    { network: 'partnerstack', configured: !!process.env.PARTNERSTACK_API_KEY, key_name: 'PARTNERSTACK_API_KEY' }
+    { network: 'digistore24', configured: !!process.env.DIGISTORE_API_KEY, key_name: 'DIGISTORE_API_KEY', sync_type: 'api' },
+    { network: 'awin', configured: !!process.env.AWIN_TOKEN, key_name: 'AWIN_TOKEN', sync_type: 'api' },
+    { network: 'mylead', configured: true, key_name: 'N/A', sync_type: 'link-based CPA' },
+    { network: 'partnerstack', configured: !!process.env.PARTNERSTACK_API_KEY, key_name: 'PARTNERSTACK_API_KEY', sync_type: 'api' }
   ];
 }

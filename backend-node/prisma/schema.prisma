@@ -131,21 +131,25 @@ model Product {
 }
 
 model RealEstateProperty {
-  id              Int       @id @default(autoincrement())
-  user_id         Int?
-  title           String    @db.VarChar(255)
-  description     String?   @db.Text
-  property_type   String?   @db.VarChar(50)
-  location        String?   @db.VarChar(255)
-  price           Decimal?  @db.Decimal(12, 2)
-  bedrooms        Int?
-  bathrooms       Int?
-  area_sqft       Int?
-  image_url       String?   @db.Text
-  affiliate_link  String?   @db.Text
-  ai_generated_ad String?   @db.Text
-  is_active       Boolean   @default(true)
-  created_at      DateTime  @default(now())
+  id               Int       @id @default(autoincrement())
+  user_id          Int?
+  title            String    @db.VarChar(255)
+  description      String?   @db.Text
+  property_type    String?   @db.VarChar(50)
+  location         String?   @db.VarChar(255)
+  price            Decimal?  @db.Decimal(12, 2)
+  bedrooms         Int?
+  bathrooms        Int?
+  area_sqft        Int?
+  image_url        String?   @db.Text
+  affiliate_link   String?   @db.Text
+  ai_generated_ad  String?   @db.Text
+  status           String    @default("pending") @db.VarChar(20)
+  is_featured      Boolean   @default(false)
+  rejection_reason String?   @db.Text
+  approved_at      DateTime?
+  is_active        Boolean   @default(true)
+  created_at       DateTime  @default(now())
 
   user User? @relation(fields: [user_id], references: [id])
 
