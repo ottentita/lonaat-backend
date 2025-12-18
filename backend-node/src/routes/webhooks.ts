@@ -69,14 +69,10 @@ router.post('/awin', async (req: Request, res: Response) => {
         status
       } = tx;
 
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { extra_data: { path: ['awin_publisher_id'], equals: publisherId } },
-            { id: parseInt(clickRef) || 0 }
-          ]
-        }
-      });
+      const refId = parseInt(clickRef) || 0;
+      const user = refId > 0 ? await prisma.user.findUnique({
+        where: { id: refId }
+      }) : null;
 
       if (user) {
         const existing = await prisma.commission.findFirst({
@@ -112,51 +108,84 @@ router.post('/awin', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/mylead', async (req: Request, res: Response) => {
+const processMyLeadPostback = async (req: Request, res: Response) => {
   try {
-    const { action_id, user_id, amount, status, campaign_name } = req.body;
+    const params = req.method === 'GET' ? req.query : req.body;
+    
+    const transaction_id = params.transaction_id as string;
+    const status = params.status as string;
+    const payout_decimal = params.payout_decimal as string;
+    const currency = params.currency as string || 'USD';
+    const ml_sub1 = params.ml_sub1 as string;
+    const ml_sub3 = params.ml_sub3 as string;
+
+    console.log(`[MyLead] Postback received: transaction_id=${transaction_id}, status=${status}, payout=${payout_decimal} ${currency}, user=${ml_sub1}`);
+
+    if (!transaction_id) {
+      return res.status(400).json({ error: 'Missing transaction_id' });
+    }
 
     const existing = await prisma.commission.findFirst({
-      where: { external_ref: String(action_id), network: 'mylead' }
+      where: { external_ref: String(transaction_id), network: 'mylead' }
     });
 
     if (existing) {
-      return res.json({ status: 'ok', message: 'Already processed' });
+      if (existing.status !== status) {
+        await prisma.commission.update({
+          where: { id: existing.id },
+          data: { 
+            status: status === 'approved' || status === 'confirmed' ? 'approved' : 
+                   status === 'rejected' || status === 'declined' ? 'rejected' : 'pending'
+          }
+        });
+        console.log(`[MyLead] Updated commission ${existing.id} status to ${status}`);
+      }
+      return res.json({ status: 'ok', message: 'Updated' });
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { extra_data: { path: ['mylead_user_id'], equals: user_id } },
-          { id: parseInt(user_id) || 0 }
-        ]
+    const userId = parseInt(ml_sub1) || 0;
+    const user = userId > 0 ? await prisma.user.findUnique({
+      where: { id: userId }
+    }) : null;
+
+    if (!user) {
+      console.log(`[MyLead] User not found for ml_sub1=${ml_sub1}`);
+      return res.json({ status: 'ok', message: 'User not found' });
+    }
+
+    const commissionStatus = status === 'approved' || status === 'confirmed' ? 'approved' : 
+                             status === 'rejected' || status === 'declined' ? 'rejected' : 'pending';
+
+    await prisma.commission.create({
+      data: {
+        user_id: user.id,
+        network: 'mylead',
+        amount: parseFloat(payout_decimal) || 0,
+        status: commissionStatus,
+        external_ref: String(transaction_id),
+        webhook_data: {
+          transaction_id,
+          status,
+          payout_decimal,
+          currency,
+          ml_sub1,
+          ml_sub3,
+          received_at: new Date().toISOString()
+        }
       }
     });
 
-    if (user) {
-      await prisma.commission.create({
-        data: {
-          user_id: user.id,
-          network: 'mylead',
-          amount: parseFloat(amount) || 0,
-          status: status === 'approved' ? 'approved' : 'pending',
-          external_ref: String(action_id),
-          webhook_data: {
-            campaign_name,
-            raw: req.body
-          }
-        }
-      });
-
-      console.log(`[MyLead] Commission logged for user ${user.id}: $${amount}`);
-    }
+    console.log(`[MyLead] Commission logged for user ${user.id}: $${payout_decimal} ${currency} (status: ${commissionStatus})`);
 
     res.json({ status: 'ok' });
   } catch (error) {
-    console.error('MyLead webhook error:', error);
-    res.status(500).json({ error: 'Webhook processing failed' });
+    console.error('MyLead postback error:', error);
+    res.status(500).json({ error: 'Postback processing failed' });
   }
-});
+};
+
+router.get('/mylead', processMyLeadPostback);
+router.post('/mylead', processMyLeadPostback);
 
 router.post('/partnerstack', async (req: Request, res: Response) => {
   try {
@@ -175,12 +204,7 @@ router.post('/partnerstack', async (req: Request, res: Response) => {
       }
 
       const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { extra_data: { path: ['partnerstack_key'], equals: partner_key } },
-            { email: partner_key }
-          ]
-        }
+        where: { email: partner_key }
       });
 
       if (user) {

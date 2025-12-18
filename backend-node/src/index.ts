@@ -46,6 +46,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/postback', webhookRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {
