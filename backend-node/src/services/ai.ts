@@ -401,3 +401,187 @@ export async function processPendingJobs(): Promise<number> {
 
   return pendingJobs.length;
 }
+
+export async function detectFraud(userId: number): Promise<{ score: number; reasons: string[]; shouldBlock: boolean }> {
+  const reasons: string[] = [];
+  let score = 0;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { score: 0, reasons: ['User not found'], shouldBlock: false };
+
+  const recentLogins = await prisma.auditLog.findMany({
+    where: { 
+      user_id: userId, 
+      action: 'login',
+      created_at: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    }
+  });
+
+  const uniqueIps = new Set(recentLogins.map(l => l.ip_address).filter(Boolean));
+  if (uniqueIps.size > 5) {
+    score += 30;
+    reasons.push(`Multiple IPs detected: ${uniqueIps.size} unique IPs in 24h`);
+  }
+
+  const recentWithdrawals = await prisma.withdrawalRequest.count({
+    where: {
+      user_id: userId,
+      created_at: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    }
+  });
+  if (recentWithdrawals > 3) {
+    score += 25;
+    reasons.push(`Excessive withdrawal requests: ${recentWithdrawals} in 24h`);
+  }
+
+  const recentClicks = await prisma.auditLog.count({
+    where: {
+      user_id: userId,
+      action: 'campaign_click',
+      created_at: { gt: new Date(Date.now() - 60 * 60 * 1000) }
+    }
+  });
+  if (recentClicks > 100) {
+    score += 40;
+    reasons.push(`Suspicious click activity: ${recentClicks} clicks in 1h`);
+  }
+
+  const accountAge = Date.now() - user.created_at.getTime();
+  const daysSinceCreation = accountAge / (1000 * 60 * 60 * 24);
+  if (daysSinceCreation < 1 && user.balance > 100) {
+    score += 35;
+    reasons.push('New account with high balance');
+  }
+
+  return {
+    score,
+    reasons,
+    shouldBlock: score >= 70
+  };
+}
+
+export async function runFraudScan(): Promise<{ scanned: number; blocked: number; flagged: number }> {
+  let scanned = 0;
+  let blocked = 0;
+  let flagged = 0;
+
+  const activeUsers = await prisma.user.findMany({
+    where: { 
+      is_blocked: false,
+      is_admin: false,
+      created_at: { gt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+    },
+    take: 100
+  });
+
+  for (const user of activeUsers) {
+    scanned++;
+    const fraudCheck = await detectFraud(user.id);
+
+    if (fraudCheck.score > 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { fraud_score: fraudCheck.score }
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          user_id: user.id,
+          action: 'fraud_scan',
+          details: { score: fraudCheck.score, reasons: fraudCheck.reasons },
+          fraud_score: fraudCheck.score,
+          flagged: fraudCheck.score >= 50
+        }
+      });
+
+      if (fraudCheck.shouldBlock) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            is_blocked: true,
+            block_reason: `Auto-blocked by AI: ${fraudCheck.reasons.join(', ')}`
+          }
+        });
+        blocked++;
+
+        await prisma.notification.create({
+          data: {
+            user_id: user.id,
+            title: 'Account Suspended',
+            message: 'Your account has been suspended for suspicious activity. Contact support for assistance.',
+            type: 'error'
+          }
+        });
+      } else if (fraudCheck.score >= 50) {
+        flagged++;
+      }
+    }
+  }
+
+  return { scanned, blocked, flagged };
+}
+
+export async function autoBoostAdminProducts(): Promise<{ boosted: number }> {
+  const adminUsers = await prisma.user.findMany({
+    where: { is_admin: true },
+    select: { id: true }
+  });
+
+  const adminIds = adminUsers.map(u => u.id);
+  
+  const products = await prisma.product.findMany({
+    where: { 
+      user_id: { in: adminIds },
+      is_active: true
+    },
+    take: 10
+  });
+
+  let boosted = 0;
+  for (const product of products) {
+    const existingCampaign = await prisma.adBoost.findFirst({
+      where: {
+        product_id: product.id,
+        status: 'active'
+      }
+    });
+
+    if (!existingCampaign) {
+      await prisma.adBoost.create({
+        data: {
+          user_id: product.user_id!,
+          product_id: product.id,
+          boost_type: 'auto',
+          status: 'active',
+          is_admin_campaign: true,
+          auto_boost: true,
+          boost_intensity: 5,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          campaign_config: { auto_generated: true, product_name: product.name }
+        }
+      });
+      boosted++;
+    }
+  }
+
+  return { boosted };
+}
+
+export async function scanNetworksForProducts(): Promise<{ discovered: number }> {
+  const products = await discoverProducts(undefined, 10);
+  
+  if (products.length === 0) {
+    return { discovered: 0 };
+  }
+
+  const adminUser = await prisma.user.findFirst({
+    where: { is_admin: true }
+  });
+
+  if (!adminUser) {
+    return { discovered: 0 };
+  }
+
+  const result = await importDiscoveredProducts(products, adminUser.id, true);
+  return { discovered: result.imported };
+}

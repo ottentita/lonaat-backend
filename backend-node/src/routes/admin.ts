@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
-import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts } from '../services/ai';
+import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts, detectFraud, runFraudScan, autoBoostAdminProducts, scanNetworksForProducts } from '../services/ai';
 import { syncAllNetworks, syncDigistore24Products, syncAwinProducts, syncMyLeadProducts, syncPartnerStackProducts, getNetworkStatus } from '../services/networkSync';
 
 const router = Router();
@@ -636,6 +636,55 @@ router.post('/ai/stop-all', async (req: AuthRequest, res: Response) => {
     res.json({ message: 'All AI tasks stopped' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to stop tasks' });
+  }
+});
+
+router.post('/ai/fraud-scan', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await runFraudScan();
+    res.json({
+      message: 'Fraud scan completed',
+      ...result
+    });
+  } catch (error) {
+    console.error('Fraud scan error:', error);
+    res.status(500).json({ error: 'Failed to run fraud scan' });
+  }
+});
+
+router.get('/ai/fraud-check/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const result = await detectFraud(userId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check fraud' });
+  }
+});
+
+router.post('/ai/auto-boost-admin', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await autoBoostAdminProducts();
+    res.json({
+      message: `Auto-boosted ${result.boosted} admin products`,
+      ...result
+    });
+  } catch (error) {
+    console.error('Auto boost error:', error);
+    res.status(500).json({ error: 'Failed to auto-boost products' });
+  }
+});
+
+router.post('/ai/scan-networks', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await scanNetworksForProducts();
+    res.json({
+      message: `Discovered ${result.discovered} new products`,
+      ...result
+    });
+  } catch (error) {
+    console.error('Network scan error:', error);
+    res.status(500).json({ error: 'Failed to scan networks' });
   }
 });
 

@@ -111,7 +111,19 @@ router.put('/:id/approve', authMiddleware, adminOnlyMiddleware, async (req: Auth
 
     await prisma.user.update({
       where: { id: commission.user_id },
-      data: { balance: { increment: commission.amount } }
+      data: { 
+        balance: { increment: commission.amount },
+        withdrawable_balance: { increment: commission.amount }
+      }
+    });
+
+    await prisma.notification.create({
+      data: {
+        user_id: commission.user_id,
+        title: 'Commission Approved',
+        message: `Your commission of $${commission.amount.toFixed(2)} from ${commission.network || 'Direct'} has been approved and is now available for withdrawal.`,
+        type: 'success'
+      }
     });
 
     await prisma.transaction.create({
