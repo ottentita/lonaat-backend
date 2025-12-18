@@ -17,17 +17,26 @@ class Config:
     # Flask
     SECRET_KEY = os.getenv('FLASK_SECRET', 'dev_secret_lonaat_2025_change_in_production')
     
-    # Database - PostgreSQL for production (Render), SQLite for development
-    # CRITICAL: Must unset PGHOST to prevent psycopg2 from using it instead of DATABASE_URL
-    # Replit sets PGHOST=helium (internal dev hostname) which breaks production deployment
-    if 'PGHOST' in os.environ and os.getenv('DATABASE_URL'):
-        # DATABASE_URL exists, remove individual PG* vars to avoid conflicts
-        for pg_var in ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']:
-            os.environ.pop(pg_var, None)
+    # Database - PostgreSQL for production, SQLite for development fallback
+    # CRITICAL: For production deployment, DATABASE_URL must be used
+    # Replit sets PGHOST=helium (internal dev hostname) which breaks production
     
+    # Check if we're in production deployment (REPLIT_DEPLOYMENT is set)
+    IS_PRODUCTION = bool(os.getenv('REPLIT_DEPLOYMENT'))
+    
+    # Get DATABASE_URL first - this is the canonical connection string
     DATABASE_URL = os.getenv('DATABASE_URL')
+    
+    # If in production and DATABASE_URL exists, clear conflicting PG* variables
+    # This MUST happen before SQLAlchemy tries to connect
+    if DATABASE_URL:
+        # Remove all PG* vars that might interfere with DATABASE_URL
+        for pg_var in ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']:
+            if pg_var in os.environ:
+                del os.environ[pg_var]
+    
+    # Fix for SQLAlchemy 1.4+ which requires postgresql:// instead of postgres://
     if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
-        # Fix for SQLAlchemy 1.4+ which requires postgresql:// instead of postgres://
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
     SQLALCHEMY_DATABASE_URI = DATABASE_URL or 'sqlite:///app.db'
