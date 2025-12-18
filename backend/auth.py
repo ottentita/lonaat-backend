@@ -8,10 +8,14 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from models import db, User, EmailVerificationToken, PasswordResetToken, AdminAudit
 from email_service import send_welcome_email, send_verification_email, send_password_reset_email
 from datetime import datetime, timedelta
+from sqlalchemy.exc import IntegrityError
 import re
 import secrets
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -200,10 +204,19 @@ def register():
         user.set_password(password)
         
         db.session.add(user)
-        db.session.commit()
         
-        # Send welcome email
-        send_welcome_email(user.email, user.name)
+        try:
+            db.session.commit()
+        except IntegrityError as e:
+            db.session.rollback()
+            logger.warning(f"Registration IntegrityError for {email}: {str(e)}")
+            return jsonify({'error': 'Email already registered'}), 409
+        
+        # Send welcome email (non-blocking - don't fail registration if email fails)
+        try:
+            send_welcome_email(user.email, user.name)
+        except Exception as email_error:
+            logger.warning(f"Failed to send welcome email to {email}: {str(email_error)}")
         
         # Generate tokens (identity must be string)
         access_token = create_access_token(identity=str(user.id))
@@ -218,8 +231,9 @@ def register():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Registration error: {str(e)}")
-        return jsonify({'error': 'Registration failed'}), 500
+        email_for_log = data.get('email', 'unknown') if 'data' in dir() and data else 'unknown'
+        logger.error(f"Registration error for {email_for_log}: {str(e)}")
+        return jsonify({'error': 'Registration failed. Please try again.'}), 500
 
 
 @auth_bp.route('/login', methods=['POST'])
