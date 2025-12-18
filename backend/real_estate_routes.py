@@ -700,3 +700,192 @@ def get_property_stats():
     except Exception as e:
         logger.error(f"Get property stats error: {e}")
         return jsonify({'error': 'Failed to fetch stats'}), 500
+
+
+@real_estate_bp.route('/api/admin/properties', methods=['POST'])
+@jwt_required()
+def admin_create_property():
+    """Admin: Create a property listing (auto-approved, no limits)"""
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin_user(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request data required'}), 400
+        
+        title = data.get('title')
+        property_type = data.get('property_type')
+        city = data.get('city')
+        
+        if not all([title, property_type, city]):
+            return jsonify({'error': 'Title, property type, and city are required'}), 400
+        
+        if property_type not in PROPERTY_TYPES:
+            return jsonify({'error': f'Invalid property type. Must be one of: {PROPERTY_TYPES}'}), 400
+        
+        if city not in CAMEROON_CITIES:
+            return jsonify({'error': f'Invalid city. Must be one of: {CAMEROON_CITIES}'}), 400
+        
+        property_obj = Property(
+            user_id=user_id,
+            title=title,
+            description=data.get('description', ''),
+            property_type=property_type,
+            city=city,
+            address=data.get('address', ''),
+            price=data.get('price'),
+            price_type=data.get('price_type', 'fixed'),
+            bedrooms=data.get('bedrooms'),
+            bathrooms=data.get('bathrooms'),
+            size_sqm=data.get('size_sqm'),
+            amenities=json.dumps(data.get('amenities', [])) if data.get('amenities') else None,
+            status='approved',
+            reviewed_by=user_id,
+            reviewed_at=datetime.utcnow(),
+            is_featured=data.get('is_featured', False)
+        )
+        
+        db.session.add(property_obj)
+        db.session.flush()
+        
+        if property_type in ['rental', 'guest_house', 'car_rental'] and data.get('rental_details'):
+            rd = data['rental_details']
+            rental_details = RentalDetails(
+                property_id=property_obj.id,
+                daily_rate=rd.get('daily_rate'),
+                weekly_rate=rd.get('weekly_rate'),
+                monthly_rate=rd.get('monthly_rate'),
+                min_stay_days=rd.get('min_stay_days', 1),
+                max_stay_days=rd.get('max_stay_days'),
+                max_guests=rd.get('max_guests'),
+                vehicle_make=rd.get('vehicle_make'),
+                vehicle_model=rd.get('vehicle_model'),
+                vehicle_year=rd.get('vehicle_year'),
+                vehicle_type=rd.get('vehicle_type'),
+                deposit_required=rd.get('deposit_required'),
+                cancellation_policy=rd.get('cancellation_policy', 'flexible')
+            )
+            db.session.add(rental_details)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Property created and auto-approved',
+            'property': property_obj.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Admin create property error: {e}")
+        return jsonify({'error': 'Failed to create property'}), 500
+
+
+@real_estate_bp.route('/api/admin/properties/<int:property_id>/run-ad', methods=['POST'])
+@jwt_required()
+def admin_run_property_ad(property_id):
+    """Admin: Run ad for property (FREE, no credit cost)"""
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin_user(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        property_obj = Property.query.get(property_id)
+        if not property_obj:
+            return jsonify({'error': 'Property not found'}), 404
+        
+        existing_ad = PropertyAd.query.filter_by(
+            property_id=property_id,
+            status='active'
+        ).first()
+        
+        if existing_ad:
+            return jsonify({
+                'message': 'Property already has an active ad',
+                'ad': existing_ad.to_dict()
+            }), 200
+        
+        data = request.get_json() or {}
+        duration_days = data.get('duration_days', 7)
+        boost_level = data.get('boost_level', 1)
+        
+        property_ad = PropertyAd(
+            property_id=property_id,
+            user_id=property_obj.user_id,
+            boost_level=boost_level,
+            credits_spent=0,
+            status='active',
+            started_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(days=duration_days)
+        )
+        
+        db.session.add(property_ad)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Ad created successfully (FREE for admin)',
+            'ad': property_ad.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Admin run property ad error: {e}")
+        return jsonify({'error': 'Failed to create ad'}), 500
+
+
+@real_estate_bp.route('/api/admin/properties/run-all-ads', methods=['POST'])
+@jwt_required()
+def admin_run_all_property_ads():
+    """Admin: Run ads for all approved properties (FREE)"""
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin_user(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        data = request.get_json() or {}
+        duration_days = data.get('duration_days', 7)
+        
+        properties = Property.query.filter_by(
+            status='approved',
+            is_active=True
+        ).all()
+        
+        ads_created = 0
+        ads_skipped = 0
+        
+        for prop in properties:
+            existing_ad = PropertyAd.query.filter_by(
+                property_id=prop.id,
+                status='active'
+            ).first()
+            
+            if existing_ad:
+                ads_skipped += 1
+                continue
+            
+            property_ad = PropertyAd(
+                property_id=prop.id,
+                user_id=prop.user_id,
+                boost_level=1,
+                credits_spent=0,
+                status='active',
+                started_at=datetime.utcnow(),
+                expires_at=datetime.utcnow() + timedelta(days=duration_days)
+            )
+            db.session.add(property_ad)
+            ads_created += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'Created {ads_created} ads, skipped {ads_skipped} (already have active ads)',
+            'ads_created': ads_created,
+            'ads_skipped': ads_skipped,
+            'total_properties': len(properties)
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Admin run all property ads error: {e}")
+        return jsonify({'error': 'Failed to create ads'}), 500

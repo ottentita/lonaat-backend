@@ -186,6 +186,18 @@ export const adminAPI = {
   reactivateUser: (userId) => api.post(`/admin/users/${userId}/reactivate`),
 };
 
+// Admin AI Control Center APIs
+export const adminAIAPI = {
+  runAdsForProducts: (productIds) => api.post('/admin/ai/run-ads/products', { product_ids: productIds }),
+  runAdsForRealEstate: (propertyIds) => api.post('/admin/ai/run-ads/real-estate', { property_ids: propertyIds }),
+  runAdsForAll: () => api.post('/admin/ai/run-ads/all'),
+  scanCommissions: (networks) => api.post('/admin/ai/run-commission-scan', { networks }),
+  stopAllTasks: () => api.post('/admin/ai/stop-all'),
+  getLogs: (params) => api.get('/admin/ai/logs', { params }),
+  getStats: () => api.get('/admin/ai/stats'),
+  getStatus: () => api.get('/admin/ai/status'),
+};
+
 // Affiliate APIs
 export const affiliateAPI = {
   getStats: (productId) => api.get(`/affiliate/stats/${productId}`),
@@ -214,6 +226,9 @@ export const realEstateAPI = {
   adminGetProperties: (params) => api.get('/admin/properties', { params }),
   adminApproveProperty: (id, data) => api.post(`/admin/properties/${id}/approve`, data),
   adminRejectProperty: (id, data) => api.post(`/admin/properties/${id}/reject`, data),
+  adminCreateProperty: (data) => api.post('/admin/properties', data),
+  adminRunPropertyAd: (id, data) => api.post(`/admin/properties/${id}/run-ad`, data),
+  adminRunAllPropertyAds: (data) => api.post('/admin/properties/run-all-ads', data),
 };
 
 export default api;

@@ -31,6 +31,7 @@ import AdminRealEstate from './pages/admin/RealEstate';
 import AdminProducts from './pages/admin/Products';
 import AdminSubscriptions from './pages/admin/Subscriptions';
 import FraudDetection from './pages/admin/FraudDetection';
+import AIControlCenter from './pages/admin/AIControlCenter';
 
 // Legal Pages
 import Terms from './pages/Terms';
@@ -105,6 +106,7 @@ function App() {
         <Route path="/admin/products" element={<ProtectedRoute adminOnly><AdminProducts /></ProtectedRoute>} />
         <Route path="/admin/subscriptions" element={<ProtectedRoute adminOnly><AdminSubscriptions /></ProtectedRoute>} />
         <Route path="/admin/fraud" element={<ProtectedRoute adminOnly><FraudDetection /></ProtectedRoute>} />
+        <Route path="/admin/ai" element={<ProtectedRoute adminOnly><AIControlCenter /></ProtectedRoute>} />
 
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />

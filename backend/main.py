@@ -107,6 +107,10 @@ app.register_blueprint(production_bp)
 app.register_blueprint(real_estate_bp)
 app.register_blueprint(fraud_bp)
 
+# Import and register Admin AI blueprint
+from admin_ai_routes import admin_ai_bp
+app.register_blueprint(admin_ai_bp)
+
 # Create database tables
 # FAIL FAST in production if database unavailable to prevent runtime crashes
 try:

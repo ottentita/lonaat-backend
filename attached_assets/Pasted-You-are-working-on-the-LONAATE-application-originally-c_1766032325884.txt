@@ -1,0 +1,390 @@
+You are working on the LONAATE application, originally created on Replit.
+The system already includes users, admin, affiliate integrations, campaigns, credits, and subscriptions.
+
+This instruction focuses on 3 critical additions/fixes:
+
+1. Admin AI System (Core Automation Engine)
+
+
+2. Complete Real Estate Module (Products + Ads)
+
+
+3. Unified Ads + Commission Monitoring Across ALL Sections
+
+
+
+
+---
+
+PART A — ADMIN AI SYSTEM (CORE REQUIREMENT)
+
+A1. Create a Dedicated AI Service
+
+Create a dedicated backend service/module called:
+
+/services/admin_ai_service.py
+
+or equivalent (Node: adminAI.service.ts).
+
+This AI system is ADMIN-ONLY and must NOT be exposed to normal users.
+
+
+---
+
+A2. AI SYSTEM DUTIES
+
+The Admin AI system must be capable of executing the following tasks on demand and on schedule:
+
+1. Auto-Ads Runner
+
+Automatically run ads for:
+
+Marketplace products
+
+Affiliate products
+
+Real estate listings (houses, land, rentals, cars, guest houses, etc.)
+
+
+Ads must be created without cost for admin.
+
+Campaign cost = 0 for admin.
+
+Ads can be:
+
+Auto-triggered when a product/listing is added
+
+Manually triggered by admin via dashboard
+
+
+
+2. Commission Monitoring Task
+
+The AI must be able to:
+
+Fetch commission data from integrated affiliate networks (Digistore24, Awin for now)
+
+Normalize commission data into:
+
+Pending
+
+Approved
+
+Rejected
+
+Paid
+
+
+Store results in commission_logs table
+
+Update admin dashboard automatically
+
+
+Admin must be able to click a button:
+
+> “AI → Check All Commissions Now”
+
+
+
+This triggers:
+
+POST /admin/ai/run-commission-scan
+
+
+---
+
+A3. AI TASK CONTROL (ADMIN DASHBOARD)
+
+Add a new Admin Dashboard section:
+
+Admin → AI Control Center
+
+Include buttons:
+
+▶ Run Ads For All Products
+
+▶ Run Ads For Real Estate Listings
+
+▶ Scan All Commissions
+
+▶ Stop All AI Tasks
+
+▶ View AI Logs
+
+
+AI Logs must show:
+
+Task name
+
+Start time
+
+End time
+
+Status (success / failed)
+
+Error message (if any)
+
+
+
+---
+
+PART B — REAL ESTATE MODULE (FIX + COMPLETE)
+
+B1. Real Estate Product Creation
+
+Create a dedicated Real Estate Product System.
+
+Add backend models:
+
+RealEstateListing
+
+Fields:
+
+id
+
+title
+
+category (house, land, rental, car, guest house)
+
+description
+
+price
+
+location
+
+images
+
+owner_id
+
+status (active, inactive)
+
+created_at
+
+
+
+---
+
+B2. Admin & User Access
+
+Admin can:
+
+Add real estate listings
+
+Edit all listings
+
+Run ads freely
+
+
+Users can:
+
+Add listings only based on subscription plan
+
+Pay listing fees (if applicable)
+
+
+
+
+---
+
+B3. Frontend UI FIX
+
+Ensure frontend has visible sections:
+
+Marketplace
+
+Affiliate Products
+
+Real Estate
+
+Ads / Campaigns
+
+Commissions
+
+AI Control (Admin only)
+
+
+Add:
+
+“Add Real Estate Listing” button
+
+
+---
+
+PART C — UNIFIED ADS SYSTEM (VERY IMPORTANT)
+
+C1. Single Ads Engine
+
+Create a single ads engine that works for:
+
+Marketplace products
+
+Affiliate products
+
+Real estate listings
+
+
+Ads table must reference:
+
+entity_type = product | affiliate | real_estate
+entity_id
+
+
+---
+
+C2. Auto-Ads Trigger
+
+When ANY of the following happens:
+
+Product added
+
+Affiliate product imported
+
+Real estate listing created
+
+
+→ Admin AI automatically launches ads.
+
+
+---
+
+C3. Admin Override
+
+Admin can:
+
+Pause ads
+
+Resume ads
+
+Boost ads manually
+
+Run ads for ALL items at once
+
+
+
+---
+
+PART D — COMMISSION VISIBILITY & CONTROL
+
+D1. Admin Commission Dashboard
+
+Admin must see:
+
+Total commissions (all users)
+
+Filter by network
+
+Filter by date
+
+Per-user breakdown
+
+
+Admin cannot withdraw commissions.
+
+
+---
+
+D2. User Commission Dashboard
+
+Users see:
+
+Pending commissions
+
+Approved commissions
+
+Paid commissions
+
+Withdrawal requests
+
+
+
+---
+
+PART E — DATABASE UPDATES REQUIRED
+
+Ensure these tables exist:
+
+real_estate_listings
+
+campaigns
+
+commission_logs
+
+ai_task_logs
+
+
+
+---
+
+PART F — SECURITY & PERMISSIONS
+
+Admin role must bypass:
+
+credit checks
+
+campaign cost checks
+
+
+AI endpoints must require:
+
+Admin JWT
+
+
+No redirects to login for admin when accessing:
+
+/admin/ai
+
+/admin/real-estate
+
+/admin/commissions
+
+
+
+
+---
+
+FINAL REQUIREMENT
+
+After implementation:
+
+1. Admin can:
+
+Add products
+
+Add real estate listings
+
+Run ads freely
+
+Trigger AI tasks
+
+View commissions
+
+
+
+2. AI can:
+
+Run ads automatically
+
+Scan commissions
+
+Log all tasks
+
+
+
+3. Frontend must reflect ALL sections clearly.
+
+
+
+
+---
+
+DELIVERABLE
+
+Fully working Admin AI System
+
+Fully working Real Estate Module
+
+Unified Ads Engine
+
+Commission monitoring via AI
+
+Clean UI sections visible

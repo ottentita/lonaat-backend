@@ -17,7 +17,8 @@ import {
   Globe,
   Crown,
   ShieldAlert,
-  Package2
+  Package2,
+  Bot
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -49,6 +50,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/admin/withdrawals', icon: Wallet, label: 'Withdrawals' },
     { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
     { to: '/admin/fraud', icon: ShieldAlert, label: 'Fraud Detection' },
+    { to: '/admin/ai', icon: Bot, label: 'AI Control Center' },
     { to: '/admin/notifications', icon: Bell, label: 'Notifications' },
   ];
 
