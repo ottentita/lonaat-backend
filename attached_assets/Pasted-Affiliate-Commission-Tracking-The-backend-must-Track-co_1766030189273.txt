@@ -1,0 +1,266 @@
+Affiliate Commission Tracking
+
+The backend must:
+
+Track commissions per user, product, campaign, and affiliate network
+
+Support multiple networks (initially Digistore24, Awin/ShareASale; others later)
+
+Store commissions in states:
+
+pending
+
+approved
+
+rejected
+
+paid
+
+
+Sync commission data via:
+
+API polling (where supported)
+
+Postback/webhook URLs
+
+
+Prevent duplicate commission entries
+
+Log every commission event (audit trail)
+
+
+B. User Commission Dashboard
+
+Each user must see:
+
+Total commissions earned
+
+Pending commissions
+
+Approved commissions
+
+Paid commissions
+
+Commission history (filter by date, network, product)
+
+
+C. Admin Commission Dashboard
+
+Admin must have:
+
+Visibility of ALL commissions from ALL users
+
+Filters by:
+
+user
+
+network
+
+date range
+
+status
+
+
+Ability to:
+
+Approve or reject commission records (internal validation)
+
+Mark commissions as “paid”
+
+
+Admin does NOT withdraw commissions (view-only + control)
+
+
+
+---
+
+2. ADS / CAMPAIGN SYSTEM — WHAT YOU REQUESTED
+
+A. Campaign Creation Logic
+
+Backend rules:
+
+Campaign is always linked to:
+
+a user
+
+a product
+
+a campaign type
+
+
+Campaign has:
+
+duration (default 24 hours)
+
+cost (credits-based)
+
+traffic multiplier logic
+
+
+Campaign states:
+
+active
+
+paused
+
+completed
+
+failed
+
+
+
+B. Cost & Credit Rules
+
+Admin campaigns
+
+Cost = 0
+
+No credit checks
+
+Unlimited campaigns
+
+
+User campaigns
+
+Credits required
+
+Campaign blocked if credits are insufficient
+
+Credits deducted on campaign start
+
+
+
+C. Auto-Boost Logic (Core Feature)
+
+When a campaign is launched:
+
+1. Initial traffic boost starts immediately
+
+
+2. Each click triggers:
+
+Additional traffic boost
+
+Multiplier effect (boost increases from previous state)
+
+
+
+3. Boost runs continuously for 24 hours
+
+
+4. After 24 hours:
+
+Campaign auto-stops
+
+Status → completed
+
+
+
+
+D. Product → Campaign Flow
+
+Required flow:
+
+1. User clicks “Add / Import Product”
+
+
+2. System redirects user to:
+
+Affiliate networks list
+
+
+
+3. User selects:
+
+Network → product
+
+
+
+4. System redirects back to:
+
+User marketplace
+
+
+
+5. Product is posted automatically
+
+
+6. Campaign auto-launches (if enabled)
+
+
+
+E. Admin Campaign Privileges
+
+Admin dashboard must allow:
+
+Adding products directly
+
+Launching campaigns without credits
+
+Running unlimited campaigns
+
+Viewing all campaigns (users + admin)
+
+
+
+---
+
+3. PAYMENT & CREDIT LINK (CONNECTED TO CAMPAIGNS)
+
+Credit Purchase (Bank Transfer – current phase)
+
+User selects credit package
+
+System shows bank details
+
+User uploads receipt
+
+Admin approves payment
+
+Credits added to user balance
+
+Credits are stored in DB and deducted per campaign
+
+
+Subscription Plans
+
+Monthly plans control:
+
+Max products
+
+Max campaigns
+
+Boost priority
+
+
+Payment = bank transfer (for now)
+
+Admin approval activates plan
+
+
+
+---
+
+4. SECURITY & FRAUD CONTROLS (YOU REQUESTED THIS TOO)
+
+AI monitors:
+
+fake clicks
+
+abnormal traffic
+
+suspicious campaigns
+
+
+Auto-block accounts on fraud detection
+
+Manual admin review before reactivation
+
+Full logs for:
+
+campaigns
+
+credits
+
+commissions
