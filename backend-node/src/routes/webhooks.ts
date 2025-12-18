@@ -113,13 +113,17 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
     const params = req.method === 'GET' ? req.query : req.body;
     
     const transaction_id = params.transaction_id as string;
-    const status = params.status as string;
-    const payout_decimal = params.payout_decimal as string;
+    const program_id = params.program_id as string;
+    const program_name = params.program_name as string;
+    const payout = params.payout as string || params.payout_decimal as string;
     const currency = params.currency as string || 'USD';
+    const status = params.status as string;
+    const country_code = params.country_code as string;
+    const ip = params.ip as string;
     const ml_sub1 = params.ml_sub1 as string;
-    const ml_sub3 = params.ml_sub3 as string;
+    const ml_sub2 = params.ml_sub2 as string || params.ml_sub3 as string;
 
-    console.log(`[MyLead] Postback received: transaction_id=${transaction_id}, status=${status}, payout=${payout_decimal} ${currency}, user=${ml_sub1}`);
+    console.log(`[MyLead] Postback received: transaction_id=${transaction_id}, program=${program_name}, status=${status}, payout=${payout} ${currency}, user=${ml_sub1}, country=${country_code}`);
 
     if (!transaction_id) {
       return res.status(400).json({ error: 'Missing transaction_id' });
@@ -160,22 +164,26 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
       data: {
         user_id: user.id,
         network: 'mylead',
-        amount: parseFloat(payout_decimal) || 0,
+        amount: parseFloat(payout) || 0,
         status: commissionStatus,
         external_ref: String(transaction_id),
         webhook_data: {
           transaction_id,
-          status,
-          payout_decimal,
+          program_id,
+          program_name,
+          payout,
           currency,
+          status,
+          country_code,
+          ip,
           ml_sub1,
-          ml_sub3,
+          ml_sub2,
           received_at: new Date().toISOString()
         }
       }
     });
 
-    console.log(`[MyLead] Commission logged for user ${user.id}: $${payout_decimal} ${currency} (status: ${commissionStatus})`);
+    console.log(`[MyLead] Commission logged for user ${user.id}: $${payout} ${currency} - ${program_name} (status: ${commissionStatus})`);
 
     res.json({ status: 'ok' });
   } catch (error) {
