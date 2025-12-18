@@ -46,6 +46,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/admin/products', icon: Package2, label: 'Products' },
     { to: '/admin/real-estate', icon: Home, label: 'Real Estate' },
     { to: '/admin/ads', icon: Megaphone, label: 'Ad Campaigns' },
+    { to: '/admin/commissions', icon: TrendingUp, label: 'Commissions' },
     { to: '/admin/subscriptions', icon: Crown, label: 'Subscriptions' },
     { to: '/admin/withdrawals', icon: Wallet, label: 'Withdrawals' },
     { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
