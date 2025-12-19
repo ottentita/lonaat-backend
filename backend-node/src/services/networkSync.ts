@@ -39,7 +39,7 @@ export async function syncDigistore24Products(userId?: number): Promise<SyncResu
       throw new Error(`Digistore24 API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { result: string; data?: { products?: any[] } };
     
     if (data.result !== 'success' || !data.data?.products) {
       return { network: 'digistore24', success: true, products_synced: 0, error: 'No products found' };
@@ -186,8 +186,8 @@ export async function syncPartnerStackProducts(userId?: number): Promise<SyncRes
       throw new Error(`PartnerStack API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    const programs = data.data || data.programs || data;
+    const data = await response.json() as { data?: any[]; programs?: any[] };
+    const programs = data.data || data.programs || [];
     
     if (!Array.isArray(programs) || programs.length === 0) {
       return { network: 'partnerstack', success: true, products_synced: 0, error: 'No programs found' };
