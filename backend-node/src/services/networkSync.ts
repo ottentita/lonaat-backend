@@ -175,7 +175,8 @@ export async function syncPartnerStackProducts(userId?: number): Promise<SyncRes
   }
 
   try {
-    const response = await fetch('https://api.partnerstack.com/api/v2/programs', {
+    // PartnerStack Partner API uses /partnerships endpoint
+    const response = await fetch('https://api.partnerstack.com/api/v2/partnerships', {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
@@ -183,22 +184,24 @@ export async function syncPartnerStackProducts(userId?: number): Promise<SyncRes
     });
 
     if (!response.ok) {
-      throw new Error(`PartnerStack API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`PartnerStack API error: ${response.status} - ${errorText.substring(0, 100)}`);
     }
 
-    const data = await response.json() as { data?: any[]; programs?: any[] };
-    const programs = data.data || data.programs || [];
+    const data = await response.json() as { data?: { items?: any[] }; items?: any[] };
+    const partnerships = data.data?.items || data.items || [];
     
-    if (!Array.isArray(programs) || programs.length === 0) {
-      return { network: 'partnerstack', success: true, products_synced: 0, error: 'No programs found' };
+    if (!Array.isArray(partnerships) || partnerships.length === 0) {
+      return { network: 'partnerstack', success: true, products_synced: 0, error: 'No partnerships found' };
     }
 
     let synced = 0;
-    for (const program of programs.slice(0, 50)) {
+    for (const partner of partnerships.slice(0, 50)) {
+      const partnerKey = partner.key || partner.partnership_key || partner.id;
       const existing = await prisma.product.findFirst({
         where: {
           network: 'partnerstack',
-          extra_data: { path: ['partnerstack_program_id'], equals: program.key || program.id }
+          extra_data: { path: ['partnerstack_partnership_key'], equals: partnerKey }
         }
       });
 
@@ -206,18 +209,19 @@ export async function syncPartnerStackProducts(userId?: number): Promise<SyncRes
         await prisma.product.create({
           data: {
             user_id: userId || null,
-            name: program.name || program.title || 'PartnerStack Program',
-            description: program.description || null,
-            price: program.commission?.toString() || null,
-            affiliate_link: program.signup_link || program.url || null,
+            name: partner.program?.name || partner.name || 'PartnerStack Partnership',
+            description: partner.program?.description || partner.description || null,
+            price: partner.commission?.amount?.toString() || null,
+            affiliate_link: partner.referral_link || partner.signup_link || partner.url || null,
             network: 'partnerstack',
-            category: program.category || null,
-            image_url: program.logo_url || program.image || null,
+            category: partner.program?.category || 'affiliate',
+            image_url: partner.program?.logo_url || null,
             extra_data: {
-              partnerstack_program_id: program.key || program.id,
-              commission_type: program.commission_type,
-              status: program.status,
-              raw: program
+              partnerstack_partnership_key: partnerKey,
+              program_key: partner.program?.key,
+              commission_type: partner.commission?.type,
+              status: partner.status,
+              raw: partner
             },
             is_active: true
           }
