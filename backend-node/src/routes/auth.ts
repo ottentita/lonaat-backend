@@ -2,11 +2,31 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import { body, validationResult } from 'express-validator';
-import { generateToken, JWTPayload } from '../utils/jwt';
+import { generateToken, generateRefreshToken, verifyToken, JWTPayload } from '../utils/jwt';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+const authLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many login attempts, please try again after 10 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    return req.headers['x-bypass-ratelimit'] === process.env.SECRET_KEY;
+  }
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many registration attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -17,10 +37,10 @@ function generateReferralCode(): string {
   return code;
 }
 
-router.post('/register', [
+router.post('/register', registerLimiter, [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
 ], async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -70,16 +90,19 @@ router.post('/register', [
     };
 
     const token = generateToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
     res.status(201).json({
       message: 'Registration successful',
       access_token: token,
+      refresh_token: refreshToken,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-        balance: user.balance
+        balance: user.balance,
+        is_admin: false
       }
     });
   } catch (error) {
@@ -88,7 +111,7 @@ router.post('/register', [
   }
 });
 
-router.post('/login', [
+router.post('/login', authLimiter, [
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
   body('password').notEmpty().withMessage('Password is required')
 ], async (req: Request, res: Response) => {
@@ -126,10 +149,12 @@ router.post('/login', [
     };
 
     const token = generateToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
     res.json({
       message: 'Login successful',
       access_token: token,
+      refresh_token: refreshToken,
       user: {
         id: user.id,
         name: user.name,
@@ -181,15 +206,46 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/refresh', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const payload: JWTPayload = {
-    id: req.user!.id,
-    role: req.user!.role,
-    email: req.user!.email
-  };
+router.post('/refresh', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Refresh token required' });
+    }
 
-  const token = generateToken(payload);
-  res.json({ access_token: token });
+    const refreshToken = authHeader.substring(7);
+    const decoded = verifyToken(refreshToken) as any;
+    
+    if (!decoded || decoded.type !== 'refresh') {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, role: true, is_admin: true, is_blocked: true, is_active: true }
+    });
+
+    if (!user || user.is_blocked || !user.is_active) {
+      return res.status(401).json({ error: 'Session expired, please login again' });
+    }
+
+    const payload: JWTPayload = {
+      id: user.id,
+      role: (user.is_admin || user.role === 'admin') ? 'admin' : 'user',
+      email: user.email
+    };
+
+    const newAccessToken = generateToken(payload);
+    const newRefreshToken = generateRefreshToken(payload);
+
+    res.json({ 
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken
+    });
+  } catch (error) {
+    console.error('Refresh error:', error);
+    res.status(401).json({ error: 'Session expired, please login again' });
+  }
 });
 
 export default router;

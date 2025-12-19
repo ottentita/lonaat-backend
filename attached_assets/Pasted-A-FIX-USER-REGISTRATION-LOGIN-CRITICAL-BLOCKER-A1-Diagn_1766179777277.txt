@@ -1,0 +1,159 @@
+A. FIX USER REGISTRATION & LOGIN (CRITICAL BLOCKER)
+A1. Diagnose & Fix Registration Failure
+Do the following checks and fixes:
+Validate backend auth routes
+Ensure these endpoints exist and respond correctly:
+POST /api/auth/register
+POST /api/auth/login
+Return proper HTTP codes:
+201 on successful registration
+200 on successful login
+400 on validation error
+401 on wrong credentials
+Fix password handling
+Confirm:
+Password is hashed using bcrypt
+Password comparison uses bcrypt.compare
+Reject empty or short passwords (<8 chars)
+Fix email uniqueness
+Enforce unique email constraint at DB level
+On duplicate email, return:
+Copy code
+Json
+{ "error": "Email already exists" }
+Fix JWT generation
+Ensure JWT is generated on:
+Registration
+Login
+JWT payload MUST include:
+Copy code
+Json
+{
+  "id": user.id,
+  "email": user.email,
+  "role": "user" | "admin"
+}
+JWT expiry:
+12h
+Fix frontend auth flow
+After login/register:
+Save token to localStorage
+Attach token to all API requests:
+Copy code
+
+Authorization: Bearer <token>
+Fix any redirect loop sending users back to /login
+B. FIX ADMIN & USER SESSION ISSUES
+Ensure admin is NOT redirected to login when accessing:
+/admin/dashboard
+/admin/products
+/admin/commissions
+/admin/withdrawals
+Fix auth middleware:
+Admin must bypass user-only restrictions
+Use role-based guards:
+Copy code
+Js
+if (user.role === "admin") allowAll();
+C. COMMISSION WITHDRAWAL SYSTEM (ADMIN + USERS)
+C1. DATABASE STRUCTURE (CREATE / FIX)
+Create or verify these tables:
+Copy code
+Sql
+commissions (
+  id,
+  user_id,
+  network,
+  amount,
+  status ENUM('pending','approved','withdrawn'),
+  created_at
+)
+
+withdrawals (
+  id,
+  user_id,
+  amount,
+  method ENUM('bank'),
+  status ENUM('pending','approved','rejected'),
+  approved_by_admin,
+  created_at
+)
+C2. USER WITHDRAWAL FLOW
+User sees:
+Total commissions
+Approved commissions
+Withdrawable balance
+User clicks Withdraw
+Minimum withdrawal check
+Create withdrawal request:
+Copy code
+Json
+status: "pending"
+Lock withdrawn commissions to prevent double withdrawal
+C3. ADMIN WITHDRAWAL FLOW
+Admin dashboard must show:
+All commission activity
+All withdrawal requests
+Filters by user, date, network
+Admin actions:
+Approve withdrawal
+Reject withdrawal
+Mark as paid (manual bank transfer)
+On approval:
+Update withdrawal → approved
+Update commissions → withdrawn
+⚠ Admin withdrawals are allowed, but:
+Admin does NOT need balance checks
+Admin withdrawals are always permitted once approved
+D. FIX CAMPAIGN / COMMISSION COUPLING
+Ensure:
+Campaign clicks → commission logs
+Commission logs → withdrawal eligibility
+Prevent:
+Duplicate commission records
+Commission creation without campaign reference
+E. FRONTEND UI FIXES (IMPORTANT)
+E1. Add / Fix Pages
+/register (fully functional)
+/login (fully functional)
+/dashboard/commissions
+/dashboard/withdraw
+/admin/commissions
+/admin/withdrawals
+E2. UX Improvements
+Show clear error messages:
+“Invalid credentials”
+“Email already exists”
+“Session expired, please login again”
+F. SECURITY & STABILITY FIXES (MY PROPOSALS)
+F1. Rate Limiting
+Limit login attempts:
+Max 5 attempts / 10 minutes
+Prevent bot signups
+F2. Audit Logs
+Create audit_logs table:
+login attempts
+withdrawals
+admin approvals
+failed auth
+F3. Email Notifications
+Send email on:
+Successful registration
+Withdrawal request
+Withdrawal approval
+G. FINAL TESTING CHECKLIST (MANDATORY)
+Replit Agent must test:
+Register new user → SUCCESS
+Login user → SUCCESS
+Admin login → SUCCESS
+User launches campaign → commission created
+User requests withdrawal → pending
+Admin approves withdrawal → paid
+User balance updates correctly
+Admin not redirected to login anywhere
+H. DELIVERABLE REQUIREMENT
+After execution, provide:
+Confirmation of fixes
+Screenshots of working flows
+List of files changed
+Any remaining issues

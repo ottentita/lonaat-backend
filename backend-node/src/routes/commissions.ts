@@ -64,6 +64,58 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const isAdmin = req.user!.isAdmin;
+
+    const whereClause = isAdmin ? {} : { user_id: userId };
+
+    const [totalStats, pendingStats, approvedStats, paidStats, user] = await Promise.all([
+      prisma.commission.aggregate({
+        where: whereClause,
+        _sum: { amount: true },
+        _count: true
+      }),
+      prisma.commission.aggregate({
+        where: { ...whereClause, status: 'pending' },
+        _sum: { amount: true },
+        _count: true
+      }),
+      prisma.commission.aggregate({
+        where: { ...whereClause, status: 'approved' },
+        _sum: { amount: true },
+        _count: true
+      }),
+      prisma.commission.aggregate({
+        where: { ...whereClause, status: 'paid' },
+        _sum: { amount: true },
+        _count: true
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { balance: true, withdrawable_balance: true }
+      })
+    ]);
+
+    res.json({
+      total_commissions: totalStats._sum.amount || 0,
+      total_count: totalStats._count || 0,
+      pending_commissions: pendingStats._sum.amount || 0,
+      pending_count: pendingStats._count || 0,
+      approved_commissions: approvedStats._sum.amount || 0,
+      approved_count: approvedStats._count || 0,
+      paid_commissions: paidStats._sum.amount || 0,
+      paid_count: paidStats._count || 0,
+      balance: user?.balance || 0,
+      withdrawable_balance: user?.withdrawable_balance || 0
+    });
+  } catch (error) {
+    console.error('Commission summary error:', error);
+    res.status(500).json({ error: 'Failed to get commission summary' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const commission = await prisma.commission.findUnique({

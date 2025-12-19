@@ -41,28 +41,40 @@ api.interceptors.response.use(
           });
           
           localStorage.setItem('access_token', data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem('refresh_token', data.refresh_token);
+          }
           originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
           
           return api(originalRequest);
         } catch (refreshError) {
-          // Refresh failed, logout user
+          // Refresh failed, clear tokens but don't redirect if on public pages
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
-          window.location.href = '/login';
+          
+          const publicPaths = ['/login', '/register', '/', '/about'];
+          if (!publicPaths.includes(window.location.pathname)) {
+            window.location.href = '/login';
+          }
           return Promise.reject(refreshError);
         }
       } else {
-        // No refresh token, logout
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        // No refresh token - only redirect if on protected routes
+        const publicPaths = ['/login', '/register', '/', '/about'];
+        if (!publicPaths.includes(window.location.pathname)) {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
       }
     }
 
-    // Show error toast
-    const errorMessage = error.response?.data?.error || error.message || 'An error occurred';
-    toast.error(errorMessage);
+    // Show error toast (but not for 401s to avoid spam during refresh)
+    if (error.response?.status !== 401) {
+      const errorMessage = error.response?.data?.error || error.message || 'An error occurred';
+      toast.error(errorMessage);
+    }
 
     return Promise.reject(error);
   }
@@ -102,6 +114,7 @@ export const productsAPI = {
 // Commissions APIs
 export const commissionsAPI = {
   getMy: (params) => api.get('/commissions', { params }),
+  getSummary: () => api.get('/commissions/summary'),
   getAll: (params) => api.get('/admin/commissions', { params }),
   approve: (id) => api.post(`/admin/commissions/${id}/approve`),
   reject: (id, data) => api.post(`/admin/commissions/${id}/reject`, data),
@@ -127,11 +140,12 @@ export const walletAPI = {
 
 // Withdrawal APIs
 export const withdrawalAPI = {
-  create: (data) => api.post('/bank/withdraw', data),
-  getMy: () => api.get('/bank/withdrawals'),
-  getAll: (params) => api.get('/bank/admin/withdrawals', { params }),
-  approve: (id, data) => api.post(`/bank/admin/withdrawals/${id}/approve`, data),
-  reject: (id, data) => api.post(`/bank/admin/withdrawals/${id}/reject`, data),
+  create: (data) => api.post('/wallet/withdraw', data),
+  getMy: () => api.get('/wallet/withdrawals'),
+  getBalance: () => api.get('/wallet/balance'),
+  getAll: (params) => api.get('/admin/withdrawals', { params }),
+  approve: (id, data) => api.put(`/admin/withdrawals/${id}/approve`, data),
+  reject: (id, data) => api.put(`/admin/withdrawals/${id}/reject`, data),
 };
 
 // Notifications (email-based, no API endpoints)

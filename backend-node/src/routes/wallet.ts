@@ -104,7 +104,7 @@ router.post('/buy_credits', [
       req.user!.id,
       'credit_purchase_initiated',
       payment.id,
-      { amount, credits_to_add, package_id },
+      { amount: pkg.price, credits_to_add, package_id },
       req
     );
 
