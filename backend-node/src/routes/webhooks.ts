@@ -17,7 +17,8 @@ router.post('/digistore24', async (req: Request, res: Response) => {
         product_id,
         product_name,
         commission_value,
-        currency
+        currency,
+        commission_status
       } = data;
 
       const user = await prisma.user.findFirst({
@@ -25,25 +26,61 @@ router.post('/digistore24', async (req: Request, res: Response) => {
       });
 
       if (user) {
-        await prisma.commission.create({
-          data: {
-            user_id: user.id,
-            network: 'digistore24',
-            amount: parseFloat(commission_value) || 0,
-            status: 'pending',
-            external_ref: order_id,
-            webhook_data: {
-              product_id,
-              product_name,
-              currency,
-              order_id,
-              raw: data
-            }
-          }
+        const existing = await prisma.commission.findFirst({
+          where: { external_ref: order_id, network: 'digistore24' }
         });
-      }
 
-      console.log(`[Digistore24] Commission logged for ${affiliate_email}: $${commission_value}`);
+        const isApproved = commission_status === 'approved' || event === 'on_affiliation_payment';
+        const commissionAmount = parseFloat(commission_value) || 0;
+
+        if (existing) {
+          if (!existing.approved_at && isApproved) {
+            await prisma.commission.update({
+              where: { id: existing.id },
+              data: { status: 'approved', approved_at: new Date() }
+            });
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                balance: { increment: existing.amount },
+                withdrawable_balance: { increment: existing.amount }
+              }
+            });
+            console.log(`[Digistore24] Approved and credited: $${existing.amount} to user ${user.id}`);
+          }
+        } else {
+          await prisma.commission.create({
+            data: {
+              user_id: user.id,
+              network: 'digistore24',
+              amount: commissionAmount,
+              status: isApproved ? 'approved' : 'pending',
+              external_ref: order_id,
+              approved_at: isApproved ? new Date() : null,
+              webhook_data: {
+                product_id,
+                product_name,
+                currency,
+                order_id,
+                raw: data
+              }
+            }
+          });
+
+          if (isApproved && commissionAmount > 0) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                balance: { increment: commissionAmount },
+                withdrawable_balance: { increment: commissionAmount }
+              }
+            });
+            console.log(`[Digistore24] Credited: $${commissionAmount} to user ${user.id}`);
+          }
+        }
+
+        console.log(`[Digistore24] Commission logged for ${affiliate_email}: $${commission_value}`);
+      }
     }
 
     res.json({ status: 'ok' });
@@ -79,14 +116,33 @@ router.post('/awin', async (req: Request, res: Response) => {
           where: { external_ref: String(id), network: 'awin' }
         });
 
-        if (!existing) {
+        const isApproved = status === 'approved';
+        const amount = parseFloat(commissionAmount?.amount || commissionAmount) || 0;
+
+        if (existing) {
+          if (!existing.approved_at && isApproved) {
+            await prisma.commission.update({
+              where: { id: existing.id },
+              data: { status: 'approved', approved_at: new Date() }
+            });
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                balance: { increment: existing.amount },
+                withdrawable_balance: { increment: existing.amount }
+              }
+            });
+            console.log(`[Awin] Approved and credited: $${existing.amount} to user ${user.id}`);
+          }
+        } else {
           await prisma.commission.create({
             data: {
               user_id: user.id,
               network: 'awin',
-              amount: parseFloat(commissionAmount?.amount || commissionAmount) || 0,
-              status: status === 'approved' ? 'approved' : 'pending',
+              amount,
+              status: isApproved ? 'approved' : 'pending',
               external_ref: String(id),
+              approved_at: isApproved ? new Date() : null,
               webhook_data: {
                 advertiser_id: advertiserId,
                 advertiser_name: advertiserName,
@@ -96,7 +152,18 @@ router.post('/awin', async (req: Request, res: Response) => {
             }
           });
 
-          console.log(`[Awin] Commission logged for user ${user.id}: $${commissionAmount?.amount || commissionAmount}`);
+          if (isApproved && amount > 0) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                balance: { increment: amount },
+                withdrawable_balance: { increment: amount }
+              }
+            });
+            console.log(`[Awin] Credited: $${amount} to user ${user.id}`);
+          }
+
+          console.log(`[Awin] Commission logged for user ${user.id}: $${amount}`);
         }
       }
     }
@@ -134,15 +201,32 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
     });
 
     if (existing) {
-      if (existing.status !== status) {
+      const newStatus = status === 'approved' || status === 'confirmed' ? 'approved' : 
+                       status === 'rejected' || status === 'declined' ? 'rejected' : 'pending';
+      
+      if (existing.status !== newStatus) {
         await prisma.commission.update({
           where: { id: existing.id },
           data: { 
-            status: status === 'approved' || status === 'confirmed' ? 'approved' : 
-                   status === 'rejected' || status === 'declined' ? 'rejected' : 'pending'
+            status: newStatus,
+            approved_at: newStatus === 'approved' ? new Date() : existing.approved_at
           }
         });
-        console.log(`[MyLead] Updated commission ${existing.id} status to ${status}`);
+        
+        if (newStatus === 'approved' && existing.status !== 'approved' && existing.amount > 0) {
+          const user = await prisma.user.findUnique({ where: { id: existing.user_id } });
+          if (user) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                balance: { increment: existing.amount },
+                withdrawable_balance: { increment: existing.amount }
+              }
+            });
+            console.log(`[MyLead] Credited user ${user.id}: $${existing.amount} (status transition to approved)`);
+          }
+        }
+        console.log(`[MyLead] Updated commission ${existing.id} status to ${newStatus}`);
       }
       return res.json({ status: 'ok', message: 'Updated' });
     }
@@ -159,14 +243,16 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
 
     const commissionStatus = status === 'approved' || status === 'confirmed' ? 'approved' : 
                              status === 'rejected' || status === 'declined' ? 'rejected' : 'pending';
+    const commissionAmount = parseFloat(payout) || 0;
 
     await prisma.commission.create({
       data: {
         user_id: user.id,
         network: 'mylead',
-        amount: parseFloat(payout) || 0,
+        amount: commissionAmount,
         status: commissionStatus,
         external_ref: String(transaction_id),
+        approved_at: commissionStatus === 'approved' ? new Date() : null,
         webhook_data: {
           transaction_id,
           program_id,
@@ -182,6 +268,16 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
         }
       }
     });
+
+    if (commissionStatus === 'approved' && commissionAmount > 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          balance: { increment: commissionAmount },
+          withdrawable_balance: { increment: commissionAmount }
+        }
+      });
+    }
 
     console.log(`[MyLead] Commission logged for user ${user.id}: $${payout} ${currency} - ${program_name} (status: ${commissionStatus})`);
 
@@ -199,16 +295,36 @@ router.post('/partnerstack', async (req: Request, res: Response) => {
   try {
     const { event, data } = req.body;
 
-    if (event === 'deal.completed' || event === 'reward.created') {
-      const { partner_key, amount, customer_key, reward_id } = data;
+    if (event === 'deal.completed' || event === 'reward.created' || event === 'reward.approved') {
+      const { partner_key, amount, customer_key, reward_id, status } = data;
       const externalRef = reward_id || customer_key;
+      const isApproved = event === 'reward.approved' || status === 'approved';
+      const commissionAmount = parseFloat(amount) || 0;
 
       const existing = await prisma.commission.findFirst({
         where: { external_ref: String(externalRef), network: 'partnerstack' }
       });
 
       if (existing) {
-        return res.json({ status: 'ok', message: 'Already processed' });
+        if (!existing.approved_at && isApproved) {
+          await prisma.commission.update({
+            where: { id: existing.id },
+            data: { status: 'approved', approved_at: new Date() }
+          });
+          
+          const user = await prisma.user.findUnique({ where: { id: existing.user_id } });
+          if (user) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                balance: { increment: existing.amount },
+                withdrawable_balance: { increment: existing.amount }
+              }
+            });
+            console.log(`[PartnerStack] Approved and credited: $${existing.amount} to user ${user.id}`);
+          }
+        }
+        return res.json({ status: 'ok', message: 'Updated' });
       }
 
       const user = await prisma.user.findFirst({
@@ -220,15 +336,27 @@ router.post('/partnerstack', async (req: Request, res: Response) => {
           data: {
             user_id: user.id,
             network: 'partnerstack',
-            amount: parseFloat(amount) || 0,
-            status: 'pending',
+            amount: commissionAmount,
+            status: isApproved ? 'approved' : 'pending',
             external_ref: String(externalRef),
+            approved_at: isApproved ? new Date() : null,
             webhook_data: {
               event,
               raw: data
             }
           }
         });
+
+        if (isApproved && commissionAmount > 0) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              balance: { increment: commissionAmount },
+              withdrawable_balance: { increment: commissionAmount }
+            }
+          });
+          console.log(`[PartnerStack] Credited: $${commissionAmount} to user ${user.id}`);
+        }
 
         console.log(`[PartnerStack] Commission logged for user ${user.id}: $${amount}`);
       }

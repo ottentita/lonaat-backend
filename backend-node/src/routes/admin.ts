@@ -1021,4 +1021,155 @@ router.delete('/properties/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/withdrawals', async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where: any = {};
+    if (status) where.status = status;
+
+    const withdrawals = await prisma.withdrawalRequest.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: Number(limit),
+      skip,
+      include: {
+        user: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    const total = await prisma.withdrawalRequest.count({ where });
+
+    const stats = await prisma.withdrawalRequest.groupBy({
+      by: ['status'],
+      _sum: { amount: true },
+      _count: true
+    });
+
+    res.json({
+      withdrawals,
+      stats,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Withdrawals list error:', error);
+    res.status(500).json({ error: 'Failed to get withdrawals' });
+  }
+});
+
+router.put('/withdrawals/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const withdrawal = await prisma.withdrawalRequest.findUnique({
+      where: { id: Number(id) },
+      include: { user: true }
+    });
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    if (withdrawal.status !== 'pending') {
+      return res.status(400).json({ error: 'Withdrawal already processed' });
+    }
+
+    await prisma.withdrawalRequest.update({
+      where: { id: Number(id) },
+      data: {
+        status: 'paid',
+        processed_at: new Date(),
+        processed_by: req.user!.id
+      }
+    });
+
+    await prisma.user.update({
+      where: { id: withdrawal.user_id },
+      data: {
+        balance: { decrement: withdrawal.amount }
+      }
+    });
+
+    await prisma.transaction.create({
+      data: {
+        user_id: withdrawal.user_id,
+        type: 'withdrawal_paid',
+        amount: -withdrawal.amount,
+        status: 'completed',
+        description: `Withdrawal paid to ${withdrawal.bank_name || 'bank'}`
+      }
+    });
+
+    await prisma.notification.create({
+      data: {
+        user_id: withdrawal.user_id,
+        title: 'Withdrawal Approved',
+        message: `Your withdrawal of $${withdrawal.amount.toFixed(2)} has been processed and sent to your bank account.`,
+        type: 'success'
+      }
+    });
+
+    res.json({ message: 'Withdrawal approved and paid', withdrawal_id: id });
+  } catch (error) {
+    console.error('Approve withdrawal error:', error);
+    res.status(500).json({ error: 'Failed to approve withdrawal' });
+  }
+});
+
+router.put('/withdrawals/:id/reject', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const withdrawal = await prisma.withdrawalRequest.findUnique({
+      where: { id: Number(id) }
+    });
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    if (withdrawal.status !== 'pending') {
+      return res.status(400).json({ error: 'Withdrawal already processed' });
+    }
+
+    await prisma.withdrawalRequest.update({
+      where: { id: Number(id) },
+      data: {
+        status: 'rejected',
+        rejection_reason: reason || 'Rejected by admin',
+        processed_at: new Date(),
+        processed_by: req.user!.id
+      }
+    });
+
+    await prisma.user.update({
+      where: { id: withdrawal.user_id },
+      data: {
+        withdrawable_balance: { increment: withdrawal.amount }
+      }
+    });
+
+    await prisma.notification.create({
+      data: {
+        user_id: withdrawal.user_id,
+        title: 'Withdrawal Rejected',
+        message: `Your withdrawal of $${withdrawal.amount.toFixed(2)} was rejected. Reason: ${reason || 'Not specified'}. The amount has been returned to your balance.`,
+        type: 'warning'
+      }
+    });
+
+    res.json({ message: 'Withdrawal rejected', withdrawal_id: id });
+  } catch (error) {
+    console.error('Reject withdrawal error:', error);
+    res.status(500).json({ error: 'Failed to reject withdrawal' });
+  }
+});
+
 export default router;
