@@ -12,9 +12,9 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["gunicorn", "--bind=0.0.0.0:5000", "--workers=2", "--chdir=backend", "main:app"]
+run = ["bash", "-c", "cd backend-node && node dist/index.js"]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build", "--prefix", "frontend"]
+build = ["bash", "-c", "cd backend-node && npm run build && npx prisma generate"]
 
 [agent]
 expertMode = true
