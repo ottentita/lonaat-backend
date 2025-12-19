@@ -87,13 +87,18 @@ export async function syncDigistore24Products(userId?: number): Promise<SyncResu
 
 export async function syncAwinProducts(userId?: number): Promise<SyncResult> {
   const token = process.env.AWIN_TOKEN;
+  const publisherId = process.env.AWIN_PUBLISHER_ID;
   
   if (!token) {
     return { network: 'awin', success: false, products_synced: 0, error: 'API token not configured' };
   }
 
+  if (!publisherId) {
+    return { network: 'awin', success: false, products_synced: 0, error: 'Publisher ID not configured (AWIN_PUBLISHER_ID)' };
+  }
+
   try {
-    const response = await fetch('https://api.awin.com/publishers/programmes', {
+    const response = await fetch(`https://api.awin.com/publishers/${publisherId}/programmes?relationship=joined`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -101,21 +106,23 @@ export async function syncAwinProducts(userId?: number): Promise<SyncResult> {
     });
 
     if (!response.ok) {
-      throw new Error(`Awin API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Awin API error: ${response.status} - ${errorText}`);
     }
 
     const programmes = await response.json();
     
     if (!Array.isArray(programmes) || programmes.length === 0) {
-      return { network: 'awin', success: true, products_synced: 0, error: 'No programmes found' };
+      return { network: 'awin', success: true, products_synced: 0, error: 'No joined programmes found' };
     }
 
     let synced = 0;
     for (const programme of programmes.slice(0, 50)) {
+      const programmeId = programme.programme?.id || programme.id;
       const existing = await prisma.product.findFirst({
         where: {
           network: 'awin',
-          extra_data: { path: ['awin_programme_id'], equals: programme.id }
+          extra_data: { path: ['awin_programme_id'], equals: programmeId }
         }
       });
 
@@ -123,18 +130,18 @@ export async function syncAwinProducts(userId?: number): Promise<SyncResult> {
         await prisma.product.create({
           data: {
             user_id: userId || null,
-            name: programme.name || 'Awin Programme',
-            description: programme.description || null,
-            price: programme.commissionRange || null,
-            affiliate_link: programme.clickThroughUrl || programme.displayUrl || null,
+            name: programme.programme?.name || programme.name || 'Awin Programme',
+            description: programme.programme?.description || programme.description || null,
+            price: programme.programme?.commissionRange || null,
+            affiliate_link: programme.programme?.clickThroughUrl || programme.clickThroughUrl || null,
             network: 'awin',
-            category: programme.primarySector || null,
-            image_url: programme.logoUrl || null,
+            category: programme.programme?.primarySector || programme.primarySector || null,
+            image_url: programme.programme?.logoUrl || programme.logoUrl || null,
             extra_data: {
-              awin_programme_id: programme.id,
-              advertiser_id: programme.advertiserId,
+              awin_programme_id: programmeId,
+              advertiser_id: programme.programme?.advertiserId || programme.advertiserId,
               commission_type: programme.commissionType,
-              status: programme.status,
+              status: programme.status || 'active',
               raw: programme
             },
             is_active: true
@@ -237,11 +244,14 @@ export async function syncAllNetworks(userId?: number): Promise<SyncResult[]> {
   return results;
 }
 
-export async function getNetworkStatus(): Promise<{network: string; configured: boolean; key_name: string; sync_type: string}[]> {
+export async function getNetworkStatus(): Promise<{network: string; configured: boolean; key_name: string; sync_type: string; missing?: string}[]> {
+  const awinConfigured = !!process.env.AWIN_TOKEN && !!process.env.AWIN_PUBLISHER_ID;
+  const awinMissing = !process.env.AWIN_TOKEN ? 'AWIN_TOKEN' : (!process.env.AWIN_PUBLISHER_ID ? 'AWIN_PUBLISHER_ID' : undefined);
+  
   return [
     { network: 'digistore24', configured: !!process.env.DIGISTORE_API_KEY, key_name: 'DIGISTORE_API_KEY', sync_type: 'api' },
-    { network: 'awin', configured: !!process.env.AWIN_TOKEN, key_name: 'AWIN_TOKEN', sync_type: 'api' },
-    { network: 'mylead', configured: true, key_name: 'N/A', sync_type: 'link-based CPA' },
+    { network: 'awin', configured: awinConfigured, key_name: 'AWIN_TOKEN + AWIN_PUBLISHER_ID', sync_type: 'api', missing: awinMissing },
+    { network: 'mylead', configured: true, key_name: 'N/A', sync_type: 'postback (link-based CPA)' },
     { network: 'partnerstack', configured: !!process.env.PARTNERSTACK_API_KEY, key_name: 'PARTNERSTACK_API_KEY', sync_type: 'api' }
   ];
 }
