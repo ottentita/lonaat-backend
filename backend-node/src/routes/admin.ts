@@ -662,6 +662,97 @@ router.get('/ai/fraud-check/:userId', async (req: AuthRequest, res: Response) =>
   }
 });
 
+router.get('/fraud/flagged-users', async (req: AuthRequest, res: Response) => {
+  try {
+    const flaggedUsers = await prisma.user.findMany({
+      where: {
+        OR: [
+          { is_blocked: true },
+          { fraud_score: { gt: 50 } }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        is_blocked: true,
+        block_reason: true,
+        fraud_score: true,
+        created_at: true
+      },
+      orderBy: { fraud_score: 'desc' }
+    });
+
+    res.json({ flagged_users: flaggedUsers, count: flaggedUsers.length });
+  } catch (error) {
+    console.error('Flagged users error:', error);
+    res.status(500).json({ error: 'Failed to fetch flagged users', flagged_users: [], count: 0 });
+  }
+});
+
+router.post('/fraud/block/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { reason } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { is_blocked: true, block_reason: reason || 'Blocked by admin' }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        user_id: req.user!.id,
+        action: 'user_blocked',
+        entity_type: 'user',
+        entity_id: userId,
+        details: { blocked_user_id: userId, reason }
+      }
+    });
+
+    res.json({ message: 'User blocked', user_id: userId });
+  } catch (error) {
+    console.error('Block user error:', error);
+    res.status(500).json({ error: 'Failed to block user' });
+  }
+});
+
+router.post('/fraud/unblock/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { is_blocked: false, block_reason: null }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        user_id: req.user!.id,
+        action: 'user_unblocked',
+        entity_type: 'user',
+        entity_id: userId,
+        details: { unblocked_user_id: userId }
+      }
+    });
+
+    res.json({ message: 'User unblocked', user_id: userId });
+  } catch (error) {
+    console.error('Unblock user error:', error);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
 router.post('/ai/auto-boost-admin', async (req: AuthRequest, res: Response) => {
   try {
     const result = await autoBoostAdminProducts();
