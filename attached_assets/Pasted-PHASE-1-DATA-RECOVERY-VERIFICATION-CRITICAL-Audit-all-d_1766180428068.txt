@@ -1,0 +1,154 @@
+PHASE 1 — DATA RECOVERY & VERIFICATION (CRITICAL)
+Audit all data sources
+Check PostgreSQL (primary database)
+Check any SQLite / fallback DB remnants
+Check migration history
+Check logs, backups, temp tables, and orphaned records
+Recover lost data
+Users
+Products
+Campaigns
+Affiliate clicks
+Commission records
+Payments
+Credit balances
+Subscriptions
+Rebuild commission history
+Recalculate commissions from:
+Affiliate click logs
+Conversion/postback data
+Network API sync (Digistore24, Awin)
+Ensure:
+No duplicate commissions
+No missing commissions
+Correct user–commission mapping
+Normalize database
+Fix broken foreign keys
+Remove duplicates
+Restore missing relations
+Enforce constraints
+Run integrity checks
+Create a recovery report
+Total users recovered
+Total commissions restored
+Any unrecoverable data (if any)
+Actions taken
+PHASE 2 — COMMISSION SYSTEM FIX (ADMIN + USER)
+User commissions
+Ensure users can see:
+Total commissions
+Pending commissions
+Approved commissions
+Paid commissions
+Full commission history
+Admin commission dashboard
+Admin sees:
+All commissions across all users
+Filter by:
+Network
+Date
+User
+Status
+Admin cannot withdraw commissions
+Admin can:
+Verify
+Approve
+Flag suspicious commissions
+Postback & sync reliability
+Ensure postback URLs are:
+Idempotent
+Logged
+Retry-safe
+Prevent duplicate crediting
+PHASE 3 — AUTH, SESSION & ACCESS FIXES
+JWT / Session
+Ensure JWT_SECRET exists and is stable
+Token includes:
+user_id
+role (admin / user)
+Session expiry = 12 hours
+No random logouts
+Admin access
+Admin must NEVER be redirected to login
+Admin has unrestricted access to:
+/admin
+/products
+/ads
+/campaigns
+/commissions
+/networks
+Role-based guards
+Cost logic applies ONLY to users
+Admin campaigns are always FREE
+Admin credit balance ignored everywhere
+PHASE 4 — PAYMENT, CREDITS & SUBSCRIPTIONS
+Credit purchase (Bank transfer)
+User:
+Selects credit package
+Uploads proof
+Admin:
+Approves / rejects
+Credits added correctly
+Ensure no double-crediting
+Subscription plans
+Validate:
+Active plan logic
+Expiry
+Feature limits
+Ensure plan rules apply correctly
+Ledger integrity
+Every credit change must be logged
+Every commission must be traceable
+PHASE 5 — SYSTEM-WIDE BUG FIXING
+Scan and fix
+Broken API routes
+Incorrect endpoints
+Content-Type issues
+CORS errors
+Silent failures
+Console and server errors
+Frontend
+Ensure UI reflects backend state
+No stale data
+Proper loading & error states
+Admin vs user UI separation
+Campaign engine
+Ensure campaigns:
+Start correctly
+Stop correctly
+Respect duration
+Do not overrun credits (users only)
+PHASE 6 — SECURITY & STABILITY
+Fraud & abuse checks
+Prevent:
+Duplicate clicks
+Bot abuse
+Fake campaigns
+Log suspicious activity
+Performance
+Remove blocking calls
+Fix slow queries
+Index critical tables
+Backup
+Enable automatic DB backup
+Ensure recovery path exists
+PHASE 7 — FINAL VALIDATION
+Test flows:
+User signup → campaign → commission
+Admin login → product → campaign → commission view
+Credit purchase → approval → usage
+Session expiry
+Confirm:
+No data loss
+No silent failures
+No admin restrictions
+No commission mismatch
+Provide a final status summary:
+What was fixed
+What was recovered
+What is now stable
+Any remaining risks (if any)
+RULE
+⚠ Do NOT add new features
+⚠ Do NOT change business logic
+⚠ Focus ONLY on recovery, fixes, and stability
