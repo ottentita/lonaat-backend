@@ -48,6 +48,7 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/postback', webhookRoutes);
+app.use('/postback', webhookRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/uploads', express.static('uploads'));
 
