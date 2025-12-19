@@ -1172,4 +1172,140 @@ router.put('/withdrawals/:id/reject', async (req: AuthRequest, res: Response) =>
   }
 });
 
+router.get('/property-payments', async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where: any = {};
+    if (status) where.status = status;
+
+    const payments = await prisma.propertyPayment.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: Number(limit),
+      skip,
+      include: {
+        property: { select: { id: true, title: true, property_type: true, price: true, user_id: true } }
+      }
+    });
+
+    const total = await prisma.propertyPayment.count({ where });
+
+    res.json({
+      payments,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Property payments list error:', error);
+    res.status(500).json({ error: 'Failed to get property payments' });
+  }
+});
+
+router.put('/property-payments/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const payment = await prisma.propertyPayment.findUnique({
+      where: { id: Number(id) },
+      include: { property: true }
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ error: 'Payment already processed' });
+    }
+
+    await prisma.propertyPayment.update({
+      where: { id: Number(id) },
+      data: {
+        status: 'approved',
+        reviewed_by: req.user!.id,
+        reviewed_at: new Date()
+      }
+    });
+
+    await prisma.realEstateProperty.update({
+      where: { id: payment.property_id },
+      data: {
+        is_paid: true,
+        status: 'approved',
+        approved_at: new Date(),
+        approved_by: req.user!.id,
+        is_active: true
+      }
+    });
+
+    if (payment.property.user_id) {
+      await prisma.notification.create({
+        data: {
+          user_id: payment.property.user_id,
+          title: 'Property Payment Approved',
+          message: `Your payment for "${payment.property.title}" has been approved. Your property is now live!`,
+          type: 'success'
+        }
+      });
+    }
+
+    res.json({ message: 'Payment approved, property is now live', payment_id: id });
+  } catch (error) {
+    console.error('Approve property payment error:', error);
+    res.status(500).json({ error: 'Failed to approve payment' });
+  }
+});
+
+router.put('/property-payments/:id/reject', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const payment = await prisma.propertyPayment.findUnique({
+      where: { id: Number(id) },
+      include: { property: true }
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ error: 'Payment already processed' });
+    }
+
+    await prisma.propertyPayment.update({
+      where: { id: Number(id) },
+      data: {
+        status: 'rejected',
+        review_note: reason || 'Payment rejected by admin',
+        reviewed_by: req.user!.id,
+        reviewed_at: new Date()
+      }
+    });
+
+    if (payment.property.user_id) {
+      await prisma.notification.create({
+        data: {
+          user_id: payment.property.user_id,
+          title: 'Property Payment Rejected',
+          message: `Your payment for "${payment.property.title}" was rejected. Reason: ${reason || 'Not specified'}. Please upload a valid receipt.`,
+          type: 'warning'
+        }
+      });
+    }
+
+    res.json({ message: 'Payment rejected', payment_id: id });
+  } catch (error) {
+    console.error('Reject property payment error:', error);
+    res.status(500).json({ error: 'Failed to reject payment' });
+  }
+});
+
 export default router;

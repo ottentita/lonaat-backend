@@ -205,30 +205,44 @@ export const affiliateAPI = {
 
 // Real Estate APIs
 export const realEstateAPI = {
-  getProperties: (params) => api.get('/properties', { params }),
-  getMyProperties: (params) => api.get('/properties', { params: { ...params, my_listings: true } }),
-  getProperty: (id) => api.get(`/properties/${id}`),
-  createProperty: (data) => api.post('/properties', data),
-  updateProperty: (id, data) => api.put(`/properties/${id}`, data),
+  getMarketplace: (params) => api.get('/properties/marketplace', { params }),
+  getMyProperties: (params) => api.get('/properties/my', { params }),
+  getProperty: (id) => api.get(`/properties/listing/${id}`),
+  createProperty: (data) => api.post('/properties/create', data),
+  updateProperty: (id, data) => api.put(`/properties/update/${id}`, data),
   deleteProperty: (id) => api.delete(`/properties/${id}`),
-  addPropertyImage: (id, data) => api.post(`/properties/${id}/images`, data),
   boostProperty: (id) => api.post(`/properties/${id}/boost`),
-  getPropertyTypes: () => api.get('/properties/types'),
-  getPropertyStats: () => api.get('/properties/stats'),
+  payListingFee: (id, formData) => api.post(`/properties/${id}/pay`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getListingFees: () => api.get('/properties/fees'),
+  getPropertyStats: () => api.get('/properties/my').then(res => ({
+    data: {
+      total_properties: res.data.properties?.length || 0,
+      approved: res.data.properties?.filter(p => p.status === 'approved').length || 0,
+      pending_approval: res.data.properties?.filter(p => p.status === 'pending').length || 0,
+      can_add_property: true,
+      max_allowed: 'unlimited',
+      current_count: res.data.properties?.length || 0
+    }
+  })),
+  getPropertyTypes: () => Promise.resolve({
+    data: {
+      types: ['house', 'land', 'apartment', 'commercial', 'rental', 'guest_house'],
+      transaction_types: ['sale', 'rent', 'lease'],
+      cities: ['Douala', 'Yaounde', 'Bafoussam', 'Bamenda', 'Garoua', 'Maroua', 'Ngaoundere', 'Bertoua', 'Ebolowa', 'Kribi'],
+      regions: ['Littoral', 'Centre', 'West', 'Northwest', 'North', 'Far North', 'Adamawa', 'East', 'South', 'Southwest']
+    }
+  }),
+  getMyBookings: () => Promise.resolve({ data: { bookings: [] } }),
   
-  // Bookings
-  getMyBookings: (role = 'tenant') => api.get('/properties/bookings', { params: { role } }),
-  createBooking: (propertyId, data) => api.post(`/properties/${propertyId}/book`, data),
-  confirmBooking: (bookingId) => api.post(`/bookings/${bookingId}/confirm`),
-  cancelBooking: (bookingId) => api.post(`/bookings/${bookingId}/cancel`),
-  
-  // Admin
   adminGetProperties: (params) => api.get('/admin/properties', { params }),
   adminApproveProperty: (id, data) => api.post(`/admin/properties/${id}/approve`, data),
   adminRejectProperty: (id, data) => api.post(`/admin/properties/${id}/reject`, data),
   adminCreateProperty: (data) => api.post('/admin/properties', data),
-  adminRunPropertyAd: (id, data) => api.post(`/admin/properties/${id}/run-ad`, data),
-  adminRunAllPropertyAds: (data) => api.post('/admin/properties/run-all-ads', data),
+  adminGetPayments: (params) => api.get('/admin/property-payments', { params }),
+  adminApprovePayment: (id) => api.put(`/admin/property-payments/${id}/approve`),
+  adminRejectPayment: (id, data) => api.put(`/admin/property-payments/${id}/reject`, data),
 };
 
 export default api;

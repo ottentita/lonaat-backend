@@ -1,0 +1,138 @@
+This project already has:
+User & Admin authentication
+PostgreSQL database
+Marketplace, campaigns, credits, subscriptions
+Affiliate systems
+Admin dashboard & user dashboard
+You must ADD and INTEGRATE a REAL ESTATE SYSTEM into the existing backend and frontend.
+A. DATABASE (PostgreSQL)
+1. Create new tables
+properties
+Copy code
+Sql
+id (UUID, primary key)
+owner_id (UUID, FK → users.id)
+title (text)
+description (text)
+property_type (enum: house, land, apartment, commercial, rental, guest_house)
+transaction_type (enum: sale, rent, lease)
+price (numeric)
+currency (XAF)
+location (text)
+region (text)
+city (text)
+images (jsonb)
+status (enum: pending, approved, rejected, sold, rented)
+is_featured (boolean default false)
+created_at (timestamp)
+property_payments
+Copy code
+Sql
+id (UUID)
+user_id (UUID)
+property_id (UUID)
+amount (numeric)
+payment_method (enum: bank_transfer)
+status (enum: pending, approved, rejected)
+receipt_url (text)
+created_at (timestamp)
+property_ads
+Copy code
+Sql
+id (UUID)
+property_id (UUID)
+campaign_id (UUID)
+boost_start (timestamp)
+boost_end (timestamp)
+is_active (boolean)
+created_at (timestamp)
+B. BACKEND (API / LOGIC)
+2. Property Management APIs
+User APIs:
+POST /properties/create
+GET /properties/my
+PUT /properties/update/:id
+DELETE /properties/:id
+Rules:
+Only property owner can edit/delete
+Properties default to pending
+Admin approval required before public visibility
+3. Admin APIs
+GET /admin/properties
+POST /admin/properties/approve/:id
+POST /admin/properties/reject/:id
+POST /admin/properties/feature/:id
+Rules:
+Admin can approve, reject, feature any property
+Admin properties are auto-approved
+C. MONETIZATION RULES
+4. Listing Fees (User Only)
+Implement listing fee logic:
+Sale property → fixed fee
+Rental → monthly listing fee
+Guest house / commercial → premium fee
+Payment method:
+Direct Bank Transfer only
+User uploads receipt
+Admin approves → property goes live
+Admin:
+Pays ZERO
+No restrictions
+No fees
+Unlimited listings
+D. ADVERTISING & BOOST SYSTEM
+5. Property Ads Integration
+When a property is approved:
+Allow Boost Property button
+Boost = creates campaign in existing ads system
+Duration: 24 hours
+Admin boosts are FREE
+Users require credits or plan
+AI integration:
+If AI system is ON:
+Auto-boost featured properties
+Track clicks & performance
+E. FRONTEND REQUIREMENTS
+6. User Dashboard
+Add Real Estate section with:
+Add Property
+My Properties
+Property Status
+Boost Property
+Upload payment receipt
+7. Admin Dashboard
+Add Real Estate Management:
+View all properties
+Approve / reject
+Feature properties
+View payments
+Approve listing payments
+Run free ads
+F. SECURITY & VALIDATION
+8. Validation Rules
+Only verified users can list property
+Fraud detection on duplicate listings
+Block suspicious accounts automatically
+Admin override always allowed
+G. INTEGRATION REQUIREMENTS
+9. Integrate with existing systems:
+Auth (JWT)
+Roles (admin / user)
+Campaign system
+Credit system
+AI monitoring
+Commission dashboard (view only)
+H. TESTING REQUIREMENTS
+10. Test flows:
+User adds property → pays → admin approves → property live
+Admin adds property → instantly live
+Boost works
+Ads tracked
+No redirects to login
+Admin free access verified
+I. DEPLOYMENT NOTES
+Must work on PostgreSQL
+Must not break existing features
+Clean migrations
+API documented
+Ready for Render / Supabase deployment

@@ -14,6 +14,7 @@ import paymentRoutes from './routes/payments';
 import subscriptionRoutes from './routes/subscriptions';
 import walletRoutes from './routes/wallet';
 import webhookRoutes from './routes/webhooks';
+import propertyRoutes from './routes/properties';
 
 dotenv.config();
 
@@ -47,6 +48,8 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/postback', webhookRoutes);
+app.use('/api/properties', propertyRoutes);
+app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {
   try {
