@@ -5,6 +5,36 @@ import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/
 const router = Router();
 const prisma = new PrismaClient();
 
+router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        balance: true,
+        is_admin: true,
+        verified: true,
+        referral_code: true,
+        withdrawable_balance: true,
+        ai_premium: true,
+        created_at: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
 router.get('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
