@@ -1,0 +1,109 @@
+GLOBAL COMMISSION TRACKING (SYSTEM LEVEL)
+1. Commission Sources
+The system must track commissions from:
+Digistore24
+Awin / ShareASale
+PartnerStack
+MyLead
+Future networks (ClickBank, CJ, etc.)
+Each commission record must store:
+commission_id
+user_id (who earned it)
+affiliate_network
+product_id
+commission_amount
+currency
+status (pending / approved / rejected / paid)
+transaction_reference
+date_created
+date_approved
+B. USER COMMISSION DASHBOARD
+Each user must see only their own data:
+Dashboard Sections:
+Total Earnings
+Pending Commissions
+Approved (Available) Balance
+Withdrawn Amount
+Commission History (table)
+Rules:
+Pending commissions → NOT withdrawable
+Only approved commissions can be withdrawn
+Rejected commissions are locked permanently
+All calculations must be automatic
+C. ADMIN COMMISSION DASHBOARD (FULL ACCESS)
+Admin must see everything:
+Admin Views:
+Total commissions across all users
+Filter by:
+user
+network
+date
+status
+Commission audit log
+Manual override (approve / reject)
+Important Rule:
+❌ Admin does NOT withdraw commissions
+✔ Admin only oversees, validates, and audits
+D. WITHDRAWAL SYSTEM (FIXED & SECURE)
+1. Withdrawal Eligibility
+A user can request withdrawal ONLY if:
+commission_status = approved
+minimum withdrawal amount is reached
+no fraud flags on account
+2. Withdrawal Methods (CURRENT)
+✅ Direct Bank Transfer only
+Store:
+bank_name
+account_name
+account_number
+country
+currency
+(Stripe / Flutterwave placeholders remain disabled for now)
+3. Withdrawal Flow
+User clicks Withdraw
+Enters amount (≤ available balance)
+Confirms bank details
+Request is created with status = pending
+Admin reviews request
+Admin approves → status = paid
+System deducts balance
+Withdrawal receipt logged
+E. AI + SECURITY RULES
+AI monitors:
+abnormal commission spikes
+duplicate clicks
+fake traffic patterns
+If suspicious:
+commissions frozen
+withdrawal blocked
+account flagged for review
+F. DATABASE TABLES REQUIRED
+Copy code
+Sql
+commissions
+withdrawals
+commission_logs
+bank_accounts
+Each withdrawal must reference:
+user_id
+commission_ids
+amount
+status
+processed_by (admin)
+timestamp
+G. UI FIXES REQUIRED
+User Side:
+“My Commissions”
+“Withdraw Earnings”
+“Withdrawal History”
+Admin Side:
+“Commission Center”
+“Approve Withdrawals”
+“Audit Logs”
+H. CRITICAL BUSINESS RULES (VERY IMPORTANT)
+❌ Users cannot withdraw pending commissions
+❌ Users cannot edit approved commissions
+❌ Admin campaigns remain FREE
+❌ Admin balance is ignored everywhere
+✔ Every transaction must be logged
+✔ Every action must be auditable
