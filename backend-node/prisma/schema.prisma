@@ -156,13 +156,31 @@ model RealEstateProperty {
   location         String?   @db.VarChar(255)
   region           String?   @db.VarChar(100)
   city             String?   @db.VarChar(100)
+  neighborhood     String?   @db.VarChar(100)
   price            Decimal?  @db.Decimal(12, 2)
   currency         String    @default("XAF") @db.VarChar(10)
+  price_negotiable Boolean   @default(true)
   bedrooms         Int?
   bathrooms        Int?
   area_sqft        Int?
+  land_size_sqft   Int?
+  floors           Int?
+  parking_spaces   Int?
+  year_built       Int?
+  furnishing       String?   @db.VarChar(50)
+  condition        String?   @db.VarChar(50)
   images           Json?     @db.JsonB
+  videos           Json?     @db.JsonB
+  documents        Json?     @db.JsonB
+  amenities        Json?     @db.JsonB
   image_url        String?   @db.Text
+  video_url        String?   @db.Text
+  owner_name       String?   @db.VarChar(100)
+  owner_phone      String?   @db.VarChar(50)
+  owner_email      String?   @db.VarChar(100)
+  owner_whatsapp   String?   @db.VarChar(50)
+  owner_id_type    String?   @db.VarChar(50)
+  owner_id_number  String?   @db.VarChar(100)
   affiliate_link   String?   @db.Text
   ai_generated_ad  String?   @db.Text
   status           String    @default("pending") @db.VarChar(20)
@@ -173,6 +191,8 @@ model RealEstateProperty {
   approved_at      DateTime?
   approved_by      Int?
   is_active        Boolean   @default(true)
+  views_count      Int       @default(0)
+  inquiries_count  Int       @default(0)
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 
