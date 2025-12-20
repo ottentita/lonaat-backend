@@ -1283,6 +1283,110 @@ router.put('/withdrawals/:id/reject', async (req: AuthRequest, res: Response) =>
   }
 });
 
+router.put('/withdrawals/:id/mark-paid', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { admin_note } = req.body;
+
+    const withdrawal = await prisma.withdrawalRequest.findUnique({
+      where: { id: Number(id) },
+      include: { user: true }
+    });
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    if (withdrawal.status === 'paid') {
+      return res.status(400).json({ error: 'Withdrawal already marked as paid' });
+    }
+
+    if (withdrawal.status === 'rejected') {
+      return res.status(400).json({ error: 'Cannot mark rejected withdrawal as paid' });
+    }
+
+    await prisma.withdrawalRequest.update({
+      where: { id: Number(id) },
+      data: {
+        status: 'paid',
+        paid_at: new Date(),
+        paid_by: req.user!.id,
+        admin_note: admin_note || null,
+        processed_at: withdrawal.processed_at || new Date(),
+        processed_by: withdrawal.processed_by || req.user!.id
+      }
+    });
+
+    if (withdrawal.status === 'pending') {
+      await prisma.user.update({
+        where: { id: withdrawal.user_id },
+        data: {
+          balance: { decrement: withdrawal.amount }
+        }
+      });
+    }
+
+    await prisma.transaction.updateMany({
+      where: {
+        user_id: withdrawal.user_id,
+        type: 'withdrawal_request',
+        extra_data: { path: ['withdrawal_id'], equals: withdrawal.id }
+      },
+      data: { status: 'completed' }
+    });
+
+    await prisma.notification.create({
+      data: {
+        user_id: withdrawal.user_id,
+        title: 'Withdrawal Paid',
+        message: `Your withdrawal of $${withdrawal.amount.toFixed(2)} has been sent to your bank account (${withdrawal.bank_name}).`,
+        type: 'success'
+      }
+    });
+
+    res.json({ message: 'Withdrawal marked as paid', withdrawal_id: id });
+  } catch (error) {
+    console.error('Mark paid error:', error);
+    res.status(500).json({ error: 'Failed to mark withdrawal as paid' });
+  }
+});
+
+router.get('/withdrawals/:id/bank-details', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const withdrawal = await prisma.withdrawalRequest.findUnique({
+      where: { id: Number(id) },
+      include: { user: { select: { id: true, name: true, email: true } } }
+    });
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    res.json({
+      withdrawal: {
+        id: withdrawal.id,
+        amount: withdrawal.amount,
+        status: withdrawal.status,
+        bank_name: withdrawal.bank_name,
+        account_name: withdrawal.account_name,
+        account_number: withdrawal.account_number,
+        bank_code: withdrawal.bank_code,
+        payment_details: withdrawal.payment_details ? JSON.parse(withdrawal.payment_details) : null,
+        created_at: withdrawal.created_at,
+        processed_at: withdrawal.processed_at,
+        paid_at: withdrawal.paid_at,
+        admin_note: withdrawal.admin_note,
+        user: withdrawal.user
+      }
+    });
+  } catch (error) {
+    console.error('Get withdrawal details error:', error);
+    res.status(500).json({ error: 'Failed to get withdrawal details' });
+  }
+});
+
 router.get('/property-payments', async (req: AuthRequest, res: Response) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;

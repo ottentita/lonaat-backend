@@ -41,6 +41,7 @@ model User {
   ai_jobs             AIJob[]
   credit_wallet       CreditWallet?
   real_estate         RealEstateProperty[]
+  bank_account        BankAccount?
 
   @@map("users")
 }
@@ -92,8 +93,12 @@ model WithdrawalRequest {
   account_number   String?   @db.VarChar(50)
   account_name     String?   @db.VarChar(100)
   bank_code        String?   @db.VarChar(20)
+  bank_account_id  Int?
   processed_at     DateTime?
   processed_by     Int?
+  paid_at          DateTime?
+  paid_by          Int?
+  admin_note       String?   @db.Text
   rejection_reason String?   @db.Text
   created_at       DateTime  @default(now())
 
@@ -387,4 +392,23 @@ model AuditLog {
   created_at  DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+model BankAccount {
+  id                    Int      @id @default(autoincrement())
+  user_id               Int      @unique
+  bank_name             String   @db.VarChar(100)
+  account_name          String   @db.VarChar(100)
+  account_number_cipher String   @db.Text
+  account_number_last4  String   @db.VarChar(4)
+  country               String   @db.VarChar(50)
+  swift_code            String?  @db.VarChar(20)
+  routing_code          String?  @db.VarChar(50)
+  is_verified           Boolean  @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("bank_accounts")
 }

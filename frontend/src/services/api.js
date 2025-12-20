@@ -109,6 +109,7 @@ export const productsAPI = {
   update: (id, data) => api.put(`/products/${id}`, data),
   delete: (id) => api.delete(`/products/${id}`),
   import: (data) => api.post('/products/import', data),
+  getUsage: () => api.get('/products/usage'),
 };
 
 // Commissions APIs
@@ -136,16 +137,21 @@ export const walletAPI = {
   getBalance: () => api.get('/wallet'),
   buyCredits: (data) => api.post('/wallet/buy_credits', data),
   getTransactions: () => api.get('/wallet/transactions'),
+  getBankAccount: () => api.get('/wallet/bank-account'),
+  saveBankAccount: (data) => api.post('/wallet/bank-account', data),
 };
 
 // Withdrawal APIs
 export const withdrawalAPI = {
   create: (data) => api.post('/wallet/withdraw', data),
+  quickWithdraw: (data) => api.post('/wallet/withdraw/quick', data),
   getMy: () => api.get('/wallet/withdrawals'),
   getBalance: () => api.get('/wallet/balance'),
   getAll: (params) => api.get('/admin/withdrawals', { params }),
   approve: (id, data) => api.put(`/admin/withdrawals/${id}/approve`, data),
   reject: (id, data) => api.put(`/admin/withdrawals/${id}/reject`, data),
+  markPaid: (id, data) => api.put(`/admin/withdrawals/${id}/mark-paid`, data),
+  getBankDetails: (id) => api.get(`/admin/withdrawals/${id}/bank-details`),
 };
 
 // Notifications (email-based, no API endpoints)

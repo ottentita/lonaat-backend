@@ -3,9 +3,12 @@ import { PrismaClient } from '@prisma/client';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { body, validationResult } from 'express-validator';
 import { logPaymentAction } from '../services/audit';
+import { encryptBankAccountNumber, decryptBankAccountNumber, getLast4, maskAccountNumber } from '../services/encryption';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+const MIN_WITHDRAWAL_AMOUNT = 10;
 
 const ADMIN_BANK_DETAILS = {
   bank_name: 'First Bank of Nigeria',
@@ -279,6 +282,247 @@ router.get('/balance', authMiddleware, async (req: AuthRequest, res: Response) =
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get balance' });
+  }
+});
+
+router.get('/bank-account', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const bankAccount = await prisma.bankAccount.findUnique({
+      where: { user_id: req.user!.id }
+    });
+
+    if (!bankAccount) {
+      return res.json({ bank_account: null, has_bank_details: false });
+    }
+
+    res.json({
+      bank_account: {
+        id: bankAccount.id,
+        bank_name: bankAccount.bank_name,
+        account_name: bankAccount.account_name,
+        account_number_last4: bankAccount.account_number_last4,
+        account_number_masked: '****' + bankAccount.account_number_last4,
+        country: bankAccount.country,
+        swift_code: bankAccount.swift_code,
+        routing_code: bankAccount.routing_code,
+        is_verified: bankAccount.is_verified,
+        created_at: bankAccount.created_at,
+        updated_at: bankAccount.updated_at
+      },
+      has_bank_details: true
+    });
+  } catch (error) {
+    console.error('Get bank account error:', error);
+    res.status(500).json({ error: 'Failed to get bank account' });
+  }
+});
+
+router.post('/bank-account', [
+  authMiddleware,
+  body('bank_name').notEmpty().withMessage('Bank name is required'),
+  body('account_name').notEmpty().withMessage('Account holder name is required'),
+  body('account_number').notEmpty().withMessage('Account number is required'),
+  body('country').notEmpty().withMessage('Country is required')
+], async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { bank_name, account_name, account_number, country, swift_code, routing_code } = req.body;
+
+    const encryptedAccountNumber = encryptBankAccountNumber(account_number);
+    const last4 = getLast4(account_number);
+
+    const existingAccount = await prisma.bankAccount.findUnique({
+      where: { user_id: req.user!.id }
+    });
+
+    let bankAccount;
+    if (existingAccount) {
+      bankAccount = await prisma.bankAccount.update({
+        where: { user_id: req.user!.id },
+        data: {
+          bank_name,
+          account_name,
+          account_number_cipher: encryptedAccountNumber,
+          account_number_last4: last4,
+          country,
+          swift_code: swift_code || null,
+          routing_code: routing_code || null
+        }
+      });
+
+      await logPaymentAction(
+        req.user!.id,
+        'bank_account_updated',
+        bankAccount.id,
+        { bank_name, account_number_last4: last4, country },
+        req
+      );
+    } else {
+      bankAccount = await prisma.bankAccount.create({
+        data: {
+          user_id: req.user!.id,
+          bank_name,
+          account_name,
+          account_number_cipher: encryptedAccountNumber,
+          account_number_last4: last4,
+          country,
+          swift_code: swift_code || null,
+          routing_code: routing_code || null
+        }
+      });
+
+      await logPaymentAction(
+        req.user!.id,
+        'bank_account_created',
+        bankAccount.id,
+        { bank_name, account_number_last4: last4, country },
+        req
+      );
+    }
+
+    res.json({
+      message: existingAccount ? 'Bank details updated successfully' : 'Bank details saved successfully',
+      bank_account: {
+        id: bankAccount.id,
+        bank_name: bankAccount.bank_name,
+        account_name: bankAccount.account_name,
+        account_number_last4: bankAccount.account_number_last4,
+        account_number_masked: '****' + bankAccount.account_number_last4,
+        country: bankAccount.country,
+        swift_code: bankAccount.swift_code,
+        routing_code: bankAccount.routing_code
+      }
+    });
+  } catch (error) {
+    console.error('Save bank account error:', error);
+    res.status(500).json({ error: 'Failed to save bank details' });
+  }
+});
+
+router.post('/withdraw/quick', [
+  authMiddleware,
+  body('amount').isFloat({ min: MIN_WITHDRAWAL_AMOUNT }).withMessage(`Minimum withdrawal is $${MIN_WITHDRAWAL_AMOUNT}`)
+], async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { amount } = req.body;
+    const withdrawAmount = parseFloat(amount);
+
+    const bankAccount = await prisma.bankAccount.findUnique({
+      where: { user_id: req.user!.id }
+    });
+
+    if (!bankAccount) {
+      return res.status(400).json({ 
+        error: 'No bank details saved. Please add your bank details first.',
+        requires_bank_details: true
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { withdrawable_balance: true, is_blocked: true, is_admin: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.is_blocked) {
+      return res.status(403).json({ error: 'Account is blocked. Contact support.' });
+    }
+
+    if (!user.is_admin && user.withdrawable_balance < withdrawAmount) {
+      return res.status(400).json({ 
+        error: 'Insufficient withdrawable balance',
+        available: user.withdrawable_balance,
+        requested: withdrawAmount
+      });
+    }
+
+    if (!user.is_admin) {
+      const pendingWithdrawals = await prisma.withdrawalRequest.findMany({
+        where: { user_id: req.user!.id, status: 'pending' }
+      });
+
+      if (pendingWithdrawals.length >= 3) {
+        return res.status(400).json({ error: 'You have too many pending withdrawals. Please wait for approval.' });
+      }
+    }
+
+    const decryptedAccountNumber = decryptBankAccountNumber(bankAccount.account_number_cipher);
+
+    const withdrawal = await prisma.withdrawalRequest.create({
+      data: {
+        user_id: req.user!.id,
+        amount: withdrawAmount,
+        status: 'pending',
+        payment_method: 'bank_transfer',
+        bank_name: bankAccount.bank_name,
+        account_number: decryptedAccountNumber,
+        account_name: bankAccount.account_name,
+        bank_code: bankAccount.swift_code,
+        bank_account_id: bankAccount.id,
+        payment_details: JSON.stringify({
+          bank_name: bankAccount.bank_name,
+          account_number: decryptedAccountNumber,
+          account_name: bankAccount.account_name,
+          swift_code: bankAccount.swift_code,
+          country: bankAccount.country
+        })
+      }
+    });
+
+    if (!user.is_admin) {
+      await prisma.user.update({
+        where: { id: req.user!.id },
+        data: {
+          withdrawable_balance: { decrement: withdrawAmount }
+        }
+      });
+    }
+
+    await prisma.transaction.create({
+      data: {
+        user_id: req.user!.id,
+        type: 'withdrawal_request',
+        amount: -withdrawAmount,
+        status: 'pending',
+        description: `Quick withdrawal to ${bankAccount.bank_name}`,
+        extra_data: { withdrawal_id: withdrawal.id, one_click: true }
+      }
+    });
+
+    await logPaymentAction(
+      req.user!.id,
+      'quick_withdrawal_requested',
+      withdrawal.id,
+      { amount: withdrawAmount, bank_name: bankAccount.bank_name },
+      req
+    );
+
+    res.status(201).json({
+      message: 'Withdrawal request submitted successfully',
+      withdrawal: {
+        id: withdrawal.id,
+        amount: withdrawAmount,
+        status: 'pending',
+        bank_name: bankAccount.bank_name,
+        account_name: bankAccount.account_name,
+        account_number_masked: '****' + bankAccount.account_number_last4
+      }
+    });
+  } catch (error) {
+    console.error('Quick withdrawal error:', error);
+    res.status(500).json({ error: 'Failed to process withdrawal request' });
   }
 });
 

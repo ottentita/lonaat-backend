@@ -1,0 +1,166 @@
+Withdrawals System + Subscription-Based Unlimited Product Generation
+This update introduces two core systems:
+One-Click Withdrawals with Bank Details
+Subscription-Controlled Unlimited Product Generation
+Both apply to Admin and Users, with different permissions.
+1️⃣ ONE-CLICK WITHDRAWALS SYSTEM (BANK TRANSFER)
+🎯 Goal
+Allow a user (and admin) to withdraw funds easily using saved bank details, with a simple and clear flow.
+🔹 USER FLOW (FRONTEND)
+Dashboard → Withdrawals
+User clicks “Withdraw Funds”
+System checks:
+Available balance
+Minimum withdrawal threshold (configurable)
+If bank details are not saved:
+Redirect to Bank Details Form
+If bank details are already saved:
+Show confirmation screen
+User clicks “Confirm Withdrawal”
+System submits withdrawal request
+Status shown as:
+Pending
+Approved
+Rejected
+Paid
+🔹 BANK DETAILS FORM (ONE-TIME OR EDITABLE)
+Fields:
+Bank Name
+Account Holder Name
+Account Number / IBAN
+Country
+Optional: SWIFT / Routing Code
+Buttons:
+Save Bank Details
+Update Bank Details
+⚠️ Bank details must be:
+Encrypted at rest
+Editable only by the account owner
+Visible only to Admin (read-only)
+🔹 BACKEND LOGIC
+Tables to add/update:
+bank_accounts
+id
+user_id
+bank_name
+account_name
+account_number (encrypted)
+country
+created_at
+updated_at
+withdrawals
+id
+user_id
+amount
+status (pending | approved | paid | rejected)
+requested_at
+processed_at
+admin_note
+🔹 ADMIN FLOW
+Admin Dashboard → Withdrawals
+Admin can:
+View all withdrawal requests
+Filter by:
+User
+Date
+Status
+Approve or reject withdrawals
+Mark withdrawal as Paid
+⚠️ Admin withdrawals
+Admin can withdraw without limits
+No subscription or credit check
+Same bank details flow applies
+2️⃣ SUBSCRIPTION-BASED UNLIMITED PRODUCT GENERATION
+🎯 Goal
+Allow the system to generate unlimited products, but control access strictly by subscription plan.
+This applies to:
+Affiliate products
+AI-generated products
+Imported marketplace items
+Auto-tracked products
+🔹 SUBSCRIPTION TIERS (EXAMPLE)
+Plan
+Products Allowed
+AI Boost
+Auto-Generation
+Free
+5
+❌
+❌
+Basic
+50
+❌
+❌
+Pro
+Unlimited
+✅ (limited)
+❌
+Premium AI
+Unlimited
+✅ (advanced)
+✅
+Admin
+Unlimited
+Unlimited
+Unlimited
+🔹 PRODUCT GENERATION RULES
+System can generate unlimited products
+Product visibility & creation depend on:
+User subscription plan
+Active subscription status
+If user exceeds plan limit:
+Show upgrade prompt
+Admin is never limited
+🔹 BACKEND ENFORCEMENT (CRITICAL)
+Before product creation:
+Copy code
+Text
+IF user.role === "admin":
+   allow unlimited products
+ELSE:
+   check subscription plan
+   if limit exceeded:
+       block creation
+       return upgrade_required
+🔹 DATABASE STRUCTURE
+subscriptions
+id
+name
+product_limit
+ai_access (true/false)
+price
+duration
+user_subscriptions
+user_id
+subscription_id
+start_date
+end_date
+status
+products
+id
+owner_id
+source (affiliate | ai | manual)
+status
+created_at
+🔹 FRONTEND UX
+Show product usage counter
+Show “Unlimited” for eligible plans
+Show Upgrade Plan button when limits are near
+Admin dashboard always shows:
+Unlimited products enabled
+🔐 SECURITY & COMPLIANCE NOTES
+Withdrawals require authentication
+Sensitive data encrypted
+Audit logs for:
+Bank detail changes
+Withdrawal actions
+Admin approvals
+AI or automation cannot auto-withdraw funds
+✅ FINAL RESULT
+After implementing this:
+✔ Users can withdraw funds in one click
+✔ Bank details are saved securely
+✔ Withdrawals are transparent and auditable
+✔ Products can scale infinitely
+✔ Revenue is protected via subscriptions
+✔ Admin has full unrestricted access

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { body, validationResult } from 'express-validator';
 import { authMiddleware, AuthRequest, creditCheckMiddleware } from '../middleware/auth';
+import { getUserProductLimit, checkProductCreationAllowed, getSubscriptionPlansForUpgrade } from '../services/productLimits';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -67,6 +68,21 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/usage', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const limitInfo = await getUserProductLimit(req.user!.id);
+    const plans = await getSubscriptionPlansForUpgrade();
+
+    res.json({
+      usage: limitInfo,
+      available_plans: plans
+    });
+  } catch (error) {
+    console.error('Product usage error:', error);
+    res.status(500).json({ error: 'Failed to get product usage' });
+  }
+});
+
 router.post('/', [
   authMiddleware,
   body('name').trim().notEmpty().withMessage('Name is required'),
@@ -78,6 +94,16 @@ router.post('/', [
   }
 
   try {
+    const limitCheck = await checkProductCreationAllowed(req.user!.id);
+
+    if (!limitCheck.allowed) {
+      return res.status(403).json({
+        error: limitCheck.error,
+        limit_info: limitCheck.limit_info,
+        requires_upgrade: true
+      });
+    }
+
     const { name, description, price, affiliate_link, network, category, image_url } = req.body;
 
     const product = await prisma.product.create({
@@ -94,7 +120,11 @@ router.post('/', [
       }
     });
 
-    res.status(201).json({ message: 'Product created', product });
+    res.status(201).json({ 
+      message: 'Product created', 
+      product,
+      limit_info: limitCheck.limit_info
+    });
   } catch (error) {
     console.error('Create product error:', error);
     res.status(500).json({ error: 'Failed to create product' });
