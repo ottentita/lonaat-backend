@@ -165,19 +165,19 @@ export const adminAPI = {
     const response = await api.get('/admin/dashboard');
     
     const data = response.data;
-    const stats = data.statistics || {};
+    const stats = data.stats || data.statistics || {};
     
     return {
       ...response,
       data: {
         stats: {
-          total_users: stats.users?.total || 0,
-          active_users: stats.users?.active || 0,
-          total_revenue: stats.commissions?.total_amount || stats.transactions?.total_commissions || 0,
-          pending_withdrawals: stats.transactions?.pending_withdrawals_count || 0,
-          total_withdrawals: stats.transactions?.total_withdrawals || 0,
-          total_campaigns: stats.ad_boosts?.total || 0,
-          total_products: stats.products?.total || 0,
+          total_users: stats.total_users || stats.users?.total || 0,
+          active_users: stats.active_users || stats.users?.active || 0,
+          total_revenue: stats.total_volume || stats.commissions?.total_amount || 0,
+          pending_withdrawals: stats.pending_withdrawals || 0,
+          total_withdrawals: stats.total_withdrawals || 0,
+          total_campaigns: stats.active_campaigns || stats.ad_boosts?.total || 0,
+          total_products: stats.total_products || stats.products?.total || 0,
         },
         raw: data
       }

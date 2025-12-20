@@ -13,16 +13,25 @@ router.use(adminOnlyMiddleware);
 
 router.get('/dashboard', async (req: AuthRequest, res: Response) => {
   try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     const [
       userCount,
+      activeUserCount,
       productCount,
       campaignCount,
-      totalTransactions
+      totalTransactions,
+      pendingWithdrawals,
+      totalCommissions
     ] = await Promise.all([
       prisma.user.count(),
+      prisma.user.count({ where: { is_active: true, is_blocked: false } }),
       prisma.product.count({ where: { is_active: true } }),
       prisma.adBoost.count({ where: { status: 'active' } }),
-      prisma.transaction.aggregate({ _sum: { amount: true } })
+      prisma.transaction.aggregate({ _sum: { amount: true } }),
+      prisma.withdrawalRequest.count({ where: { status: 'pending' } }),
+      prisma.commission.aggregate({ where: { status: 'approved' }, _sum: { amount: true } })
     ]);
 
     const recentUsers = await prisma.user.findMany({
@@ -31,16 +40,27 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
       select: { id: true, name: true, email: true, role: true, created_at: true, balance: true }
     });
 
+    const recentCommissions = await prisma.commission.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 10,
+      select: { id: true, amount: true, status: true, network: true, created_at: true }
+    });
+
     res.json({
       stats: {
         total_users: userCount,
+        active_users: activeUserCount,
         total_products: productCount,
         active_campaigns: campaignCount,
-        total_volume: totalTransactions._sum.amount || 0
+        total_volume: totalTransactions._sum.amount || 0,
+        pending_withdrawals: pendingWithdrawals,
+        total_commissions: totalCommissions._sum.amount || 0
       },
-      recent_users: recentUsers
+      recent_users: recentUsers,
+      recent_commissions: recentCommissions
     });
   } catch (error) {
+    console.error('Dashboard error:', error);
     res.status(500).json({ error: 'Failed to get dashboard data' });
   }
 });
