@@ -77,7 +77,7 @@ export async function getUserProductLimit(userId: number): Promise<ProductLimitI
     const plan = activeSubscription.plan;
     planName = plan.name;
 
-    if (plan.max_products === null || plan.max_products === 0 || plan.max_products >= 999999) {
+    if (plan.max_products === null || plan.max_products === 0 || plan.max_products < 0 || plan.max_products >= 999999) {
       isUnlimited = true;
       maxProducts = null;
     } else {
@@ -124,12 +124,19 @@ export async function getSubscriptionPlansForUpgrade(): Promise<any[]> {
     orderBy: { price: 'asc' }
   });
 
-  return plans.map(plan => ({
-    id: plan.id,
-    name: plan.name,
-    price: plan.price,
-    duration_days: plan.duration_days,
-    max_products: plan.max_products === null || plan.max_products === 0 || (plan.max_products && plan.max_products >= 999999) ? 'Unlimited' : plan.max_products,
-    features: plan.features
-  }));
+  return plans.map(plan => {
+    const isUnlimitedPlan = plan.max_products === null || 
+                           plan.max_products === 0 || 
+                           (plan.max_products !== null && plan.max_products < 0) || 
+                           (plan.max_products !== null && plan.max_products >= 999999);
+    
+    return {
+      id: plan.id,
+      name: plan.name,
+      price: plan.price,
+      duration_days: plan.duration_days,
+      max_products: isUnlimitedPlan ? 'Unlimited' : plan.max_products,
+      features: plan.features
+    };
+  });
 }

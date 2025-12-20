@@ -48,6 +48,21 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/usage', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const limitInfo = await getUserProductLimit(req.user!.id);
+    const plans = await getSubscriptionPlansForUpgrade();
+
+    res.json({
+      usage: limitInfo,
+      available_plans: plans
+    });
+  } catch (error) {
+    console.error('Product usage error:', error);
+    res.status(500).json({ error: 'Failed to get product usage' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const product = await prisma.product.findUnique({
@@ -65,21 +80,6 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     res.json({ product });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get product' });
-  }
-});
-
-router.get('/usage', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const limitInfo = await getUserProductLimit(req.user!.id);
-    const plans = await getSubscriptionPlansForUpgrade();
-
-    res.json({
-      usage: limitInfo,
-      available_plans: plans
-    });
-  } catch (error) {
-    console.error('Product usage error:', error);
-    res.status(500).json({ error: 'Failed to get product usage' });
   }
 });
 
