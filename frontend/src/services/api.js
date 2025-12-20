@@ -230,6 +230,16 @@ export const realEstateAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   getListingFees: () => api.get('/properties/fees'),
+  getTypesInfo: () => api.get('/properties/types-info'),
+  uploadImages: (formData) => api.post('/properties/upload/images', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  uploadVideo: (formData) => api.post('/properties/upload/videos', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  uploadDocuments: (formData) => api.post('/properties/upload/documents', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   getPropertyStats: () => api.get('/properties/my').then(res => ({
     data: {
       total_properties: res.data.properties?.length || 0,
@@ -240,14 +250,6 @@ export const realEstateAPI = {
       current_count: res.data.properties?.length || 0
     }
   })),
-  getPropertyTypes: () => Promise.resolve({
-    data: {
-      types: ['house', 'land', 'apartment', 'commercial', 'rental', 'guest_house'],
-      transaction_types: ['sale', 'rent', 'lease'],
-      cities: ['Douala', 'Yaounde', 'Bafoussam', 'Bamenda', 'Garoua', 'Maroua', 'Ngaoundere', 'Bertoua', 'Ebolowa', 'Kribi'],
-      regions: ['Littoral', 'Centre', 'West', 'Northwest', 'North', 'Far North', 'Adamawa', 'East', 'South', 'Southwest']
-    }
-  }),
   getMyBookings: () => Promise.resolve({ data: { bookings: [] } }),
   
   adminGetProperties: (params) => api.get('/admin/properties', { params }),
