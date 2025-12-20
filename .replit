@@ -14,7 +14,7 @@ requiredFiles = [".replit", "replit.nix"]
 [deployment]
 run = ["bash", "-c", "cd backend-node && NODE_ENV=production node dist/index.js"]
 deploymentTarget = "autoscale"
-build = ["bash", "-c", "cd backend-node && npm ci && npx prisma generate && npm run build"]
+build = ["bash", "-c", "cd backend-node && npm ci && npx prisma generate --schema=./prisma/schema.prisma && npm run build"]
 
 [agent]
 expertMode = true
