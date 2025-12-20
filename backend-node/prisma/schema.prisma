@@ -334,6 +334,7 @@ model Plan {
   created_at            DateTime @default(now())
   priority_boost        Boolean  @default(false)
   commission_multiplier Float?   @default(1.0)
+  credits               Int      @default(0)
 
   subscriptions Subscription[]
 

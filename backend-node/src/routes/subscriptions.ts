@@ -201,7 +201,7 @@ router.put('/:paymentId/activate', authMiddleware, adminOnlyMiddleware, async (r
 router.get('/all', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const subscriptions = await prisma.subscription.findMany({
-      orderBy: { created_at: 'desc' },
+      orderBy: { started_at: 'desc' },
       take: 100,
       include: { plan: true }
     });
