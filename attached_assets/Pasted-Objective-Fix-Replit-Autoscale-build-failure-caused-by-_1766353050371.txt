@@ -1,0 +1,101 @@
+Objective:
+Fix Replit Autoscale build failure caused by missing build script and multi-app structure.
+Deploy backend-node as the only web service, compile TypeScript, and start Express correctly.
+🔴 PROBLEMS TO FIX (CONFIRMED)
+Replit Autoscale expects a build script → missing or ignored
+Multiple apps in one Repl (frontend + backend)
+Autoscale not forced into backend-node
+TypeScript not guaranteed to compile before start
+🧠 REQUIRED ACTIONS (EXECUTE IN ORDER)
+1️⃣ Force Replit to Use Backend Only
+Open the .replit file and replace EVERYTHING with:
+Copy code
+Ini
+run = "cd backend-node && npm install && npm run build && npm start"
+This tells Replit Autoscale:
+Ignore frontend
+Treat backend-node as the only service
+Always run build before start
+2️⃣ Fix backend-node/package.json (MANDATORY)
+Open backend-node/package.json
+Find the "scripts" section and replace it entirely with:
+Copy code
+Json
+"scripts": {
+  "dev": "ts-node src/index.ts",
+  "build": "tsc",
+  "start": "node dist/index.js",
+  "postinstall": "prisma generate"
+}
+🚨 This is the root fix.
+If build does not exist here, Autoscale will always fail.
+3️⃣ Ensure TypeScript Compiles Correctly
+Open backend-node/tsconfig.json
+Ensure it contains ALL of the following:
+Copy code
+Json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "rootDir": "src",
+    "outDir": "dist",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false
+  }
+}
+This guarantees:
+Copy code
+
+backend-node/dist/index.js
+exists after build.
+4️⃣ Verify Server Port Binding (Replit-Required)
+Open backend-node/src/index.ts
+Ensure your server starts exactly like this:
+Copy code
+Ts
+const PORT = Number(process.env.PORT) || 8000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(Server running on port ${PORT});
+});
+🚨 0.0.0.0 is REQUIRED for Replit external access.
+5️⃣ Clean & Rebuild (DO NOT SKIP)
+Open Shell and run:
+Copy code
+Bash
+cd backend-node
+rm -rf node_modules dist
+npm install
+npm run build
+✅ You MUST see:
+Copy code
+
+dist/index.js
+If not → build is broken.
+6️⃣ Environment Variables (Secrets)
+Replit → Secrets
+Add:
+Copy code
+
+NODE_ENV=production
+JWT_SECRET=long_random_string_here
+DATABASE_URL=postgresql_connection_string_here
+🚫 Do NOT hardcode secrets.
+7️⃣ Redeploy
+Click Stop
+Click Run
+Go to Deploy
+Click Republish
+✅ EXPECTED SUCCESS STATE
+Logs show:
+Copy code
+
+Prisma Client generated
+Server running on port 8000
+URL responds:
+Copy code
+
+https://exhausted-shocked-normalform-titasembi.replit.app
+No timeout. No build errors.
