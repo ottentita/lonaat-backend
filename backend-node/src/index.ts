@@ -18,6 +18,8 @@ import propertyRoutes from './routes/properties';
 
 dotenv.config();
 
+console.log("ENV:", process.env.NODE_ENV);
+
 const app = express();
 const prisma = new PrismaClient();
 const PORT = parseInt(process.env.PORT || '8000', 10);
