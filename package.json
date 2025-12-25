@@ -1,10 +1,13 @@
 {
-  "name": "workspace",
+  "name": "lonaat",
   "version": "1.0.0",
-  "description": "![Lonaat Banner](https://img.shields.io/badge/Powered%20by-Lonaat-blue?style=for-the-badge&logo=lightning&logoColor=white)",
-  "main": "index.js",
+  "description": "Lonaat - AI-Powered Affiliate Marketing Platform",
+  "main": "backend-node/dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "cd backend-node && npm install && npm run build",
+    "start": "cd backend-node && npm start",
+    "dev": "cd backend-node && npm run dev",
+    "postinstall": "cd backend-node && npm install"
   },
   "keywords": [],
   "author": "",
