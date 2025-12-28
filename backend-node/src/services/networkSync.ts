@@ -168,87 +168,35 @@ export async function syncMyLeadProducts(userId?: number): Promise<SyncResult> {
 }
 
 export async function syncPartnerStackProducts(userId?: number): Promise<SyncResult> {
-  const apiKey = process.env.PARTNERSTACK_API_KEY;
-  
-  if (!apiKey) {
-    return { network: 'partnerstack', success: false, products_synced: 0, error: 'API key not configured' };
-  }
-
-  try {
-    // PartnerStack Partner API uses /partnerships endpoint
-    const response = await fetch('https://api.partnerstack.com/api/v2/partnerships', {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`PartnerStack API error: ${response.status} - ${errorText.substring(0, 100)}`);
-    }
-
-    const data = await response.json() as { data?: { items?: any[] }; items?: any[] };
-    const partnerships = data.data?.items || data.items || [];
-    
-    if (!Array.isArray(partnerships) || partnerships.length === 0) {
-      return { network: 'partnerstack', success: true, products_synced: 0, error: 'No partnerships found' };
-    }
-
-    let synced = 0;
-    for (const partner of partnerships.slice(0, 50)) {
-      const partnerKey = partner.key || partner.partnership_key || partner.id;
-      const existing = await prisma.product.findFirst({
-        where: {
-          network: 'partnerstack',
-          extra_data: { path: ['partnerstack_partnership_key'], equals: partnerKey }
-        }
-      });
-
-      if (!existing) {
-        await prisma.product.create({
-          data: {
-            user_id: userId || null,
-            name: partner.program?.name || partner.name || 'PartnerStack Partnership',
-            description: partner.program?.description || partner.description || null,
-            price: partner.commission?.amount?.toString() || null,
-            affiliate_link: partner.referral_link || partner.signup_link || partner.url || null,
-            network: 'partnerstack',
-            category: partner.program?.category || 'affiliate',
-            image_url: partner.program?.logo_url || null,
-            extra_data: {
-              partnerstack_partnership_key: partnerKey,
-              program_key: partner.program?.key,
-              commission_type: partner.commission?.type,
-              status: partner.status,
-              raw: partner
-            },
-            is_active: true
-          }
-        });
-        synced++;
-      }
-    }
-
-    return { network: 'partnerstack', success: true, products_synced: synced };
-  } catch (error: any) {
-    console.error('PartnerStack sync error:', error);
-    return { network: 'partnerstack', success: false, products_synced: 0, error: error.message };
-  }
+  // PartnerStack is disabled due to declined account
+  return { 
+    network: 'partnerstack', 
+    success: false, 
+    products_synced: 0, 
+    error: 'PartnerStack not connected - network disabled' 
+  };
 }
 
 export async function syncAllNetworks(userId?: number): Promise<SyncResult[]> {
+  // PartnerStack excluded - network disabled
   const results = await Promise.all([
     syncDigistore24Products(userId),
     syncAwinProducts(userId),
-    syncMyLeadProducts(userId),
-    syncPartnerStackProducts(userId)
+    syncMyLeadProducts(userId)
   ]);
+
+  // Add PartnerStack disabled status
+  results.push({
+    network: 'partnerstack',
+    success: false,
+    products_synced: 0,
+    error: 'PartnerStack not connected - network disabled'
+  });
 
   return results;
 }
 
-export async function getNetworkStatus(): Promise<{network: string; configured: boolean; key_name: string; sync_type: string; missing?: string}[]> {
+export async function getNetworkStatus(): Promise<{network: string; configured: boolean; key_name: string; sync_type: string; missing?: string; disabled?: boolean}[]> {
   const awinConfigured = !!process.env.AWIN_TOKEN && !!process.env.AWIN_PUBLISHER_ID;
   const awinMissing = !process.env.AWIN_TOKEN ? 'AWIN_TOKEN' : (!process.env.AWIN_PUBLISHER_ID ? 'AWIN_PUBLISHER_ID' : undefined);
   
@@ -256,7 +204,7 @@ export async function getNetworkStatus(): Promise<{network: string; configured: 
     { network: 'digistore24', configured: !!process.env.DIGISTORE_API_KEY, key_name: 'DIGISTORE_API_KEY', sync_type: 'api' },
     { network: 'awin', configured: awinConfigured, key_name: 'AWIN_TOKEN + AWIN_PUBLISHER_ID', sync_type: 'api', missing: awinMissing },
     { network: 'mylead', configured: true, key_name: 'N/A', sync_type: 'postback (link-based CPA)' },
-    { network: 'partnerstack', configured: !!process.env.PARTNERSTACK_API_KEY, key_name: 'PARTNERSTACK_API_KEY', sync_type: 'api' }
+    { network: 'partnerstack', configured: false, key_name: 'N/A', sync_type: 'disabled', disabled: true }
   ];
 }
 
@@ -274,8 +222,7 @@ export async function syncProductsFromNetwork(network: string, userId?: number):
       result = await syncMyLeadProducts(userId);
       break;
     case 'partnerstack':
-      result = await syncPartnerStackProducts(userId);
-      break;
+      throw new Error('PartnerStack not connected - network disabled');
     default:
       throw new Error(`Unknown network: ${network}`);
   }
