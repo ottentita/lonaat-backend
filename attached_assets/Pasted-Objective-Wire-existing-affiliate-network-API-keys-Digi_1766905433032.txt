@@ -1,0 +1,199 @@
+Objective:
+Wire existing affiliate network API keys (Digistore24, Awin, etc.) into the backend so product search, import, admin dashboard, and marketplace all work correctly.
+🔹 PHASE 1 — VERIFY SECRETS (DO NOT SKIP)
+In Replit → Secrets, confirm you have keys like:
+Copy code
+
+DIGISTORE24_API_KEY
+DIGISTORE24_VENDOR_ID
+AWIN_API_TOKEN
+MYLEAD_API_KEY
+OPENAI_API_KEY
+⚠️ Names must match exactly what the code will read.
+🔹 PHASE 2 — CREATE AFFILIATE SEARCH SERVICE (CORE FIX)
+📁 Create file:
+Copy code
+
+backend-node/src/services/affiliateSearch.ts
+Paste this EXACT CODE:
+Copy code
+Ts
+import axios from "axios";
+
+export async function searchAffiliateOffers(
+  network: string,
+  query: string
+) {
+  switch (network.toLowerCase()) {
+    case "digistore24":
+      return searchDigistore24(query);
+    case "awin":
+      return searchAwin(query);
+    case "mylead":
+      return searchMyLead(query);
+    default:
+      throw new Error("Unsupported affiliate network");
+  }
+}
+
+/* ---------------- DIGISTORE24 ---------------- */
+
+async function searchDigistore24(query: string) {
+  const vendorId = process.env.DIGISTORE24_VENDOR_ID;
+  const apiKey = process.env.DIGISTORE24_API_KEY;
+
+  if (!vendorId || !apiKey) {
+    throw new Error("Digistore24 credentials missing");
+  }
+
+  const response = await axios.get(
+    "https://api.digistore24.com/v1/products",
+    {
+      params: {
+        vendorId,
+        search: query
+      },
+      headers: {
+        Authorization: `Bearer ${apiKey}`
+      }
+    }
+  );
+
+  return response.data.products || [];
+}
+
+/* ---------------- AWIN ---------------- */
+
+async function searchAwin(query: string) {
+  const token = process.env.AWIN_API_TOKEN;
+
+  if (!token) {
+    throw new Error("Awin API token missing");
+  }
+
+  const response = await axios.get(
+    "https://api.awin.com/publishers/advertisers",
+    {
+      params: { q: query },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  return response.data || [];
+}
+
+/* ---------------- MYLEAD ---------------- */
+
+async function searchMyLead(query: string) {
+  const apiKey = process.env.MYLEAD_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("MyLead API key missing");
+  }
+
+  const response = await axios.get(
+    "https://api.mylead.global/v1/offers",
+    {
+      params: { search: query },
+      headers: {
+        "X-Api-Key": apiKey
+      }
+    }
+  );
+
+  return response.data.offers || [];
+}
+📌 This is the missing engine.
+Before now, your app had NO way to reach the networks.
+🔹 PHASE 3 — EXPOSE SEARCH ENDPOINT (NO MORE 404)
+📁 Open:
+Copy code
+
+backend-node/src/routes/products.ts
+Replace / ensure it contains:
+Copy code
+Ts
+import { Router } from "express";
+import { PrismaClient } from "@prisma/client";
+import { searchAffiliateOffers } from "../services/affiliateSearch";
+
+const router = Router();
+const prisma = new PrismaClient();
+
+router.get("/search", async (req, res) => {
+  const { network, q } = req.query;
+
+  if (!network || !q) {
+    return res.status(400).json({ message: "network and query required" });
+  }
+
+  try {
+    const offers = await searchAffiliateOffers(
+      String(network),
+      String(q)
+    );
+
+    res.json({ offers });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.post("/import", async (req, res) => {
+  const { products } = req.body;
+
+  if (!Array.isArray(products)) {
+    return res.status(400).json({ message: "products array required" });
+  }
+
+  await prisma.product.createMany({
+    data: products.map(p => ({
+      name: p.name,
+      description: p.description || "",
+      price: Number(p.price) || 0,
+      network: p.network,
+      status: "ACTIVE",
+      isPublished: true
+    })),
+    skipDuplicates: true
+  });
+
+  res.json({ message: "Products imported successfully" });
+});
+
+export default router;
+🔹 PHASE 4 — REGISTER ROUTE (CRITICAL)
+📁 Open:
+Copy code
+
+backend-node/src/index.ts
+Ensure this exists ONCE:
+Copy code
+Ts
+import productRoutes from "./routes/products";
+app.use("/api/products", productRoutes);
+❌ Without this → 404 forever
+🔹 PHASE 5 — AI IS FOR RANKING (NOT SEARCH)
+📁 Open:
+Copy code
+
+backend-node/src/services/ai.ts
+Ensure AI is used like this:
+Copy code
+Ts
+export async function rankOffers(offers: any[]) {
+  // use OpenAI to score / sort offers
+  return offers;
+}
+AI must never be used to fetch external products.
+🔹 PHASE 6 — REBUILD & RESTART
+Run in Replit Shell:
+Copy code
+Bash
+cd backend-node
+npm install axios
+npm run build
+npm start
