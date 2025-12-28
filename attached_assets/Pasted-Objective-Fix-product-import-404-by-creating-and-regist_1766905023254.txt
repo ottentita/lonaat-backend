@@ -1,0 +1,100 @@
+Objective:
+Fix product import 404 by creating and registering the missing offer-search endpoint and ensuring imported products are persisted and visible.
+🔹 PHASE 1 — CREATE THE MISSING ROUTE
+1️⃣ Create this file (if not exists):
+Copy code
+
+backend-node/src/routes/productImport.ts
+Paste THIS CODE EXACTLY:
+Copy code
+Ts
+import { Router } from "express";
+import { PrismaClient } from "@prisma/client";
+
+const router = Router();
+const prisma = new PrismaClient();
+
+/**
+ * Search offers from affiliate networks (Digistore24, Awin, etc.)
+ * TEMP: returns mock offers so marketplace works
+ */
+router.get("/search", async (req, res) => {
+  const { network, query } = req.query;
+
+  if (!network || !query) {
+    return res.status(400).json({ message: "network and query required" });
+  }
+
+  // TEMP mock offers (to unblock system)
+  const offers = [
+    {
+      name: `${query} Pro`,
+      description: "Auto-imported affiliate product",
+      price: 49,
+      network,
+      status: "ACTIVE"
+    },
+    {
+      name: `${query} Plus`,
+      description: "Affiliate offer from network",
+      price: 79,
+      network,
+      status: "ACTIVE"
+    }
+  ];
+
+  return res.json({ offers });
+});
+
+/**
+ * Save imported products into database
+ */
+router.post("/import", async (req, res) => {
+  const { products } = req.body;
+
+  if (!Array.isArray(products)) {
+    return res.status(400).json({ message: "products array required" });
+  }
+
+  await prisma.product.createMany({
+    data: products.map(p => ({
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      network: p.network,
+      status: "ACTIVE"
+    })),
+    skipDuplicates: true
+  });
+
+  res.json({ message: "Products imported successfully" });
+});
+
+export default router;
+🔹 PHASE 2 — REGISTER THE ROUTE (THIS IS WHY 404 HAPPENS)
+2️⃣ Open:
+Copy code
+
+backend-node/src/index.ts
+Add THIS IMPORT at the top:
+Copy code
+Ts
+import productImportRoutes from "./routes/productImport";
+Then REGISTER IT:
+Copy code
+Ts
+app.use("/api/products", productImportRoutes);
+🚨 Without this line → 404 forever.
+🔹 PHASE 3 — REBUILD & RESTART
+Run this in Replit Shell:
+Copy code
+Bash
+cd backend-node
+npm run build
+npm start
+(or Stop → Run)
+✅ IMMEDIATE TEST (NO FRONTEND)
+Run:
+Copy code
+Bash
+curl "https://exhausted-shocked-normalform-titasembi.replit.app/api/products/search?network=digistore24&query=wears"

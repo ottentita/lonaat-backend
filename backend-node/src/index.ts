@@ -16,6 +16,7 @@ import walletRoutes from './routes/wallet';
 import webhookRoutes from './routes/webhooks';
 import propertyRoutes from './routes/properties';
 import marketplaceRoutes from './routes/marketplace';
+import productImportRoutes from './routes/productImport';
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ app.use('/api/', limiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/products', productImportRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin', adminRoutes);
