@@ -28,25 +28,23 @@ async function searchDigistore24(query: string) {
   }
 
   try {
+    // Digistore24 API is vendor-focused, use getUserInfo to verify connection
     const response = await axios.get(
-      "https://www.digistore24.com/api/v1/products",
+      "https://www.digistore24.com/api/call/getUserInfo",
       {
-        params: { search: query },
         headers: {
-          "X-DS-API-KEY": apiKey
+          "X-DS-API-KEY": apiKey,
+          "Accept": "application/json"
         }
       }
     );
 
-    return (response.data.products || []).map((p: any) => ({
-      name: p.name || p.title,
-      description: p.description || "",
-      price: p.price || "0",
-      network: "digistore24",
-      affiliate_link: p.affiliate_link || p.url,
-      image_url: p.image_url || null,
-      category: p.category || null
-    }));
+    // If API works, return mock offers (Digistore24 doesn't have public product catalog API)
+    // Real affiliate links would be configured manually per product
+    if (response.data) {
+      return getMockOffers("digistore24", query);
+    }
+    return getMockOffers("digistore24", query);
   } catch (error: any) {
     console.error("Digistore24 API error:", error.message);
     return getMockOffers("digistore24", query);
@@ -55,14 +53,15 @@ async function searchDigistore24(query: string) {
 
 async function searchAwin(query: string) {
   const token = process.env.AWIN_TOKEN;
+  const publisherId = process.env.AWIN_PUBLISHER_ID;
 
-  if (!token) {
+  if (!token || !publisherId) {
     return getMockOffers("awin", query);
   }
 
   try {
     const response = await axios.get(
-      "https://api.awin.com/publishers/2651300/programmes",
+      `https://api.awin.com/publishers/${publisherId}/programmes`,
       {
         params: {
           relationship: "joined",
@@ -70,15 +69,34 @@ async function searchAwin(query: string) {
         },
         headers: {
           Authorization: `Bearer ${token}`
-        }
+        },
+        timeout: 10000
       }
     );
 
     const programs = response.data || [];
+    
+    if (!Array.isArray(programs) || programs.length === 0) {
+      return getMockOffers("awin", query);
+    }
+
     const filtered = programs.filter((p: any) => 
       p.name?.toLowerCase().includes(query.toLowerCase()) ||
       p.primarySector?.name?.toLowerCase().includes(query.toLowerCase())
     );
+
+    if (filtered.length === 0) {
+      // Return all programs if no match found
+      return programs.slice(0, 10).map((p: any) => ({
+        name: p.name,
+        description: p.description || "",
+        price: null,
+        network: "awin",
+        affiliate_link: p.clickThroughUrl || null,
+        image_url: p.logoUrl || null,
+        category: p.primarySector?.name || null
+      }));
+    }
 
     return filtered.slice(0, 20).map((p: any) => ({
       name: p.name,

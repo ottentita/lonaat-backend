@@ -17,6 +17,7 @@ import webhookRoutes from './routes/webhooks';
 import propertyRoutes from './routes/properties';
 import marketplaceRoutes from './routes/marketplace';
 import productImportRoutes from './routes/productImport';
+import networkStatusRoutes from './routes/networkStatus';
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.use('/api/postback', webhookRoutes);
 app.use('/postback', webhookRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
+app.use('/api/networks', networkStatusRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {
