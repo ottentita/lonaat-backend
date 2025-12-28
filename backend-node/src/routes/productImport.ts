@@ -7,20 +7,36 @@ const router = Router();
 const prisma = new PrismaClient();
 
 router.get("/search", async (req: Request, res: Response) => {
-  const { network, query, q } = req.query;
+  const { network, query, q, save } = req.query;
   const searchQuery = (query || q) as string;
 
-  if (!network || !searchQuery) {
-    return res.status(400).json({ message: "network and query required" });
+  if (!searchQuery) {
+    return res.status(400).json({ message: "query required" });
   }
 
   try {
     const offers = await searchAffiliateOffers(
-      String(network),
+      network ? String(network) : "all",
       String(searchQuery)
     );
 
-    return res.json({ offers });
+    if (save === "true" && offers.length > 0) {
+      await prisma.product.createMany({
+        data: offers.map((o: any) => ({
+          name: o.name,
+          description: o.description || "",
+          price: o.price?.toString() || null,
+          network: o.network || "unknown",
+          affiliate_link: o.affiliate_link || null,
+          image_url: o.image_url || null,
+          category: o.category || null,
+          is_active: true
+        })),
+        skipDuplicates: true
+      });
+    }
+
+    return res.json({ offers, saved: save === "true" });
   } catch (err: any) {
     console.error("Affiliate search error:", err.message);
     return res.status(500).json({ message: err.message });
