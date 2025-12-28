@@ -15,6 +15,7 @@ import subscriptionRoutes from './routes/subscriptions';
 import walletRoutes from './routes/wallet';
 import webhookRoutes from './routes/webhooks';
 import propertyRoutes from './routes/properties';
+import marketplaceRoutes from './routes/marketplace';
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/postback', webhookRoutes);
 app.use('/postback', webhookRoutes);
 app.use('/api/properties', propertyRoutes);
+app.use('/api/marketplace', marketplaceRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {
@@ -72,12 +74,14 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       users: '/api/users',
       products: '/api/products',
+      marketplace: '/api/marketplace',
       campaigns: '/api/campaigns',
       commissions: '/api/commissions',
       payments: '/api/payments',
       subscriptions: '/api/subscriptions',
       wallet: '/api/wallet',
       webhooks: '/api/webhooks',
+      properties: '/api/properties',
       admin: '/api/admin'
     }
   });

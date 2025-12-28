@@ -1,0 +1,134 @@
+Objective:
+Fully debug and repair authentication, admin visibility, products, marketplace, and withdrawals in the Lonaat backend.
+Ensure all users and products stored in the database are visible and accessible.
+PHASE 1 — VERIFY SINGLE DATABASE SOURCE (CRITICAL)
+Step 1: Confirm DATABASE_URL is consistent
+Action:
+Read process.env.DATABASE_URL
+Ensure:
+Signup
+Admin dashboard
+Product import
+Marketplace all use the same Prisma client
+Fix if needed:
+Remove any hardcoded database URLs
+Ensure only one PrismaClient instance is used
+PHASE 2 — FIX AUTH & 404 ERRORS (LOGIN / SIGNUP)
+Step 2: Verify route registration
+Open backend-node/src/index.ts
+Ensure ALL routes are registered once:
+Copy code
+Ts
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/marketplace", marketplaceRoutes);
+❌ If frontend calls /auth/login
+✅ Backend must expose /api/auth/login
+Step 3: Force 404 → 401 for auth failures
+In middleware/auth.ts, ensure:
+Copy code
+Ts
+if (!token) {
+  return res.status(401).json({ message: "Unauthorized" });
+}
+❌ Never return 404 for auth failure
+404 breaks frontend login logic.
+PHASE 3 — FIX “USERS NOT SHOWING IN ADMIN”
+Step 4: Remove restrictive admin filters
+Open src/routes/admin.ts or src/services/admin.ts
+❌ BAD (current behaviour):
+Copy code
+Ts
+prisma.user.findMany({
+  where: { role: "ADMIN" }
+});
+✅ FIX:
+Copy code
+Ts
+prisma.user.findMany({
+  orderBy: { createdAt: "desc" }
+});
+Step 5: Ensure users have roles
+Open signup logic (auth.ts):
+Copy code
+Ts
+await prisma.user.create({
+  data: {
+    email,
+    password,
+    role: "USER",
+    status: "ACTIVE"
+  }
+});
+Missing role/status = hidden user.
+PHASE 4 — FIX PRODUCTS “IMPORTED BUT NOT VISIBLE”
+Step 6: Check product import writes
+Ensure bulk import uses:
+Copy code
+Ts
+await prisma.product.createMany({
+  data: products,
+  skipDuplicates: true
+});
+Step 7: Fix marketplace product filters
+❌ BAD (common bug):
+Copy code
+Ts
+where: {
+  status: "APPROVED",
+  isPublished: true,
+  network: "INTERNAL"
+}
+✅ FIX (temporarily show all):
+Copy code
+Ts
+where: {
+  status: { in: ["APPROVED", "ACTIVE"] }
+}
+This will immediately surface imported products.
+PHASE 5 — FIX DASHBOARD STATS (2 USERS / 2 PRODUCTS)
+Step 8: Fix admin metrics queries
+Replace cached or filtered counts with:
+Copy code
+Ts
+const totalUsers = await prisma.user.count();
+const totalProducts = await prisma.product.count();
+const totalWithdrawals = await prisma.withdrawal.count();
+No filters until system is stable.
+PHASE 6 — WITHDRAWALS SHOW “PAID” BUT NO MONEY
+Step 9: Clarify withdrawal logic
+Right now your system is doing:
+Copy code
+Ts
+withdrawal.status = "PAID";
+❌ This does NOT send money.
+You must choose one:
+Flutterwave
+Paystack
+Stripe
+Bank API
+Until then, withdrawals should be:
+Copy code
+Ts
+status: "PENDING"
+⚠️ Marking as PAID without a provider is fake completion.
+PHASE 7 — DATABASE SYNC & REBUILD (MANDATORY)
+Run in Replit Shell:
+Copy code
+Bash
+cd backend-node
+npx prisma migrate deploy
+npx prisma generate
+npm run build
+npm start
+PHASE 8 — HARD RESET TESTS
+Run these checks:
+Copy code
+Bash
+curl /api/auth/login
+curl /api/admin/users
+curl /api/products
+curl /api/marketplace/products
+All must return JSON, not 404.
