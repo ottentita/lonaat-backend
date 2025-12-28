@@ -1,0 +1,80 @@
+Make the app fully functional without holding money, eliminate payout errors, fix missing users/products, and prepare for future payment systems.
+🔹 PHASE 1 — DISABLE INTERNAL WALLET & WITHDRAWALS (CRITICAL)
+Actions:
+Locate any Wallet, Balance, Withdrawal, or Payout logic
+Disable automatic bank transfers
+Prevent users from requesting withdrawals inside the app
+Required behavior:
+Earnings are tracked
+Payments are NOT processed by the app
+Code rule:
+Copy code
+Ts
+// DO NOT send money from backend
+// DO NOT mark withdrawals as PAID automatically
+🔹 PHASE 2 — ENABLE AFFILIATE-DIRECT PAYOUT MODE
+Actions:
+Update earning logic so that:
+Commissions are tracked per network
+Payment status = PAID_BY_NETWORK
+Do NOT convert earnings into internal wallet balance
+Example model update:
+Copy code
+Ts
+payoutMethod: "AFFILIATE_NETWORK",
+payoutStatus: "PAID_EXTERNALLY"
+🔹 PHASE 3 — FIX USER VISIBILITY (ADMIN DASHBOARD)
+Actions:
+Remove auth-based filters from admin queries
+Ensure all users are fetched regardless of token state
+Required admin query:
+Copy code
+Ts
+await prisma.user.findMany({
+  orderBy: { createdAt: "desc" }
+});
+❌ No role filters
+❌ No token filters
+🔹 PHASE 4 — FIX PRODUCT VISIBILITY (MARKETPLACE)
+Actions:
+Ensure products imported from any network are saved with:
+status = ACTIVE
+isPublished = true
+Remove network-specific filters
+Required marketplace query:
+Copy code
+Ts
+await prisma.product.findMany({
+  where: {
+    status: "ACTIVE",
+    isPublished: true
+  }
+});
+🔹 PHASE 5 — MAKE NETWORK FAILURES NON-BLOCKING
+Actions:
+If a network fails (PartnerStack, Awin, etc.):
+Log error
+Skip network
+Continue importing from others
+Do NOT block imports when one network fails
+Required logic:
+Copy code
+Ts
+if (offers.length === 0) {
+  return [];
+}
+🔹 PHASE 6 — UPDATE UI MESSAGES (IMPORTANT)
+Actions:
+Replace payout messages with:
+“Earnings are paid directly by affiliate networks.”
+“Withdrawal handled externally by network.”
+This avoids user confusion and legal risk.
+🔹 PHASE 7 — HARD SYNC & RESTART
+Run in Replit Shell:
+Copy code
+Bash
+cd backend-node
+npx prisma migrate deploy
+npx prisma generate
+npm run build
+npm start

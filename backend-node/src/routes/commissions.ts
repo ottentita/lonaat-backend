@@ -71,7 +71,7 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
 
     const whereClause = isAdmin ? {} : { user_id: userId };
 
-    const [totalStats, pendingStats, approvedStats, paidStats, user] = await Promise.all([
+    const [totalStats, pendingStats, paidByNetworkStats, byNetwork] = await Promise.all([
       prisma.commission.aggregate({
         where: whereClause,
         _sum: { amount: true },
@@ -83,37 +83,53 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
         _count: true
       }),
       prisma.commission.aggregate({
-        where: { ...whereClause, status: 'approved' },
+        where: { ...whereClause, status: 'paid_by_network' },
         _sum: { amount: true },
         _count: true
       }),
-      prisma.commission.aggregate({
-        where: { ...whereClause, status: 'paid' },
+      prisma.commission.groupBy({
+        by: ['network'],
+        where: whereClause,
         _sum: { amount: true },
         _count: true
-      }),
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: { balance: true, withdrawable_balance: true }
       })
     ]);
 
     res.json({
-      total_commissions: totalStats._sum.amount || 0,
+      total_earnings: totalStats._sum.amount || 0,
       total_count: totalStats._count || 0,
       pending_commissions: pendingStats._sum.amount || 0,
       pending_count: pendingStats._count || 0,
-      approved_commissions: approvedStats._sum.amount || 0,
-      approved_count: approvedStats._count || 0,
-      paid_commissions: paidStats._sum.amount || 0,
-      paid_count: paidStats._count || 0,
-      balance: user?.balance || 0,
-      withdrawable_balance: user?.withdrawable_balance || 0
+      paid_by_network: paidByNetworkStats._sum.amount || 0,
+      paid_by_network_count: paidByNetworkStats._count || 0,
+      by_network: byNetwork.map(n => ({
+        network: n.network,
+        total: n._sum.amount || 0,
+        count: n._count
+      })),
+      payout_method: 'AFFILIATE_NETWORK',
+      payout_message: 'Earnings are paid directly by affiliate networks.',
+      withdrawal_enabled: false
     });
   } catch (error) {
     console.error('Commission summary error:', error);
     res.status(500).json({ error: 'Failed to get commission summary' });
   }
+});
+
+router.get('/payout-info', authMiddleware, async (req: AuthRequest, res: Response) => {
+  res.json({
+    payout_method: 'AFFILIATE_NETWORK',
+    payout_status: 'PAID_EXTERNALLY',
+    message: 'Earnings are paid directly by affiliate networks.',
+    networks: {
+      digistore24: 'Paid via Digistore24 dashboard',
+      awin: 'Paid via Awin publisher account',
+      mylead: 'Paid via MyLead payment system'
+    },
+    withdrawal_enabled: false,
+    help: 'Check your affiliate network dashboard for payout status and payment history.'
+  });
 });
 
 router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {

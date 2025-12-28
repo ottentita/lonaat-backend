@@ -137,95 +137,14 @@ router.get('/packages', async (req, res: Response) => {
 
 router.post('/withdraw', [
   authMiddleware,
-  body('amount').isFloat({ min: 10 }).withMessage('Minimum withdrawal is $10'),
-  body('bank_name').notEmpty().withMessage('Bank name is required'),
-  body('account_number').notEmpty().withMessage('Account number is required'),
-  body('account_name').notEmpty().withMessage('Account name is required')
+  body('amount').isFloat({ min: 10 }).withMessage('Minimum withdrawal is $10')
 ], async (req: AuthRequest, res: Response) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  try {
-    const { amount, bank_name, account_number, account_name, bank_code } = req.body;
-    const withdrawAmount = parseFloat(amount);
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
-      select: { withdrawable_balance: true, is_blocked: true }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    if (user.is_blocked) {
-      return res.status(403).json({ error: 'Account is blocked. Contact support.' });
-    }
-
-    if (user.withdrawable_balance < withdrawAmount) {
-      return res.status(400).json({ 
-        error: 'Insufficient withdrawable balance',
-        available: user.withdrawable_balance,
-        requested: withdrawAmount
-      });
-    }
-
-    const pendingWithdrawals = await prisma.withdrawalRequest.findMany({
-      where: { user_id: req.user!.id, status: 'pending' }
-    });
-
-    if (pendingWithdrawals.length >= 3) {
-      return res.status(400).json({ error: 'You have too many pending withdrawals. Please wait for approval.' });
-    }
-
-    const withdrawal = await prisma.withdrawalRequest.create({
-      data: {
-        user_id: req.user!.id,
-        amount: withdrawAmount,
-        status: 'pending',
-        payment_method: 'bank_transfer',
-        bank_name,
-        account_number,
-        account_name,
-        bank_code: bank_code || null,
-        payment_details: JSON.stringify({ bank_name, account_number, account_name, bank_code })
-      }
-    });
-
-    await prisma.user.update({
-      where: { id: req.user!.id },
-      data: {
-        withdrawable_balance: { decrement: withdrawAmount }
-      }
-    });
-
-    await prisma.transaction.create({
-      data: {
-        user_id: req.user!.id,
-        type: 'withdrawal_request',
-        amount: -withdrawAmount,
-        status: 'pending',
-        description: `Withdrawal request to ${bank_name}`,
-        extra_data: { withdrawal_id: withdrawal.id }
-      }
-    });
-
-    res.status(201).json({
-      message: 'Withdrawal request submitted',
-      withdrawal: {
-        id: withdrawal.id,
-        amount: withdrawAmount,
-        status: 'pending',
-        bank_name,
-        account_name
-      }
-    });
-  } catch (error) {
-    console.error('Withdrawal error:', error);
-    res.status(500).json({ error: 'Failed to create withdrawal request' });
-  }
+  res.status(400).json({
+    error: 'Withdrawals are disabled',
+    message: 'Earnings are paid directly by affiliate networks. Check your network dashboard for payout status.',
+    payout_method: 'AFFILIATE_NETWORK',
+    help: 'Contact your affiliate network directly for payment inquiries.'
+  });
 });
 
 router.get('/withdrawals', authMiddleware, async (req: AuthRequest, res: Response) => {
@@ -253,32 +172,28 @@ router.get('/withdrawals', authMiddleware, async (req: AuthRequest, res: Respons
 
 router.get('/balance', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
-      select: { balance: true, withdrawable_balance: true }
-    });
-
     const pendingCommissions = await prisma.commission.aggregate({
       where: { user_id: req.user!.id, status: 'pending' },
       _sum: { amount: true }
     });
 
-    const approvedCommissions = await prisma.commission.aggregate({
-      where: { user_id: req.user!.id, status: 'approved' },
+    const paidByNetwork = await prisma.commission.aggregate({
+      where: { user_id: req.user!.id, status: 'paid_by_network' },
       _sum: { amount: true }
     });
 
-    const pendingWithdrawals = await prisma.withdrawalRequest.aggregate({
-      where: { user_id: req.user!.id, status: 'pending' },
+    const totalEarnings = await prisma.commission.aggregate({
+      where: { user_id: req.user!.id },
       _sum: { amount: true }
     });
 
     res.json({
-      balance: user?.balance || 0,
-      withdrawable_balance: user?.withdrawable_balance || 0,
+      total_earnings: totalEarnings._sum.amount || 0,
       pending_commissions: pendingCommissions._sum.amount || 0,
-      approved_commissions: approvedCommissions._sum.amount || 0,
-      pending_withdrawals: pendingWithdrawals._sum.amount || 0
+      paid_by_network: paidByNetwork._sum.amount || 0,
+      payout_method: 'AFFILIATE_NETWORK',
+      payout_message: 'Earnings are paid directly by affiliate networks.',
+      withdrawal_enabled: false
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get balance' });
@@ -403,127 +318,13 @@ router.post('/bank-account', [
   }
 });
 
-router.post('/withdraw/quick', [
-  authMiddleware,
-  body('amount').isFloat({ min: MIN_WITHDRAWAL_AMOUNT }).withMessage(`Minimum withdrawal is $${MIN_WITHDRAWAL_AMOUNT}`)
-], async (req: AuthRequest, res: Response) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  try {
-    const { amount } = req.body;
-    const withdrawAmount = parseFloat(amount);
-
-    const bankAccount = await prisma.bankAccount.findUnique({
-      where: { user_id: req.user!.id }
-    });
-
-    if (!bankAccount) {
-      return res.status(400).json({ 
-        error: 'No bank details saved. Please add your bank details first.',
-        requires_bank_details: true
-      });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
-      select: { withdrawable_balance: true, is_blocked: true, is_admin: true }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    if (user.is_blocked) {
-      return res.status(403).json({ error: 'Account is blocked. Contact support.' });
-    }
-
-    if (!user.is_admin && user.withdrawable_balance < withdrawAmount) {
-      return res.status(400).json({ 
-        error: 'Insufficient withdrawable balance',
-        available: user.withdrawable_balance,
-        requested: withdrawAmount
-      });
-    }
-
-    if (!user.is_admin) {
-      const pendingWithdrawals = await prisma.withdrawalRequest.findMany({
-        where: { user_id: req.user!.id, status: 'pending' }
-      });
-
-      if (pendingWithdrawals.length >= 3) {
-        return res.status(400).json({ error: 'You have too many pending withdrawals. Please wait for approval.' });
-      }
-    }
-
-    const decryptedAccountNumber = decryptBankAccountNumber(bankAccount.account_number_cipher);
-
-    const withdrawal = await prisma.withdrawalRequest.create({
-      data: {
-        user_id: req.user!.id,
-        amount: withdrawAmount,
-        status: 'pending',
-        payment_method: 'bank_transfer',
-        bank_name: bankAccount.bank_name,
-        account_number: decryptedAccountNumber,
-        account_name: bankAccount.account_name,
-        bank_code: bankAccount.swift_code,
-        bank_account_id: bankAccount.id,
-        payment_details: JSON.stringify({
-          bank_name: bankAccount.bank_name,
-          account_number: decryptedAccountNumber,
-          account_name: bankAccount.account_name,
-          swift_code: bankAccount.swift_code,
-          country: bankAccount.country
-        })
-      }
-    });
-
-    if (!user.is_admin) {
-      await prisma.user.update({
-        where: { id: req.user!.id },
-        data: {
-          withdrawable_balance: { decrement: withdrawAmount }
-        }
-      });
-    }
-
-    await prisma.transaction.create({
-      data: {
-        user_id: req.user!.id,
-        type: 'withdrawal_request',
-        amount: -withdrawAmount,
-        status: 'pending',
-        description: `Quick withdrawal to ${bankAccount.bank_name}`,
-        extra_data: { withdrawal_id: withdrawal.id, one_click: true }
-      }
-    });
-
-    await logPaymentAction(
-      req.user!.id,
-      'quick_withdrawal_requested',
-      withdrawal.id,
-      { amount: withdrawAmount, bank_name: bankAccount.bank_name },
-      req
-    );
-
-    res.status(201).json({
-      message: 'Withdrawal request submitted successfully',
-      withdrawal: {
-        id: withdrawal.id,
-        amount: withdrawAmount,
-        status: 'pending',
-        bank_name: bankAccount.bank_name,
-        account_name: bankAccount.account_name,
-        account_number_masked: '****' + bankAccount.account_number_last4
-      }
-    });
-  } catch (error) {
-    console.error('Quick withdrawal error:', error);
-    res.status(500).json({ error: 'Failed to process withdrawal request' });
-  }
+router.post('/withdraw/quick', authMiddleware, async (req: AuthRequest, res: Response) => {
+  res.status(400).json({
+    error: 'Withdrawals are disabled',
+    message: 'Earnings are paid directly by affiliate networks. Check your network dashboard for payout status.',
+    payout_method: 'AFFILIATE_NETWORK',
+    help: 'Contact your affiliate network directly for payment inquiries.'
+  });
 });
 
 export default router;
