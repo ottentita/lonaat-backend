@@ -11,6 +11,10 @@ export async function searchAffiliateOffers(
       return searchAwin(query);
     case "mylead":
       return searchMyLead(query);
+    case "partnerstack":
+      return searchPartnerStack(query);
+    case "all":
+      return searchAllNetworks(query);
     default:
       throw new Error("Unsupported affiliate network");
   }
@@ -154,6 +158,69 @@ function getMockOffers(network: string, query: string) {
       category: "Digital Products"
     }
   ];
+}
+
+async function searchPartnerStack(query: string) {
+  const apiKey = process.env.PARTNERSTACK_API_KEY;
+
+  if (!apiKey) {
+    return getMockOffers("partnerstack", query);
+  }
+
+  try {
+    const response = await axios.get(
+      "https://api.partnerstack.com/api/v2/partnerships",
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`
+        }
+      }
+    );
+
+    const partnerships = response.data?.data || [];
+    const filtered = partnerships.filter((p: any) =>
+      p.partner?.name?.toLowerCase().includes(query.toLowerCase())
+    );
+
+    return filtered.slice(0, 20).map((p: any) => ({
+      name: p.partner?.name || "PartnerStack Product",
+      description: p.partner?.description || "",
+      price: null,
+      network: "partnerstack",
+      affiliate_link: p.tracking_link || null,
+      image_url: p.partner?.logo_url || null,
+      category: "SaaS"
+    }));
+  } catch (error: any) {
+    console.error("PartnerStack API error:", error.message);
+    return getMockOffers("partnerstack", query);
+  }
+}
+
+export async function searchAllNetworks(query: string) {
+  const results: any[] = [];
+  
+  const [digistoreOffers, awinOffers, myleadOffers, partnerstackOffers] = await Promise.allSettled([
+    searchDigistore24(query),
+    searchAwin(query),
+    searchMyLead(query),
+    searchPartnerStack(query)
+  ]);
+
+  if (digistoreOffers.status === 'fulfilled' && digistoreOffers.value?.length) {
+    results.push(...digistoreOffers.value);
+  }
+  if (awinOffers.status === 'fulfilled' && awinOffers.value?.length) {
+    results.push(...awinOffers.value);
+  }
+  if (myleadOffers.status === 'fulfilled' && myleadOffers.value?.length) {
+    results.push(...myleadOffers.value);
+  }
+  if (partnerstackOffers.status === 'fulfilled' && partnerstackOffers.value?.length) {
+    results.push(...partnerstackOffers.value);
+  }
+
+  return results;
 }
 
 export async function rankOffers(offers: any[]) {

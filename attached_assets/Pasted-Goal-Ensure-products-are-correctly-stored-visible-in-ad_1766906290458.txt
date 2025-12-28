@@ -1,0 +1,109 @@
+Goal:
+Ensure products are correctly stored, visible in admin & marketplace, imported even if MyLead is missing, and prevent over-filtering issues.
+🔹 STEP 1 — VERIFY PRODUCTS EXIST IN DATABASE (DECISIVE)
+Action (Shell):
+Copy code
+Bash
+cd backend-node
+npx prisma studio
+Agent task:
+Open the Product table
+Confirm whether products exist
+Note:
+product count
+networks present
+status fields
+👉 This determines whether the issue is import logic or display logic.
+🔹 STEP 2 — FORCE MARKETPLACE TO SHOW ALL ACTIVE PRODUCTS
+Action (Code):
+Open:
+Copy code
+
+backend-node/src/routes/marketplace.ts
+or
+Copy code
+
+backend-node/src/services/marketplace.ts
+Replace product query with:
+Copy code
+Ts
+const products = await prisma.product.findMany({
+  where: {
+    status: "ACTIVE"
+  },
+  orderBy: {
+    createdAt: "desc"
+  }
+});
+❌ Remove:
+network filters
+approval filters
+AI score filters
+publisher filters
+📌 This guarantees maximum visibility.
+🔹 STEP 3 — ENSURE IMPORT WORKS EVEN WITHOUT MYLEAD
+Action (Code):
+Open:
+Copy code
+
+backend-node/src/services/affiliateSearch.ts
+Ensure logic does NOT stop when one network fails:
+Copy code
+Ts
+const results = [];
+
+if (digistoreOffers?.length) results.push(...digistoreOffers);
+if (awinOffers?.length) results.push(...awinOffers);
+if (myleadOffers?.length) results.push(...myleadOffers);
+
+// DO NOT block import if one network fails
+if (results.length === 0) {
+  return [];
+}
+
+return results;
+❌ Remove any logic like:
+Copy code
+Ts
+if (!myleadOffers) return;
+🔹 STEP 4 — ENSURE IMPORTED PRODUCTS ARE SAVED CORRECTLY
+Action (Code):
+Open:
+Copy code
+
+backend-node/src/routes/products.ts
+Ensure import route writes valid fields:
+Copy code
+Ts
+await prisma.product.createMany({
+  data: products.map(p => ({
+    name: p.name,
+    description: p.description || "",
+    price: Number(p.price) || 0,
+    network: p.network || "UNKNOWN",
+    status: "ACTIVE",
+    isPublished: true
+  })),
+  skipDuplicates: true
+});
+📌 Missing status or isPublished is a common reason products disappear.
+🔹 STEP 5 — HARD SYNC, REBUILD, RESTART
+Action (Shell):
+Copy code
+Bash
+cd backend-node
+npx prisma migrate deploy
+npx prisma generate
+npm run build
+npm start
+(or Stop → Run in Replit)
+✅ EXPECTED RESULT AFTER THIS COMMAND
+✔ Products visible in Prisma Studio
+✔ Marketplace shows products
+✔ Admin product count increases
+✔ Import works even if MyLead is missing
+✔ No more “No products found”
+✔ System no longer depends on all networks at once
+⚠️ IMPORTANT NOTE (DO NOT SKIP)
+If Prisma Studio shows products but UI is empty, the problem is 100% frontend filtering, not backend.
+If Prisma Studio is empty, the problem is import logic, which this command fixes.
