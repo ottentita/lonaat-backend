@@ -1,23 +1,33 @@
 import axios from "axios";
 
+const DISABLED_NETWORKS = ['partnerstack'];
+
 export async function searchAffiliateOffers(
   network: string,
   query: string
 ) {
-  switch (network.toLowerCase()) {
+  const networkLower = network.toLowerCase();
+  
+  if (DISABLED_NETWORKS.includes(networkLower)) {
+    throw new Error(`Network "${network}" is currently disabled`);
+  }
+  
+  switch (networkLower) {
     case "digistore24":
       return searchDigistore24(query);
     case "awin":
       return searchAwin(query);
     case "mylead":
       return searchMyLead(query);
-    case "partnerstack":
-      return searchPartnerStack(query);
     case "all":
       return searchAllNetworks(query);
     default:
       throw new Error("Unsupported affiliate network");
   }
+}
+
+export function getDisabledNetworks() {
+  return DISABLED_NETWORKS;
 }
 
 async function searchDigistore24(query: string) {
@@ -235,11 +245,11 @@ async function searchPartnerStack(query: string) {
 export async function searchAllNetworks(query: string) {
   const results: any[] = [];
   
-  const [digistoreOffers, awinOffers, myleadOffers, partnerstackOffers] = await Promise.allSettled([
+  // Only search enabled networks (PartnerStack disabled)
+  const [digistoreOffers, awinOffers, myleadOffers] = await Promise.allSettled([
     searchDigistore24(query),
     searchAwin(query),
-    searchMyLead(query),
-    searchPartnerStack(query)
+    searchMyLead(query)
   ]);
 
   if (digistoreOffers.status === 'fulfilled' && digistoreOffers.value?.length) {
@@ -250,9 +260,6 @@ export async function searchAllNetworks(query: string) {
   }
   if (myleadOffers.status === 'fulfilled' && myleadOffers.value?.length) {
     results.push(...myleadOffers.value);
-  }
-  if (partnerstackOffers.status === 'fulfilled' && partnerstackOffers.value?.length) {
-    results.push(...partnerstackOffers.value);
   }
 
   return results;

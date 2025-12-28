@@ -179,14 +179,22 @@ async function checkPartnerStack(): Promise<NetworkStatus> {
 
 router.get('/status', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const [digistore, awin, mylead, partnerstack] = await Promise.all([
+    const [digistore, awin, mylead] = await Promise.all([
       checkDigistore24(),
       checkAwin(),
-      checkMyLead(),
-      checkPartnerStack()
+      checkMyLead()
     ]);
 
-    const networks = [digistore, awin, mylead, partnerstack];
+    // PartnerStack is disabled
+    const partnerstackDisabled: NetworkStatus = {
+      network: 'partnerstack',
+      configured: false,
+      status: 'unconfigured',
+      message: 'Network disabled by admin',
+      lastChecked: new Date().toISOString()
+    };
+
+    const networks = [digistore, awin, mylead, partnerstackDisabled];
     const activeCount = networks.filter(n => n.status === 'active').length;
     const errorCount = networks.filter(n => n.status === 'error').length;
     const unconfiguredCount = networks.filter(n => n.status === 'unconfigured').length;
@@ -196,14 +204,14 @@ router.get('/status', authMiddleware, adminOnlyMiddleware, async (req: AuthReque
         total: networks.length,
         active: activeCount,
         errors: errorCount,
-        unconfigured: unconfiguredCount
+        unconfigured: unconfiguredCount,
+        disabled: ['partnerstack']
       },
       networks,
       requiredSecrets: {
         digistore24: ['DIGISTORE_API_KEY'],
         awin: ['AWIN_TOKEN', 'AWIN_PUBLISHER_ID'],
-        mylead: ['MYLEAD_API_KEY'],
-        partnerstack: ['PARTNERSTACK_API_KEY']
+        mylead: ['MYLEAD_API_KEY']
       }
     });
   } catch (error) {
@@ -216,8 +224,7 @@ router.get('/health', async (req, res) => {
   const configured = {
     digistore24: !!process.env.DIGISTORE_API_KEY,
     awin: !!(process.env.AWIN_TOKEN && process.env.AWIN_PUBLISHER_ID),
-    mylead: !!process.env.MYLEAD_API_KEY,
-    partnerstack: !!process.env.PARTNERSTACK_API_KEY
+    mylead: !!process.env.MYLEAD_API_KEY
   };
 
   const configuredCount = Object.values(configured).filter(Boolean).length;
@@ -225,8 +232,9 @@ router.get('/health', async (req, res) => {
   res.json({
     status: configuredCount > 0 ? 'operational' : 'degraded',
     networks: configured,
+    disabled_networks: ['partnerstack'],
     configured_count: configuredCount,
-    total_networks: 4
+    total_networks: 3
   });
 });
 
