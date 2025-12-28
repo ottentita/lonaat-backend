@@ -191,22 +191,39 @@ async function searchPartnerStack(query: string) {
       {
         headers: {
           Authorization: `Bearer ${apiKey}`
-        }
+        },
+        timeout: 10000
       }
     );
 
-    const partnerships = response.data?.data || [];
+    // Handle different response formats
+    let partnerships: any[] = [];
+    if (Array.isArray(response.data)) {
+      partnerships = response.data;
+    } else if (response.data?.data && Array.isArray(response.data.data)) {
+      partnerships = response.data.data;
+    } else if (response.data?.partnerships && Array.isArray(response.data.partnerships)) {
+      partnerships = response.data.partnerships;
+    }
+
+    if (partnerships.length === 0) {
+      return getMockOffers("partnerstack", query);
+    }
+
     const filtered = partnerships.filter((p: any) =>
-      p.partner?.name?.toLowerCase().includes(query.toLowerCase())
+      p.partner?.name?.toLowerCase().includes(query.toLowerCase()) ||
+      p.name?.toLowerCase().includes(query.toLowerCase())
     );
 
-    return filtered.slice(0, 20).map((p: any) => ({
-      name: p.partner?.name || "PartnerStack Product",
-      description: p.partner?.description || "",
+    const results = (filtered.length > 0 ? filtered : partnerships).slice(0, 20);
+
+    return results.map((p: any) => ({
+      name: p.partner?.name || p.name || "PartnerStack Product",
+      description: p.partner?.description || p.description || "",
       price: null,
       network: "partnerstack",
-      affiliate_link: p.tracking_link || null,
-      image_url: p.partner?.logo_url || null,
+      affiliate_link: p.tracking_link || p.link || null,
+      image_url: p.partner?.logo_url || p.logo_url || null,
       category: "SaaS"
     }));
   } catch (error: any) {
