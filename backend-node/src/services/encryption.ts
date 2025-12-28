@@ -5,7 +5,10 @@ const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY || process.env.SECRET_KEY || 'default-key-32-bytes-long-here!';
+  const key = process.env.ENCRYPTION_KEY || process.env.SECRETE_KEY || process.env.SECRET_KEY;
+  if (!key) {
+    throw new Error('ENCRYPTION_KEY or SECRETE_KEY environment variable is required for bank account encryption');
+  }
   const hash = crypto.createHash('sha256').update(key).digest();
   return hash;
 }
