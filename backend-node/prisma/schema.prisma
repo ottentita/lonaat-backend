@@ -413,3 +413,130 @@ model BankAccount {
 
   @@map("bank_accounts")
 }
+
+/// Land Registry with PostGIS spatial support
+/// Note: The 'geom' column (geometry(Polygon,4326)) is managed via raw SQL in gpsVerification.ts
+/// See prisma/migrations/postgis/001_enable_postgis.sql for setup
+model Land {
+  id                Int       @id @default(autoincrement())
+  title_number      String    @unique @db.VarChar(100)
+  owner_id          Int?
+  current_owner     String    @db.VarChar(255)
+  owner_id_type     String?   @db.VarChar(50)
+  owner_id_number   String?   @db.VarChar(100)
+  region            String    @db.VarChar(100)
+  city              String?   @db.VarChar(100)
+  town              String?   @db.VarChar(100)
+  neighborhood      String?   @db.VarChar(100)
+  area_sqm          Decimal?  @db.Decimal(12, 2)
+  polygon_coords    Json      @db.JsonB
+  polygon_wkt       String?   @db.Text
+  center_lat        Decimal?  @db.Decimal(10, 8)
+  center_lng        Decimal?  @db.Decimal(11, 8)
+  land_use          String?   @db.VarChar(50)
+  status            String    @default("verified") @db.VarChar(20)
+  is_locked         Boolean   @default(false)
+  lock_reason       String?   @db.Text
+  verification_date DateTime?
+  verified_by       Int?
+  purchase_date     DateTime?
+  purchase_price    Decimal?  @db.Decimal(15, 2)
+  currency          String    @default("XAF") @db.VarChar(10)
+  seller_name       String?   @db.VarChar(255)
+  seller_id_number  String?   @db.VarChar(100)
+  documents         Json?     @db.JsonB
+  notes             String?   @db.Text
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  property_id       Int?
+  ownership_history LandOwnership[]
+  audit_logs        LandAuditLog[]
+
+  @@index([region, city])
+  @@index([current_owner])
+  @@map("lands")
+}
+
+model LandOwnership {
+  id              Int       @id @default(autoincrement())
+  land_id         Int
+  owner_name      String    @db.VarChar(255)
+  owner_id_type   String?   @db.VarChar(50)
+  owner_id_number String?   @db.VarChar(100)
+  user_id         Int?
+  ownership_type  String    @default("full") @db.VarChar(50)
+  status          String    @default("active") @db.VarChar(20)
+  acquired_date   DateTime
+  acquired_price  Decimal?  @db.Decimal(15, 2)
+  currency        String    @default("XAF") @db.VarChar(10)
+  seller_name     String?   @db.VarChar(255)
+  seller_id       String?   @db.VarChar(100)
+  transfer_date   DateTime?
+  transferred_to  Int?
+  documents       Json?     @db.JsonB
+  verification    String    @default("pending") @db.VarChar(20)
+  verified_by     Int?
+  verified_at     DateTime?
+  notes           String?   @db.Text
+  created_at      DateTime  @default(now())
+
+  land Land @relation(fields: [land_id], references: [id])
+
+  @@index([land_id])
+  @@index([user_id])
+  @@map("land_ownerships")
+}
+
+model PropertyLead {
+  id            Int       @id @default(autoincrement())
+  property_id   Int
+  land_id       Int?
+  lead_type     String    @default("inquiry") @db.VarChar(50)
+  name          String    @db.VarChar(255)
+  email         String?   @db.VarChar(255)
+  phone         String?   @db.VarChar(50)
+  whatsapp      String?   @db.VarChar(50)
+  message       String?   @db.Text
+  priority      String    @default("medium") @db.VarChar(20)
+  status        String    @default("new") @db.VarChar(20)
+  offer_amount  Decimal?  @db.Decimal(15, 2)
+  currency      String    @default("XAF") @db.VarChar(10)
+  agent_id      Int?
+  user_id       Int?
+  source        String?   @db.VarChar(50)
+  notes         String?   @db.Text
+  responded_at  DateTime?
+  responded_by  Int?
+  closed_at     DateTime?
+  closed_reason String?   @db.VarChar(100)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@index([property_id])
+  @@index([status])
+  @@index([priority])
+  @@map("property_leads")
+}
+
+model LandAuditLog {
+  id           Int      @id @default(autoincrement())
+  land_id      Int
+  action       String   @db.VarChar(100)
+  actor_id     Int?
+  actor_name   String?  @db.VarChar(255)
+  actor_role   String?  @db.VarChar(50)
+  old_data     Json?    @db.JsonB
+  new_data     Json?    @db.JsonB
+  ip_address   String?  @db.VarChar(45)
+  description  String?  @db.Text
+  is_system    Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  land Land @relation(fields: [land_id], references: [id])
+
+  @@index([land_id])
+  @@index([action])
+  @@index([created_at])
+  @@map("land_audit_logs")
+}

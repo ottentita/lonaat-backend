@@ -18,6 +18,10 @@ import propertyRoutes from './routes/properties';
 import marketplaceRoutes from './routes/marketplace';
 import productImportRoutes from './routes/productImport';
 import networkStatusRoutes from './routes/networkStatus';
+import landRegistryRoutes from './routes/landRegistry';
+import leadsRoutes from './routes/leads';
+import realEstateAnalyticsRoutes from './routes/realEstateAnalytics';
+import { initPostGIS } from './services/gpsVerification';
 
 dotenv.config();
 
@@ -59,6 +63,9 @@ app.use('/postback', webhookRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/networks', networkStatusRoutes);
+app.use('/api/land-registry', landRegistryRoutes);
+app.use('/api/leads', leadsRoutes);
+app.use('/api/real-estate/analytics', realEstateAnalyticsRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {
@@ -96,9 +103,20 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Lonaat API v2.0 running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+async function startServer() {
+  try {
+    await initPostGIS();
+    console.log('PostGIS spatial database initialized');
+  } catch (error) {
+    console.warn('PostGIS initialization warning:', error);
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Lonaat API v2.0 running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+}
+
+startServer();
 
 export { prisma };

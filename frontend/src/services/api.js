@@ -267,4 +267,35 @@ export const realEstateAPI = {
   adminRejectPayment: (id, data) => api.put(`/admin/property-payments/${id}/reject`, data),
 };
 
+export const landRegistryAPI = {
+  getLands: (params) => api.get('/land-registry', { params }),
+  getLand: (id) => api.get(`/land-registry/${id}`),
+  verifyBoundaries: (polygon_coords, exclude_land_id) => api.post('/land-registry/verify', { polygon_coords, exclude_land_id }),
+  registerLand: (data) => api.post('/land-registry/register', data),
+  searchLands: (params) => api.get('/land-registry/search', { params }),
+  getLandAtPoint: (lat, lng) => api.get('/land-registry/point', { params: { lat, lng } }),
+  getHistory: (id) => api.get(`/land-registry/${id}/history`),
+  verifyLand: (id, data) => api.put(`/land-registry/${id}/verify`, data),
+  transferOwnership: (id, data) => api.post(`/land-registry/${id}/transfer`, data),
+  getStats: () => api.get('/land-registry/stats/overview'),
+};
+
+export const leadsAPI = {
+  getLeads: (params) => api.get('/leads', { params }),
+  getLead: (id) => api.get(`/leads/${id}`),
+  createLead: (data) => api.post('/leads', data),
+  updateStatus: (id, data) => api.put(`/leads/${id}/status`, data),
+  updatePriority: (id, priority) => api.put(`/leads/${id}/priority`, { priority }),
+  deleteLead: (id) => api.delete(`/leads/${id}`),
+  getStats: () => api.get('/leads/stats'),
+};
+
+export const realEstateAnalyticsAPI = {
+  getOverview: () => api.get('/real-estate/analytics/overview'),
+  getRevenue: (period) => api.get('/real-estate/analytics/revenue', { params: { period } }),
+  getPerformance: () => api.get('/real-estate/analytics/performance'),
+  getLandAnalytics: () => api.get('/real-estate/analytics/land'),
+  getLeadAnalytics: (period) => api.get('/real-estate/analytics/leads', { params: { period } }),
+};
+
 export default api;

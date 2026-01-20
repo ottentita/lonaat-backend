@@ -17,6 +17,9 @@ import Commissions from './pages/user/Commissions';
 import Notifications from './pages/user/Notifications';
 import Profile from './pages/user/Profile';
 import RealEstate from './pages/user/RealEstate';
+import LandRegistry from './pages/user/LandRegistry';
+import PropertyLeads from './pages/user/PropertyLeads';
+import RealEstateAnalytics from './pages/user/RealEstateAnalytics';
 import AffiliateNetworks from './pages/user/AffiliateNetworks';
 import Subscriptions from './pages/user/Subscriptions';
 
@@ -94,6 +97,9 @@ function App() {
         <Route path="/dashboard/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/dashboard/settings" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/dashboard/real-estate" element={<ProtectedRoute><RealEstate /></ProtectedRoute>} />
+        <Route path="/dashboard/land-registry" element={<ProtectedRoute><LandRegistry /></ProtectedRoute>} />
+        <Route path="/dashboard/property-leads" element={<ProtectedRoute><PropertyLeads /></ProtectedRoute>} />
+        <Route path="/dashboard/real-estate-analytics" element={<ProtectedRoute><RealEstateAnalytics /></ProtectedRoute>} />
         <Route path="/dashboard/networks" element={<ProtectedRoute><AffiliateNetworks /></ProtectedRoute>} />
         <Route path="/dashboard/subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
 

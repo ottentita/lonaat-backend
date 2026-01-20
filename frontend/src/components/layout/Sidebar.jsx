@@ -18,7 +18,10 @@ import {
   Crown,
   ShieldAlert,
   Package2,
-  Bot
+  Bot,
+  MapPin,
+  UserPlus,
+  BarChart3
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -30,6 +33,9 @@ const Sidebar = ({ onLogout }) => {
     { to: '/dashboard/products', icon: Package, label: 'My Products' },
     { to: '/dashboard/networks', icon: Globe, label: 'Affiliate Networks' },
     { to: '/dashboard/real-estate', icon: Home, label: 'Real Estate' },
+    { to: '/dashboard/land-registry', icon: MapPin, label: 'Land Registry' },
+    { to: '/dashboard/property-leads', icon: UserPlus, label: 'Property Leads' },
+    { to: '/dashboard/real-estate-analytics', icon: BarChart3, label: 'RE Analytics' },
     { to: '/dashboard/ads', icon: Megaphone, label: 'AdBoost' },
     { to: '/dashboard/wallet', icon: CreditCard, label: 'Wallet' },
     { to: '/dashboard/subscriptions', icon: Crown, label: 'Subscriptions' },

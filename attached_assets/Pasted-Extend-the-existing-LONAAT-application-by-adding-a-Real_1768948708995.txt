@@ -1,0 +1,161 @@
+Extend the existing LONAAT application by adding a Real Estate system that looks and behaves exactly like the provided dashboard screenshots, including:
+Real Estate listings dashboard
+GPS-based land registry (anti–double sale)
+Offers & Leads panel
+Analytics & performance widgets
+Admin-level land ownership verification
+Seamless integration with the master dashboard
+The system must be production-ready, deployable to GitHub, and Render-compatible.
+🏗️ TECH STACK (MANDATORY)
+Frontend: React + Tailwind CSS (or Next.js if app already uses it)
+Backend: Node.js (Express)
+Database: PostgreSQL + PostGIS
+Maps/GPS: Mapbox or Google Maps SDK
+Auth: Existing LONAAT auth system (reuse users & roles)
+Deployment: GitHub → Render
+Architecture: Modular (Real Estate as a feature module, not a separate app)
+📁 REQUIRED FOLDER STRUCTURE
+Copy code
+
+lonaat/
+├── client/
+│   ├── pages/
+│   │   ├── dashboard/
+│   │   │   └── mainDashboard.jsx
+│   │   ├── real-estate/
+│   │   │   ├── index.jsx              // Real Estate overview dashboard
+│   │   │   ├── properties.jsx         // My Properties table
+│   │   │   ├── addProperty.jsx
+│   │   │   ├── gpsRegistry.jsx         // Land GPS registry
+│   │   │   ├── landDetails.jsx         // Single land view
+│   │   │   ├── offersLeads.jsx
+│   │   │   └── analytics.jsx
+│   │   └── components/
+│   │       ├── PropertyTable.jsx
+│   │       ├── IncomingLeads.jsx
+│   │       ├── ListingPerformance.jsx
+│   │       ├── GPSMap.jsx
+│   │       └── FiltersBar.jsx
+│
+├── server/
+│   ├── modules/
+│   │   ├── realEstate/
+│   │   │   ├── routes.js
+│   │   │   ├── controllers/
+│   │   │   │   ├── propertyController.js
+│   │   │   │   ├── landRegistryController.js
+│   │   │   │   ├── offersController.js
+│   │   │   │   └── analyticsController.js
+│   │   │   ├── services/
+│   │   │   │   ├── gpsService.js
+│   │   │   │   └── landVerificationService.js
+│   │   │   └── models/
+│   │   │       ├── Property.js
+│   │   │       ├── Land.js
+│   │   │       ├── Ownership.js
+│   │   │       └── Lead.js
+│
+├── database/
+│   ├── migrations/
+│   │   ├── real_estate.sql
+│   │   └── postgis_setup.sql
+│
+├── README.md
+└── render.yaml
+🧠 CORE FEATURES TO IMPLEMENT
+1️⃣ REAL ESTATE DASHBOARD (MATCH UI EXACTLY)
+When user clicks “Real Estate” from the LONAAT sidebar:
+Display:
+My Properties table
+Property image, title, location
+Price, views, status (For Sale, Pending, For Rent)
+Action buttons (edit, delete, verify)
+Right panel:
+Incoming Leads (priority tags)
+Listing Performance (pie chart)
+Property Types (Houses, Apartments, Land)
+Bottom:
+Analytics overview (charts)
+Total revenue
+Active listings
+UI spacing, layout, and structure must mirror the provided screenshots.
+2️⃣ GPS LAND REGISTRY (CRITICAL)
+Add a “GPS Locator / Land Registry” section inside Real Estate.
+Functionality:
+Register land using:
+GPS polygon (lat/lng coordinates)
+Land title number
+Owner name
+Date of sale
+Seller & buyer identity
+Store geometry using PostGIS
+Double-Sale Prevention Logic:
+Copy code
+Sql
+SELECT id FROM lands
+WHERE ST_Intersects(geom, ST_GeomFromText(:newPolygon, 4326));
+If intersecting land exists:
+❌ Block registration
+✅ Show existing owner
+✅ Display land title & sale history
+3️⃣ LAND SEARCH BY OWNER / TITLE
+Admin can:
+Click GPS Locator
+View map of Cameroon
+Click any land polygon
+See:
+Owner name
+Land title number
+Size (sqm)
+Date/time of sale
+Previous ownership
+Neighboring plots
+Town & region
+4️⃣ OFFERS & LEADS SYSTEM
+Every property can receive:
+Buyer inquiries
+Agent offers
+Leads panel:
+Priority (High / Medium)
+Timestamp
+Linked property
+Stored permanently for audits
+5️⃣ ROLE & ACCESS CONTROL
+Admin
+Full land registry access
+Ownership override
+Fraud flags
+Agent
+Can list properties
+Cannot override land registry
+User
+View & submit offers only
+📊 ANALYTICS
+Listings performance
+Revenue per category
+Land vs houses vs apartments
+Weekly & monthly growth
+🔐 SECURITY REQUIREMENTS
+Immutable land ownership records
+Sale locking after verification
+Audit logs on all land transactions
+No deletion of land history (append-only)
+🚀 DEPLOYMENT REQUIREMENTS
+Push entire project to GitHub
+Include:
+.env.example
+render.yaml
+App must run on Render with:
+PostgreSQL + PostGIS
+Environment variables configured
+🧾 FINAL OUTPUT EXPECTED FROM AGENT
+Fully working Real Estate module inside LONAAT
+GPS land registry operational
+UI matches provided screenshots
+GitHub-ready project
+Render deployment compatible
+⚠️ IMPORTANT NOTES FOR AGENT
+Do NOT create a separate app
+Do NOT rename LONAAT
+Do NOT simplify GPS logic
+Do NOT mock land data — implement real geometry checks
