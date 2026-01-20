@@ -20,7 +20,8 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
         referral_code: true,
         withdrawable_balance: true,
         ai_premium: true,
-        created_at: true
+        created_at: true,
+        trial_ends_at: true
       }
     });
 
@@ -28,7 +29,18 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(user);
+    const now = new Date();
+    const trialActive = user.trial_ends_at ? new Date(user.trial_ends_at) > now : false;
+    const trialDaysLeft = user.trial_ends_at 
+      ? Math.max(0, Math.ceil((new Date(user.trial_ends_at).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    res.json({
+      ...user,
+      trial_active: trialActive,
+      trial_days_left: trialDaysLeft,
+      has_premium_access: user.ai_premium || trialActive || user.is_admin
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user' });

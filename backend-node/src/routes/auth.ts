@@ -57,6 +57,9 @@ router.post('/register', registerLimiter, [
 
     const password_hash = await bcrypt.hash(password, 12);
     const newReferralCode = generateReferralCode();
+    
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
 
     const user = await prisma.user.create({
       data: {
@@ -70,7 +73,8 @@ router.post('/register', registerLimiter, [
         verified: false,
         is_admin: false,
         is_active: true,
-        is_blocked: false
+        is_blocked: false,
+        trial_ends_at: trialEndsAt
       }
     });
 

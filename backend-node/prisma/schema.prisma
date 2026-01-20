@@ -30,6 +30,7 @@ model User {
   fraud_score          Int       @default(0)
   last_ip              String?   @db.VarChar(45)
   withdrawable_balance Float     @default(0)
+  trial_ends_at        DateTime?
 
   transactions        Transaction[]
   commissions         Commission[]

@@ -1,0 +1,174 @@
+Backend: Python (FastAPI or Flask)
+Database: PostgreSQL
+Auth: JWT (role-based: admin / user)
+Frontend: Existing dashboard (user + admin)
+Affiliate systems already present: Digistore24, Awin
+Admin has FREE access to campaigns and AI features
+We are now adding Admitad and AliExpress (via Admitad).
+OBJECTIVE
+Integrate Admitad and AliExpress into the system so that:
+Products can be imported from AliExpress via Admitad
+Admin AI can auto-import and auto-boost products
+Users can manually select products from AliExpress
+Clicks, conversions, and commissions are tracked
+Commission logs appear in user & admin dashboards
+STEP A — ENVIRONMENT VARIABLES
+Add the following environment variables:
+Copy code
+Env
+ADMITAD_CLIENT_ID=
+ADMITAD_CLIENT_SECRET=
+ADMITAD_ACCESS_TOKEN=
+ADMITAD_WEBSITE_ID=
+ADMITAD_API_BASE=https://api.admitad.com
+AliExpress will be accessed ONLY through Admitad (no direct AliExpress API).
+STEP B — DATABASE UPDATES
+Create or update tables:
+1. affiliate_networks
+Copy code
+Sql
+id (pk)
+name
+slug
+status
+created_at
+Insert:
+Admitad
+AliExpress (parent = Admitad)
+2. affiliate_products
+Copy code
+Sql
+id
+network
+external_product_id
+title
+description
+price
+currency
+image_url
+product_url
+commission_rate
+created_by (admin/user)
+created_at
+3. affiliate_clicks
+Copy code
+Sql
+id
+user_id
+product_id
+click_id
+network
+timestamp
+4. commission_logs
+Copy code
+Sql
+id
+user_id
+network
+product_id
+amount
+currency
+status (pending/approved/rejected)
+external_reference
+created_at
+STEP C — ADMITAD SERVICE MODULE
+Create file:
+Copy code
+
+backend/services/admitad_service.py
+Implement:
+OAuth token handling
+Product search endpoint
+Deep link generation
+Commission postback handling
+Functions required:
+Copy code
+Python
+get_admitad_products()
+generate_admitad_deeplink(product_url, user_id)
+handle_admitad_postback(payload)
+STEP D — ALIEXPRESS ADAPTER
+Create file:
+Copy code
+
+backend/services/aliexpress_adapter.py
+Logic:
+Fetch AliExpress products via Admitad
+Normalize product data to affiliate_products
+Support filters (price, category, keyword)
+STEP E — API ENDPOINTS
+Add endpoints:
+User
+Copy code
+Http
+GET /api/networks/admitad/aliexpress/products
+POST /api/products/import/aliexpress
+GET /api/commissions
+Admin
+Copy code
+Http
+POST /api/admin/ai/import/aliexpress
+POST /api/admin/ai/auto-boost
+GET /api/admin/commissions
+STEP F — AI AUTOMATION (ADMIN)
+Admin AI rules:
+Auto-scan AliExpress products every X hours
+Auto-import trending products
+Auto-launch FREE campaigns for admin
+Auto-log clicks & commissions
+Auto-flag suspicious patterns
+Create:
+Copy code
+
+backend/ai/ai_aliexpress_scheduler.py
+Use cron / background task.
+STEP G — FRONTEND UPDATES
+Update UI:
+User Dashboard
+Add network selector → Admitad → AliExpress
+Product list view
+“Add to Marketplace” button
+Auto campaign launch after import
+Admin Dashboard
+AI Import toggle (ON/OFF)
+View AliExpress products
+View all commissions (read-only)
+Admin campaigns always FREE
+STEP H — COMMISSION FLOW
+User clicks product
+Redirect through Admitad deep link
+Admitad postback hits backend
+Save commission in commission_logs
+Status = pending
+When approved → visible for withdrawal
+Admin:
+Can view all commissions
+Cannot withdraw
+STEP I — SECURITY
+Validate Admitad signatures on postbacks
+Rate-limit product imports
+Log all AI actions
+Block duplicate clicks
+STEP J — TESTING
+Test cases:
+Import AliExpress product (admin)
+Import AliExpress product (user)
+Click tracking
+Postback simulation
+Commission visibility
+Admin free campaigns
+AI scheduler run
+DELIVERABLE
+After implementation:
+AliExpress appears as a network
+Products can be imported
+AI auto-import works for admin
+Users can manually import
+Commissions tracked and displayed
+No admin credit deduction
+System stable
+FINAL NOTE TO AGENT
+Implement incrementally.
+Do NOT break existing Digistore24 or Awin logic.
+Use existing auth, models, and UI patterns.
+Ensure clean commits and comments.
