@@ -558,7 +558,7 @@ model AffiliateNetwork {
 
 model AffiliateClick {
   id            Int      @id @default(autoincrement())
-  user_id       Int
+  user_id       Int?
   product_id    Int?
   network       String   @db.VarChar(50)
   click_id      String   @unique @db.VarChar(255)
@@ -570,7 +570,7 @@ model AffiliateClick {
   conversion_id String?  @db.VarChar(255)
   created_at    DateTime @default(now())
 
-  user User @relation(fields: [user_id], references: [id])
+  user User? @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
   @@index([network])
