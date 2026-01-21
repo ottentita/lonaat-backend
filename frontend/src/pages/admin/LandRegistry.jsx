@@ -50,6 +50,9 @@ export default function AdminLandRegistry() {
   const [detailsTab, setDetailsTab] = useState('info');
   const [history, setHistory] = useState([]);
   const [neighbors, setNeighbors] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [showAddSection, setShowAddSection] = useState(false);
+  const [newSection, setNewSection] = useState({ section_name: '', section_type: 'sitting', area_sqm: '', description: '', capacity: '' });
 
   const getToken = () => localStorage.getItem('token');
 
@@ -115,6 +118,73 @@ export default function AdminLandRegistry() {
       console.error('Error fetching neighbors:', error);
       setNeighbors([]);
     }
+  };
+
+  const fetchSections = async (landId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/land-registry/${landId}/sections`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+      });
+      const data = await response.json();
+      setSections(data.sections || []);
+    } catch (error) {
+      console.error('Error fetching sections:', error);
+      setSections([]);
+    }
+  };
+
+  const handleAddSection = async () => {
+    if (!selectedLand || !newSection.section_name) {
+      toast.error('Section name is required');
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/api/land-registry/${selectedLand.id}/sections`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`
+        },
+        body: JSON.stringify(newSection)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      toast.success('Section added successfully');
+      setNewSection({ section_name: '', section_type: 'sitting', area_sqm: '', description: '', capacity: '' });
+      setShowAddSection(false);
+      fetchSections(selectedLand.id);
+    } catch (error) {
+      toast.error(error.message || 'Failed to add section');
+    }
+  };
+
+  const handleDeleteSection = async (sectionId) => {
+    if (!confirm('Are you sure you want to delete this section?')) return;
+    try {
+      const response = await fetch(`${API_URL}/api/land-registry/${selectedLand.id}/sections/${sectionId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${getToken()}` }
+      });
+      if (!response.ok) throw new Error('Delete failed');
+      toast.success('Section deleted');
+      fetchSections(selectedLand.id);
+    } catch (error) {
+      toast.error('Failed to delete section');
+    }
+  };
+
+  const sectionTypes = ['sitting', 'building', 'agricultural', 'parking', 'garden', 'storage', 'recreational', 'commercial', 'residential', 'other'];
+  const sectionColors = {
+    sitting: '#10b981',
+    building: '#3b82f6',
+    agricultural: '#84cc16',
+    parking: '#6b7280',
+    garden: '#22c55e',
+    storage: '#f59e0b',
+    recreational: '#a855f7',
+    commercial: '#ef4444',
+    residential: '#06b6d4',
+    other: '#64748b'
   };
 
   useEffect(() => {
@@ -187,6 +257,7 @@ export default function AdminLandRegistry() {
     setDetailsTab('info');
     fetchHistory(land.id);
     fetchNeighbors(land.id);
+    fetchSections(land.id);
   };
 
   const filteredLands = lands.filter(land => {
@@ -327,7 +398,7 @@ export default function AdminLandRegistry() {
               <CardTitle>Land Details</CardTitle>
               {selectedLand && (
                 <div className="flex gap-1 mt-2 border-b">
-                  {['info', 'history', 'neighbors'].map(tab => (
+                  {['info', 'sections', 'history', 'neighbors'].map(tab => (
                     <button
                       key={tab}
                       onClick={() => setDetailsTab(tab)}
@@ -446,6 +517,105 @@ export default function AdminLandRegistry() {
                         </Button>
                       </div>
                     </>
+                  )}
+
+                  {detailsTab === 'sections' && (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Land Sections ({sections.length})</span>
+                        <Button size="sm" onClick={() => setShowAddSection(!showAddSection)}>
+                          {showAddSection ? 'Cancel' : '+ Add Section'}
+                        </Button>
+                      </div>
+
+                      {showAddSection && (
+                        <div className="p-3 bg-gray-50 rounded space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Section Name (e.g., Main Sitting Area)"
+                            value={newSection.section_name}
+                            onChange={(e) => setNewSection({...newSection, section_name: e.target.value})}
+                            className="w-full px-3 py-2 border rounded text-sm"
+                          />
+                          <select
+                            value={newSection.section_type}
+                            onChange={(e) => setNewSection({...newSection, section_type: e.target.value})}
+                            className="w-full px-3 py-2 border rounded text-sm"
+                          >
+                            {sectionTypes.map(type => (
+                              <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+                            ))}
+                          </select>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              placeholder="Area (m²)"
+                              value={newSection.area_sqm}
+                              onChange={(e) => setNewSection({...newSection, area_sqm: e.target.value})}
+                              className="px-3 py-2 border rounded text-sm"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Capacity"
+                              value={newSection.capacity}
+                              onChange={(e) => setNewSection({...newSection, capacity: e.target.value})}
+                              className="px-3 py-2 border rounded text-sm"
+                            />
+                          </div>
+                          <textarea
+                            placeholder="Description"
+                            value={newSection.description}
+                            onChange={(e) => setNewSection({...newSection, description: e.target.value})}
+                            className="w-full px-3 py-2 border rounded text-sm"
+                            rows={2}
+                          />
+                          <Button size="sm" onClick={handleAddSection} className="w-full bg-green-600 hover:bg-green-700">
+                            Save Section
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="max-h-64 overflow-y-auto space-y-2">
+                        {sections.length === 0 ? (
+                          <p className="text-gray-500 text-sm text-center py-4">No sections defined</p>
+                        ) : (
+                          sections.map((section) => (
+                            <div 
+                              key={section.id} 
+                              className="p-3 border rounded"
+                              style={{ borderLeftColor: sectionColors[section.section_type] || '#64748b', borderLeftWidth: '4px' }}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-sm">{section.section_name}</p>
+                                  <span 
+                                    className="inline-block px-2 py-0.5 text-xs rounded capitalize mt-1"
+                                    style={{ backgroundColor: `${sectionColors[section.section_type]}20`, color: sectionColors[section.section_type] }}
+                                  >
+                                    {section.section_type}
+                                  </span>
+                                </div>
+                                <button 
+                                  onClick={() => handleDeleteSection(section.id)}
+                                  className="text-red-500 hover:text-red-700 text-xs"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                              {section.area_sqm && (
+                                <p className="text-xs text-gray-500 mt-1">Area: {parseFloat(section.area_sqm).toLocaleString()} m²</p>
+                              )}
+                              {section.capacity && (
+                                <p className="text-xs text-gray-500">Capacity: {section.capacity} people</p>
+                              )}
+                              {section.description && (
+                                <p className="text-xs text-gray-600 mt-1">{section.description}</p>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   {detailsTab === 'history' && (

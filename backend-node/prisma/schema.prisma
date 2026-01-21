@@ -461,12 +461,36 @@ model Land {
   property_id       Int?
   ownership_history LandOwnership[]
   audit_logs        LandAuditLog[]
+  sections          LandSection[]
 
   @@index([region, city])
   @@index([current_owner])
   @@index([verification_status])
   @@index([land_hash])
   @@map("lands")
+}
+
+model LandSection {
+  id              Int       @id @default(autoincrement())
+  land_id         Int
+  section_name    String    @db.VarChar(100)
+  section_type    String    @db.VarChar(50)
+  area_sqm        Decimal?  @db.Decimal(10, 2)
+  polygon_coords  Json?     @db.JsonB
+  polygon_wkt     String?   @db.Text
+  center_lat      Decimal?  @db.Decimal(10, 8)
+  center_lng      Decimal?  @db.Decimal(11, 8)
+  description     String?   @db.Text
+  capacity        Int?
+  status          String    @default("active") @db.VarChar(30)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  land Land @relation(fields: [land_id], references: [id])
+
+  @@index([land_id])
+  @@index([section_type])
+  @@map("land_sections")
 }
 
 model LandOwnership {

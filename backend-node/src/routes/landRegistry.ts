@@ -792,4 +792,161 @@ router.get('/pending-verification', authMiddleware, adminOnlyMiddleware, async (
   }
 });
 
+const SECTION_TYPES = ['sitting', 'building', 'agricultural', 'parking', 'garden', 'storage', 'recreational', 'commercial', 'residential', 'other'];
+
+router.get('/:id/sections', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const landId = parseInt(req.params.id);
+    
+    const sections = await prisma.landSection.findMany({
+      where: { land_id: landId },
+      orderBy: { created_at: 'desc' }
+    });
+
+    res.json({ sections });
+  } catch (error) {
+    console.error('Get sections error:', error);
+    res.status(500).json({ error: 'Failed to get sections' });
+  }
+});
+
+router.post('/:id/sections', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const landId = parseInt(req.params.id);
+    const { section_name, section_type, area_sqm, polygon_coords, description, capacity } = req.body;
+
+    if (!section_name || !section_type) {
+      return res.status(400).json({ error: 'Section name and type are required' });
+    }
+
+    if (!SECTION_TYPES.includes(section_type)) {
+      return res.status(400).json({ error: `Invalid section type. Use: ${SECTION_TYPES.join(', ')}` });
+    }
+
+    const land = await prisma.land.findUnique({ where: { id: landId } });
+    if (!land) {
+      return res.status(404).json({ error: 'Land not found' });
+    }
+
+    let polygonWkt = null;
+    let centerLat = null;
+    let centerLng = null;
+
+    if (polygon_coords && Array.isArray(polygon_coords) && polygon_coords.length >= 3) {
+      polygonWkt = coordsToWKT(polygon_coords);
+      const center = calculatePolygonCenter(polygon_coords);
+      centerLat = center.lat;
+      centerLng = center.lng;
+    }
+
+    const section = await prisma.landSection.create({
+      data: {
+        land_id: landId,
+        section_name,
+        section_type,
+        area_sqm: area_sqm ? parseFloat(area_sqm) : null,
+        polygon_coords: polygon_coords || null,
+        polygon_wkt: polygonWkt,
+        center_lat: centerLat,
+        center_lng: centerLng,
+        description,
+        capacity: capacity ? parseInt(capacity) : null
+      }
+    });
+
+    await prisma.landAuditLog.create({
+      data: {
+        land_id: landId,
+        action: 'SECTION_ADDED',
+        actor_id: req.user!.id,
+        actor_name: req.user!.name,
+        actor_role: 'admin',
+        new_data: { section_name, section_type, area_sqm },
+        description: `Added ${section_type} section: ${section_name}`
+      }
+    });
+
+    res.status(201).json({ message: 'Section added successfully', section });
+  } catch (error) {
+    console.error('Add section error:', error);
+    res.status(500).json({ error: 'Failed to add section' });
+  }
+});
+
+router.put('/:id/sections/:sectionId', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const landId = parseInt(req.params.id);
+    const sectionId = parseInt(req.params.sectionId);
+    const { section_name, section_type, area_sqm, polygon_coords, description, capacity, status } = req.body;
+
+    const section = await prisma.landSection.findFirst({
+      where: { id: sectionId, land_id: landId }
+    });
+
+    if (!section) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    const updateData: any = {};
+    if (section_name) updateData.section_name = section_name;
+    if (section_type && SECTION_TYPES.includes(section_type)) updateData.section_type = section_type;
+    if (area_sqm !== undefined) updateData.area_sqm = area_sqm ? parseFloat(area_sqm) : null;
+    if (description !== undefined) updateData.description = description;
+    if (capacity !== undefined) updateData.capacity = capacity ? parseInt(capacity) : null;
+    if (status) updateData.status = status;
+
+    if (polygon_coords && Array.isArray(polygon_coords) && polygon_coords.length >= 3) {
+      updateData.polygon_coords = polygon_coords;
+      updateData.polygon_wkt = coordsToWKT(polygon_coords);
+      const center = calculatePolygonCenter(polygon_coords);
+      updateData.center_lat = center.lat;
+      updateData.center_lng = center.lng;
+    }
+
+    const updated = await prisma.landSection.update({
+      where: { id: sectionId },
+      data: updateData
+    });
+
+    res.json({ message: 'Section updated', section: updated });
+  } catch (error) {
+    console.error('Update section error:', error);
+    res.status(500).json({ error: 'Failed to update section' });
+  }
+});
+
+router.delete('/:id/sections/:sectionId', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const landId = parseInt(req.params.id);
+    const sectionId = parseInt(req.params.sectionId);
+
+    const section = await prisma.landSection.findFirst({
+      where: { id: sectionId, land_id: landId }
+    });
+
+    if (!section) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    await prisma.landSection.delete({ where: { id: sectionId } });
+
+    await prisma.landAuditLog.create({
+      data: {
+        land_id: landId,
+        action: 'SECTION_REMOVED',
+        actor_id: req.user!.id,
+        actor_name: req.user!.name,
+        actor_role: 'admin',
+        old_data: { section_name: section.section_name, section_type: section.section_type },
+        description: `Removed section: ${section.section_name}`
+      }
+    });
+
+    res.json({ message: 'Section deleted successfully' });
+  } catch (error) {
+    console.error('Delete section error:', error);
+    res.status(500).json({ error: 'Failed to delete section' });
+  }
+});
+
 export default router;
