@@ -1,0 +1,116 @@
+🔧 STEP 1 — CREATE ROUTE FILE (MANDATORY)
+Create file:
+Copy code
+
+/server/routes/admitad.routes.js
+Paste this EXACT code:
+Copy code
+Js
+const express = require("express");
+const axios = require("axios");
+const xml2js = require("xml2js");
+
+const router = express.Router();
+
+router.get("/search", async (req, res) => {
+  try {
+    const query = (req.query.q || "").toLowerCase();
+
+    if (!query) {
+      return res.status(400).json({ error: "Missing search query" });
+    }
+
+    const feedUrl = process.env.ADMITAD_FEED_URL;
+
+    if (!feedUrl) {
+      return res.status(500).json({ error: "ADMITAD_FEED_URL not set" });
+    }
+
+    const response = await axios.get(feedUrl);
+    const parsed = await xml2js.parseStringPromise(response.data, {
+      explicitArray: false,
+    });
+
+    const items = parsed?.yml_catalog?.shop?.offers?.offer || [];
+
+    const products = Array.isArray(items) ? items : [items];
+
+    const results = products.filter(p =>
+      (p.name && p.name.toLowerCase().includes(query)) ||
+      (p.categoryId && p.categoryId.toLowerCase().includes(query))
+    ).slice(0, 50);
+
+    return res.json({
+      success: true,
+      count: results.length,
+      data: results
+    });
+
+  } catch (err) {
+    console.error("Admitad search error:", err.message);
+    res.status(500).json({ error: "Failed to fetch Admitad products" });
+  }
+});
+
+module.exports = router;
+🔧 STEP 2 — MOUNT ROUTE IN EXPRESS (THIS IS THE MOST MISSED STEP)
+Open your main server file
+(usually one of these):
+server/index.js
+server/app.js
+index.js
+Add this at the TOP:
+Copy code
+Js
+const admitadRoutes = require("./routes/admitad.routes");
+Add this BELOW all middleware:
+Copy code
+Js
+app.use("/api/affiliate/admitad", admitadRoutes);
+✅ This makes this URL REAL:
+Copy code
+
+/api/affiliate/admitad/search
+🔧 STEP 3 — VERIFY FRONTEND CALL (CRITICAL)
+Tell the agent to search the frontend for the API call.
+The frontend MUST call EXACTLY:
+Copy code
+Ts
+GET /api/affiliate/admitad/search?q=wear
+❌ NOT:
+Copy code
+
+/api/admitad
+/api/search
+/api/offers
+/api/products
+If it differs — that is your 404.
+🔧 STEP 4 — INSTALL REQUIRED PACKAGES (DO THIS ONCE)
+Run in Replit Shell:
+Copy code
+Bash
+npm install axios xml2js
+🔧 STEP 5 — SET ENV VARIABLE (ABSOLUTELY REQUIRED)
+In Replit Secrets, add:
+Copy code
+
+ADMITAD_FEED_URL = https://ad.admitad.com/your-generated-feed-link.xml
+⚠️ If this is missing → backend will still fail.
+🔧 STEP 6 — FORCE SERVER RESTART
+Tell agent explicitly:
+Stop the server and restart it manually.
+Hot reload is NOT enough.
+🧪 STEP 7 — MANUAL TEST (THIS PROVES IT WORKS)
+Open browser and visit:
+Copy code
+
+https://YOUR-REPLIT-URL/api/affiliate/admitad/search?q=shirt
+Expected result:
+Copy code
+Json
+{
+  "success": true,
+  "count": 20,
+  "data": [...]
+}
+❌ If you still see 404 → route is NOT mounted.

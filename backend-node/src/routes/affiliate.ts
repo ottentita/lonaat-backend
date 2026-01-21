@@ -29,40 +29,90 @@ router.get('/admitad/feed', async (req: Request, res: Response) => {
   }
 });
 
+let feedCache: { data: any[]; timestamp: number } | null = null;
+const CACHE_TTL = 30 * 60 * 1000;
+
+async function getFeedProducts(): Promise<any[]> {
+  if (feedCache && Date.now() - feedCache.timestamp < CACHE_TTL) {
+    console.log('Using cached feed data');
+    return feedCache.data;
+  }
+
+  const feedUrl = process.env.ADMITAD_FEED_URL;
+  if (!feedUrl) return [];
+
+  console.log('Fetching Admitad feed for search...');
+  const axios = (await import('axios')).default;
+  const { XMLParser } = await import('fast-xml-parser');
+
+  const response = await axios.get(feedUrl, {
+    timeout: 120000,
+    headers: { 'User-Agent': 'Lonaat/2.0 Feed Search' }
+  });
+
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_'
+  });
+
+  const parsed = parser.parse(response.data);
+  const offers = parsed?.yml_catalog?.shop?.offers?.offer ||
+                 parsed?.rss?.channel?.item ||
+                 parsed?.feed?.entry ||
+                 [];
+
+  const products = Array.isArray(offers) ? offers : [offers];
+  feedCache = { data: products, timestamp: Date.now() };
+  console.log(`Cached ${products.length} products from feed`);
+  return products;
+}
+
 router.get('/admitad/search', async (req: Request, res: Response) => {
   try {
     const query = (req.query.q as string || '').toLowerCase().trim();
+    const source = req.query.source as string || 'database';
     const feedUrl = process.env.ADMITAD_FEED_URL;
 
-    if (!feedUrl) {
+    if (source === 'database' || !feedUrl) {
+      const dbProducts = await prisma.product.findMany({
+        where: {
+          is_active: true,
+          OR: [
+            { network: 'admitad' },
+            { network: 'aliexpress' }
+          ],
+          ...(query ? {
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { category: { contains: query, mode: 'insensitive' } },
+              { description: { contains: query, mode: 'insensitive' } }
+            ]
+          } : {})
+        },
+        take: 50,
+        orderBy: { created_at: 'desc' }
+      });
+
       return res.status(200).json({
         success: true,
-        data: [],
-        message: 'ADMITAD_FEED_URL not configured'
+        data: dbProducts.map(p => ({
+          id: p.id,
+          name: p.name,
+          price: parseFloat(p.price?.replace(/[^\d.]/g, '') || '0'),
+          currency: p.price?.includes('USD') ? 'USD' : 'USD',
+          image: p.image_url,
+          url: p.affiliate_link,
+          category: p.category || 'General',
+          merchant: (p.extra_data as any)?.merchant || 'Admitad',
+          description: p.description || p.ai_generated_ad || ''
+        })),
+        total: dbProducts.length,
+        query: query || 'all',
+        source: 'database'
       });
     }
 
-    const axios = (await import('axios')).default;
-    const { XMLParser } = await import('fast-xml-parser');
-
-    const response = await axios.get(feedUrl, {
-      timeout: 60000,
-      headers: { 'User-Agent': 'Lonaat/2.0 Feed Search' }
-    });
-
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '@_'
-    });
-
-    const parsed = parser.parse(response.data);
-
-    const offers = parsed?.yml_catalog?.shop?.offers?.offer ||
-                   parsed?.rss?.channel?.item ||
-                   parsed?.feed?.entry ||
-                   [];
-
-    const products = Array.isArray(offers) ? offers : [offers];
+    const products = await getFeedProducts();
 
     const filteredProducts = query
       ? products.filter((item: any) => {
@@ -104,6 +154,16 @@ router.get('/admitad/search', async (req: Request, res: Response) => {
       data: [],
       error: error.message
     });
+  }
+});
+
+router.get('/admitad/cache/refresh', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    feedCache = null;
+    const products = await getFeedProducts();
+    res.json({ success: true, message: 'Cache refreshed', products_count: products.length });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
