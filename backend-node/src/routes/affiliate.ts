@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
 import { importAdmitadFeed, startFeedSyncScheduler } from '../services/admitadFeedService';
 import { searchAdmitadProducts, searchAliExpressProducts, getAdmitadStatus } from '../services/admitadService';
+import { enqueueSocialPosts } from '../services/socialQueue';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -155,6 +156,15 @@ router.post('/import', authMiddleware, async (req: AuthRequest, res: Response) =
         }
       }
     });
+
+    enqueueSocialPosts({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      description: product.description,
+      affiliate_link: product.affiliate_link
+    }, req.user?.id, true).catch(err => console.error('[SocialQueue] Error:', err));
 
     res.json({ success: true, product_id: product.id });
   } catch (error: any) {

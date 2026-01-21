@@ -647,3 +647,41 @@ model Automobile {
   @@index([created_at])
   @@map("automobiles")
 }
+
+model SocialAccount {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  platform     String    @db.VarChar(50)
+  access_token String?   @db.Text
+  page_id      String?   @db.VarChar(255)
+  page_name    String?   @db.VarChar(255)
+  enabled      Boolean   @default(true)
+  config       Json?     @db.JsonB
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@unique([user_id, platform, page_id])
+  @@index([user_id])
+  @@index([platform])
+  @@map("social_accounts")
+}
+
+model SocialPost {
+  id          Int       @id @default(autoincrement())
+  product_id  Int?
+  user_id     Int?
+  platform    String    @db.VarChar(50)
+  content     String    @db.Text
+  post_url    String?   @db.Text
+  status      String    @default("pending") @db.VarChar(30)
+  error       String?   @db.Text
+  scheduled_at DateTime?
+  published_at DateTime?
+  created_at  DateTime  @default(now())
+
+  @@index([product_id])
+  @@index([user_id])
+  @@index([status])
+  @@index([platform])
+  @@map("social_posts")
+}

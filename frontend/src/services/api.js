@@ -301,4 +301,18 @@ export const realEstateAnalyticsAPI = {
   getLeadAnalytics: (period) => api.get('/real-estate/analytics/leads', { params: { period } }),
 };
 
+export const socialAPI = {
+  getAccounts: () => api.get('/social/accounts'),
+  addAccount: (data) => api.post('/social/accounts', data),
+  deleteAccount: (id) => api.delete(`/social/accounts/${id}`),
+  toggleAccount: (id) => api.patch(`/social/accounts/${id}/toggle`),
+  getPosts: (params) => api.get('/social/posts', { params }),
+  generatePosts: (productId) => api.post('/social/posts/generate', { product_id: productId }),
+  previewContent: (productId) => api.post('/social/posts/preview', { product_id: productId }),
+  publishPost: (id) => api.post(`/social/posts/${id}/publish`),
+  deletePost: (id) => api.delete(`/social/posts/${id}`),
+  retryFailed: () => api.post('/social/posts/retry-failed'),
+  getStats: () => api.get('/social/stats'),
+};
+
 export default api;

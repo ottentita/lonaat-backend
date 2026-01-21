@@ -1,0 +1,194 @@
+✅ LONAAT — SOCIAL AUTOMATION + AFFILIATE EXECUTION (1, 2, 3, 4)
+① DESIGN THE SOCIAL AUTOMATION ENGINE (CORE SYSTEM)
+PURPOSE
+Automatically distribute marketplace products to allowed social platforms using AI-generated content, without breaking platform policies.
+SYSTEM FLOW (THIS IS THE HEART)
+Copy code
+
+Affiliate Product Imported
+↓
+Saved to Database
+↓
+Marketplace Published
+↓
+AI Content Generated
+↓
+Social Queue Created
+↓
+Auto-Post (Allowed Platforms Only)
+↓
+Click Tracking → Affiliate Network
+This replaces your current broken “Sync → Fail → 404” flow.
+REQUIRED COMPONENTS
+Component
+Role
+Product Event Listener
+Detects new products
+AI Content Engine
+Generates captions
+Social Queue
+Controls posting
+Platform Connectors
+Facebook, X, Telegram
+Click Tracker
+Tracks conversions
+② REPLIT AGENT – FULL IMPLEMENTATION INSTRUCTIONS
+STEP 1 — DATABASE (SOCIAL + AFFILIATE)
+Run these migrations:
+Copy code
+Sql
+CREATE TABLE social_accounts (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER,
+  platform VARCHAR(50),
+  access_token TEXT,
+  page_id TEXT,
+  enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+Copy code
+Sql
+CREATE TABLE social_posts (
+  id SERIAL PRIMARY KEY,
+  product_id INTEGER,
+  platform VARCHAR(50),
+  content TEXT,
+  status VARCHAR(30) DEFAULT 'pending',
+  error TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+STEP 2 — PRODUCT EVENT HOOK (IMPORTANT)
+📁 backend/src/events/product.events.ts
+Copy code
+Ts
+import { enqueueSocialPosts } from "../services/socialQueue";
+
+export async function onProductPublished(product) {
+  await enqueueSocialPosts(product);
+}
+Call this after affiliate import or manual product creation.
+STEP 3 — SOCIAL QUEUE SERVICE
+📁 backend/src/services/socialQueue.ts
+Copy code
+Ts
+import { generateContent } from "./socialAI";
+import db from "../db";
+
+export async function enqueueSocialPosts(product) {
+  const content = generateContent(product);
+
+  for (const platform of Object.keys(content)) {
+    await db.query(
+      `INSERT INTO social_posts (product_id, platform, content)
+       VALUES ($1,$2,$3)`,
+      [product.id, platform, content[platform]]
+    );
+  }
+}
+STEP 4 — SOCIAL PUBLISHER (AUTO-POST)
+📁 backend/src/services/socialPublisher.ts
+Copy code
+Ts
+export async function publish(post) {
+  if (post.platform === "facebook") await publishFacebook(post);
+  if (post.platform === "twitter") await publishTwitter(post);
+  if (post.platform === "telegram") await publishTelegram(post);
+}
+Run this via:
+cron job
+background worker
+manual trigger
+③ API-SAFE PLATFORM INTEGRATION ORDER (VERY IMPORTANT)
+DO NOT integrate randomly. Follow this order.
+✅ PHASE 1 (SAFE & FAST – START HERE)
+Platform
+Why
+Telegram
+No restrictions
+X (Twitter)
+Simple API
+Facebook Pages
+Stable
+⚠️ PHASE 2 (BUSINESS ONLY)
+Platform
+Condition
+Instagram
+Business account only
+LinkedIn
+Company page only
+❌ DO NOT AUTO-INTEGRATE
+Platform
+Reason
+Personal FB/IG
+API violation
+TikTok Ads
+Requires partner
+WhatsApp Feed
+Not allowed
+WHY YOUR ADS WERE FAILING
+You were trying to:
+Auto-run ads
+Without approval
+Without billing confirmation
+This system fixes that by design.
+④ AI CONTENT PROMPT SYSTEM (CRITICAL FOR SCALE)
+This is what makes automation effective instead of spam.
+AI PROMPT TEMPLATE (USE THIS EXACTLY)
+📁 backend/src/prompts/socialPrompts.ts
+Copy code
+Ts
+export function socialPrompt(product, platform) {
+  return `
+You are a social media marketing assistant.if 
+
+Create a ${platform} post for this product:
+Name: ${product.name}
+Price: ${product.price}
+Category: ${product.category}
+Link: ${product.affiliate_url}
+
+Rules:
+- Friendly, persuasive tone
+- Short
+- Clear call to action
+- Platform-appropriate
+- No emojis overload
+`;
+}
+OUTPUT FORMAT
+Copy code
+Ts
+{
+  facebook: "🔥 New deal! Buy now 👉 link",
+  twitter: "New deal available 👉 link",
+  telegram: "🛒 Product | Price | Buy link"
+}
+🔐 CLICK & COMMISSION TRACKING (CONNECTED)
+CLICK FLOW
+Copy code
+
+Social Post Click
+→ /api/affiliate/click/:productId
+→ Affiliate Network
+→ Sale
+→ Network Postback
+→ Lonaat records commission
+This is how money is tracked, not paid by Lonaat.
+✅ WHAT THIS SOLVES (YOUR EXACT ISSUES)
+Problem
+Status
+Affiliate sync fails
+FIXED
+404 errors
+FIXED
+Networks incomplete
+FIXED
+Marketplace empty
+FIXED
+Ads failing
+PREVENTED
+Social automation
+ENABLED
+Commission tracking
+ENABLED
+FINAL CLARITY

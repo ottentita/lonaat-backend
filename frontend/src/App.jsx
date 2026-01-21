@@ -24,6 +24,7 @@ import AffiliateNetworks from './pages/user/AffiliateNetworks';
 import Subscriptions from './pages/user/Subscriptions';
 import OffersLeads from './pages/user/OffersLeads';
 import Automobiles from './pages/user/Automobiles';
+import SocialAutomation from './pages/user/SocialAutomation';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -108,6 +109,7 @@ function App() {
         <Route path="/dashboard/offers-leads" element={<ProtectedRoute><OffersLeads /></ProtectedRoute>} />
         <Route path="/dashboard/subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
         <Route path="/dashboard/automobiles" element={<ProtectedRoute><Automobiles /></ProtectedRoute>} />
+        <Route path="/dashboard/social" element={<ProtectedRoute><SocialAutomation /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />

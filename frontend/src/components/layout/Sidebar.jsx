@@ -23,7 +23,8 @@ import {
   UserPlus,
   BarChart3,
   Gift,
-  Car
+  Car,
+  Share2
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -35,6 +36,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/dashboard/products', icon: Package, label: 'My Products' },
     { to: '/dashboard/networks', icon: Globe, label: 'Affiliate Networks' },
     { to: '/dashboard/offers-leads', icon: Gift, label: 'Offers & Leads' },
+    { to: '/dashboard/social', icon: Share2, label: 'Social Automation' },
     { to: '/dashboard/real-estate', icon: Home, label: 'Real Estate' },
     { to: '/dashboard/automobiles', icon: Car, label: 'Automobiles' },
     { to: '/dashboard/land-registry', icon: MapPin, label: 'Land Registry' },
