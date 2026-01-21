@@ -6,7 +6,7 @@ import { authMiddleware, AuthRequest, creditCheckMiddleware } from '../middlewar
 const router = Router();
 const prisma = new PrismaClient();
 
-const CAMPAIGN_COST = 0;
+const CAMPAIGN_COST = 10;
 const CAMPAIGN_DURATION_HOURS = 24;
 const MAX_AI_BOOSTS_PER_DAY = 5;
 
@@ -63,7 +63,13 @@ router.post('/', [
     const { product_id, boost_type } = req.body;
     const isAdminCampaign = req.user!.isAdmin;
     
-    const creditCost = isAdminCampaign ? 0 : CAMPAIGN_COST;
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { trial_ends_at: true }
+    });
+    const isInTrial = user?.trial_ends_at && new Date(user.trial_ends_at) > new Date();
+    
+    const creditCost = (isAdminCampaign || isInTrial) ? 0 : CAMPAIGN_COST;
 
     const product = await prisma.product.findUnique({
       where: { id: parseInt(product_id) }
