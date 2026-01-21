@@ -59,7 +59,7 @@ router.post('/register', registerLimiter, [
     const newReferralCode = generateReferralCode();
     
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
     const user = await prisma.user.create({
       data: {
