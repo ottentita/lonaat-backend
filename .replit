@@ -71,3 +71,8 @@ externalPort = 3000
 [[ports]]
 localPort = 8000
 externalPort = 8000
+
+[userenv]
+
+[userenv.shared]
+ADMITAD_FEED_URL = "https://export.admitad.com/en/webmaster/websites/2898228/products/export_adv_products/?user=voma_otten-tita-sembib5ca7&code=4ul358eep0&template=77665&currency=USD&feed_id=24254&last_import="
