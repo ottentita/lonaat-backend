@@ -9,6 +9,8 @@
     "node": "20.x"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-select": "^2.2.6",
     "axios": "^1.13.2",
     "fast-xml-parser": "^5.3.3",
     "leaflet": "^1.9.4",
