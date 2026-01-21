@@ -25,6 +25,7 @@ import { initPostGIS } from './services/gpsVerification';
 import { initializeAdmitadNetworks } from './services/admitadService';
 import affiliateRoutes from './routes/affiliate';
 import mobileRoutes from './routes/mobile';
+import adsRoutes from './routes/ads';
 import { startFeedSyncScheduler } from './services/admitadFeedService';
 
 dotenv.config();
@@ -73,6 +74,7 @@ app.use('/api/real-estate/analytics', realEstateAnalyticsRoutes);
 app.use('/api/affiliate', affiliateRoutes);
 app.use('/api/track', affiliateRoutes);
 app.use('/api/mobile', mobileRoutes);
+app.use('/api/ads', adsRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {

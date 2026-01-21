@@ -522,6 +522,36 @@ router.post('/ai/run-ads/all', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.post('/ai/generate-ads', async (req: AuthRequest, res: Response) => {
+  try {
+    const { product_ids, generate_for_all } = req.body;
+    
+    const job = await prisma.aIJob.create({
+      data: {
+        job_type: 'generate_product_ads',
+        status: 'pending',
+        input_data: { 
+          product_ids: product_ids || [],
+          generate_for_all: generate_for_all || false
+        },
+        user_id: req.user!.id
+      }
+    });
+
+    processAIJob(job.id).catch(err => console.error('AI job processing error:', err));
+
+    res.json({ 
+      success: true,
+      message: 'Ad generation started', 
+      job_id: job.id,
+      status: 'processing'
+    });
+  } catch (error) {
+    console.error('Generate ads error:', error);
+    res.status(500).json({ error: 'Failed to start ad generation' });
+  }
+});
+
 router.post('/ai/run-commission-scan', async (req: AuthRequest, res: Response) => {
   try {
     const { networks } = req.body;
