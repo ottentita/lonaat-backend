@@ -125,17 +125,18 @@ const Products = () => {
 
   const handleImportOffer = async (offer) => {
     try {
-      const { data } = await offersAPI.importOffer({
+      const importPayload = {
         external_id: offer.id || offer.offer_id,
-        title: offer.name || offer.title,
+        title: offer.name || offer.title || offer.description?.slice(0, 50),
         price: offer.price,
         currency: offer.currency || 'USD',
         image: offer.image_url || offer.image,
-        affiliate_url: offer.affiliate_link || offer.url,
+        affiliate_url: offer.affiliate_link || offer.url || offer.extra_data?.raw?.clickThroughUrl,
         category: offer.category || 'General',
         network: importData.network,
         earn_mode: importData.earn_mode
-      });
+      };
+      const { data } = await offersAPI.importOffer(importPayload);
       toast.success(`Product imported successfully in ${importData.earn_mode} mode!`);
       setShowImportModal(false);
       setSearchResults([]);
