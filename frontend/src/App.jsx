@@ -23,6 +23,7 @@ import RealEstateAnalytics from './pages/user/RealEstateAnalytics';
 import AffiliateNetworks from './pages/user/AffiliateNetworks';
 import Subscriptions from './pages/user/Subscriptions';
 import OffersLeads from './pages/user/OffersLeads';
+import Automobiles from './pages/user/Automobiles';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -38,6 +39,7 @@ import FraudDetection from './pages/admin/FraudDetection';
 import AIControlCenter from './pages/admin/AIControlCenter';
 import AdminCommissions from './pages/admin/Commissions';
 import AdminLandRegistry from './pages/admin/LandRegistry';
+import AdminAutomobiles from './pages/admin/Automobiles';
 
 // Legal Pages
 import Terms from './pages/Terms';
@@ -105,6 +107,7 @@ function App() {
         <Route path="/dashboard/networks" element={<ProtectedRoute><AffiliateNetworks /></ProtectedRoute>} />
         <Route path="/dashboard/offers-leads" element={<ProtectedRoute><OffersLeads /></ProtectedRoute>} />
         <Route path="/dashboard/subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
+        <Route path="/dashboard/automobiles" element={<ProtectedRoute><Automobiles /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
@@ -119,6 +122,7 @@ function App() {
         <Route path="/admin/ai" element={<ProtectedRoute adminOnly><AIControlCenter /></ProtectedRoute>} />
         <Route path="/admin/commissions" element={<ProtectedRoute adminOnly><AdminCommissions /></ProtectedRoute>} />
         <Route path="/admin/land-registry" element={<ProtectedRoute adminOnly><AdminLandRegistry /></ProtectedRoute>} />
+        <Route path="/admin/automobiles" element={<ProtectedRoute adminOnly><AdminAutomobiles /></ProtectedRoute>} />
 
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />

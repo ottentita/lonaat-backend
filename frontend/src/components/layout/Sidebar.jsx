@@ -22,7 +22,8 @@ import {
   MapPin,
   UserPlus,
   BarChart3,
-  Gift
+  Gift,
+  Car
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -35,6 +36,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/dashboard/networks', icon: Globe, label: 'Affiliate Networks' },
     { to: '/dashboard/offers-leads', icon: Gift, label: 'Offers & Leads' },
     { to: '/dashboard/real-estate', icon: Home, label: 'Real Estate' },
+    { to: '/dashboard/automobiles', icon: Car, label: 'Automobiles' },
     { to: '/dashboard/land-registry', icon: MapPin, label: 'Land Registry' },
     { to: '/dashboard/property-leads', icon: UserPlus, label: 'Property Leads' },
     { to: '/dashboard/real-estate-analytics', icon: BarChart3, label: 'RE Analytics' },
@@ -53,6 +55,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/admin/users', icon: Users, label: 'Users' },
     { to: '/admin/products', icon: Package2, label: 'Products' },
     { to: '/admin/real-estate', icon: Home, label: 'Real Estate' },
+    { to: '/admin/automobiles', icon: Car, label: 'Automobiles' },
     { to: '/admin/land-registry', icon: MapPin, label: 'Land Registry' },
     { to: '/admin/ads', icon: Megaphone, label: 'Ad Campaigns' },
     { to: '/admin/commissions', icon: TrendingUp, label: 'Commissions' },
