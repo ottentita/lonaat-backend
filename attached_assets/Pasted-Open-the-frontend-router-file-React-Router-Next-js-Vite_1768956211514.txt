@@ -1,0 +1,86 @@
+Open the frontend router file
+(React Router / Next.js / Vite Router – locate routes, App.jsx, or router.tsx).
+If using React Router
+Add this route explicitly:
+Copy code
+Jsx
+import RealEstateDashboard from "@/pages/dashboard/RealEstateDashboard";
+
+<Route
+  path="/dashboard/real-estate"
+  element={<RealEstateDashboard />}
+/>
+⚠️ Ensure:
+Path spelling matches EXACTLY
+File exists at:
+Copy code
+
+/client/pages/dashboard/RealEstateDashboard.jsx
+🔧 STEP 2 — FIX SIDEBAR LINK (COMMON SOURCE OF 404)
+Instruction to agent:
+Update the sidebar menu item to point to the registered route.
+Copy code
+Js
+{
+  label: "Real Estate",
+  icon: HomeIcon,
+  href: "/dashboard/real-estate"
+}
+❌ Remove any link to:
+Copy code
+
+/admin/real-estate
+unless explicitly clicking Admin → Reviews
+🔧 STEP 3 — ADD SPA FALLBACK ON BACKEND (VERY IMPORTANT)
+Most Replit 404s happen because the server does not redirect unknown routes to index.html.
+If backend is Node + Express
+Tell the agent to add this AFTER all API routes:
+Copy code
+Js
+import path from "path";
+
+app.use(express.static(path.join(__dirname, "../client/dist")));
+
+app.get("*", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../client/dist/index.html")
+  );
+});
+This ensures:
+/dashboard/real-estate
+/dashboard/users
+/dashboard/products
+ALL load correctly.
+🔧 STEP 4 — VERIFY BUILD OUTPUT PATH
+Instruction to agent:
+Confirm frontend build outputs to:
+Copy code
+
+client/dist
+If using Vite:
+Copy code
+Js
+// vite.config.js
+build: {
+  outDir: "dist"
+}
+If wrong → 404 guaranteed.
+🔧 STEP 5 — REBUILD & RESTART (MANDATORY)
+Tell the agent to run in Replit Shell:
+Copy code
+Bash
+npm install
+npm run build
+npm run start
+OR (if monorepo):
+Copy code
+Bash
+cd client && npm install && npm run build
+cd ../server && npm install && npm run start
+🔍 QUICK DEBUG CHECK (AGENT MUST VERIFY)
+Ask the agent to confirm:
+✅ /dashboard/real-estate exists in router
+✅ Sidebar points to same path
+✅ Express fallback (app.get("*")) exists
+✅ index.html is served for unknown routes
+✅ No case-sensitivity mismatch
