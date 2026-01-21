@@ -1,0 +1,172 @@
+STEP A — FIX 404 ERRORS (ROOT CAUSE)
+PROBLEM
+Your frontend calls endpoints like:
+Copy code
+
+/api/affiliate/import
+/api/networks/sync
+But Express has no matching routes, so 404 is correct behavior.
+FIX — CREATE ROUTES
+📁 backend/src/routes/affiliate.routes.ts
+Copy code
+Ts
+import { Router } from "express";
+import { syncAdmitad, syncAliExpress } from "../services/affiliate.service";
+import { authMiddleware } from "../middleware/auth";
+
+const router = Router();
+
+router.post("/sync/admitad", authMiddleware, syncAdmitad);
+router.post("/sync/aliexpress", authMiddleware, syncAliExpress);
+
+export default router;
+📁 backend/src/app.ts
+Copy code
+Ts
+import affiliateRoutes from "./routes/affiliate.routes";
+
+app.use("/api/affiliate", affiliateRoutes);
+✅ This alone eliminates ALL affiliate 404 errors.
+STEP B — AFFILIATE SERVICE (IMPORT PRODUCTS)
+📁 backend/src/services/affiliate.service.ts
+Copy code
+Ts
+import axios from "axios";
+import { db } from "../db";
+
+export async function syncAdmitad(req, res) {
+  try {
+    const feedUrl = process.env.ADMITAD_FEED_URL;
+    const response = await axios.get(feedUrl);
+
+    const products = parseAdmitadXML(response.data);
+
+    for (const p of products) {
+      await db.product.upsert({
+        where: { externalId: p.id },
+        update: p,
+        create: {
+          ...p,
+          source: "ADMITAD",
+          published: true
+        }
+      });
+    }
+
+    res.json({ success: true, count: products.length });
+  } catch (e) {
+    res.status(500).json({ error: "Admitad sync failed" });
+  }
+}
+📌 Important:
+Products are now stored, not just displayed temporarily.
+STEP C — ALIEXPRESS INTEGRATION (OFFICIAL WAY)
+AliExpress DOES NOT allow scraping.
+REQUIRED:
+AliExpress Portals API (via Admitad / Portals / DS API)
+📁 syncAliExpress
+Copy code
+Ts
+export async function syncAliExpress(req, res) {
+  const apiKey = process.env.ALIEXPRESS_API_KEY;
+
+  const response = await axios.get(
+    "https://api.aliexpress.com/product/list",
+    { headers: { Authorization: apiKey } }
+  );
+
+  for (const p of response.data.products) {
+    await db.product.upsert({
+      where: { externalId: p.id },
+      update: p,
+      create: {
+        name: p.title,
+        price: p.price,
+        image: p.image,
+        url: p.affiliate_link,
+        source: "ALIEXPRESS",
+        published: true
+      }
+    });
+  }
+
+  res.json({ success: true });
+}
+③ AFFILIATE NETWORK MANAGER (WHY NETWORKS DON’T SHOW)
+PROBLEM
+Networks are hard-coded or demo-mode only.
+FIX — DATABASE-DRIVEN NETWORKS
+📁 AffiliateNetwork table:
+Copy code
+
+id
+name
+status
+apiKey
+feedUrl
+enabled
+Frontend now fetches:
+Copy code
+
+GET /api/networks
+Only enabled = true networks show.
+④ AI CONTENT ENGINE (AUTOMATIC SOCIAL CONTENT)
+📁 backend/src/services/aiContent.service.ts
+Copy code
+Ts
+export function generateSocialContent(product) {
+  return {
+    facebook: `🔥 ${product.name} only $${product.price}! Buy now 👉 ${product.url}`,
+    instagram: `🛍️ ${product.name}\n💰 $${product.price}\n#shopping #deals`,
+    twitter: `${product.name} for $${product.price} 👉 ${product.url}`
+  };
+}
+📌 This runs after product import.
+⑤ SOCIAL MEDIA INTEGRATION (SAFE & LEGAL)
+SUPPORTED (PHASE 1)
+Platform
+Method
+Facebook Pages
+Meta Graph API
+Instagram Business
+Meta Graph API
+X (Twitter)
+OAuth API
+Telegram
+Bot API
+📁 POST /api/social/publish
+Copy code
+Ts
+router.post("/publish", authMiddleware, publishToSocials);
+IMPORTANT
+Ads require manual approval
+Organic posts can be auto-published
+🔐 COMMISSION & CONVERSION TRACKING
+HOW IT WORKS
+Copy code
+
+User Click
+↓
+Tracking Link
+↓
+Affiliate Network
+↓
+Postback URL
+↓
+/api/postback
+↓
+Commission Stored
+📁 postback.route.ts
+Copy code
+Ts
+router.get("/postback", async (req, res) => {
+  await db.conversion.create({
+    data: {
+      clickId: req.query.click_id,
+      amount: req.query.amount,
+      network: req.query.network
+    }
+  });
+
+  res.send("OK");
+});

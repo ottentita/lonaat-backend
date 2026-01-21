@@ -1,0 +1,161 @@
+POINT 1 — FIX THE AFFILIATE IMPORT & 404 ERRORS (FOUNDATION)
+🔴 CURRENT PROBLEM
+Clicking Import / Bulk Import → 404 error
+Clicking Sync Products → fails
+Products never reach marketplace
+✅ ROOT CAUSE (VERY IMPORTANT)
+Your frontend is calling API endpoints that do not exist or are not registered in Express.
+404 does NOT mean affiliate failure
+It means backend routing failure
+✅ REQUIRED BACKEND STRUCTURE (MANDATORY)
+📁 backend/src/routes/affiliate.routes.ts
+Copy code
+Ts
+import { Router } from "express";
+import { syncAdmitad, syncAliExpress } from "../services/affiliate.service";
+import { authMiddleware } from "../middleware/auth";
+
+const router = Router();
+
+router.post("/sync/admitad", authMiddleware, syncAdmitad);
+router.post("/sync/aliexpress", authMiddleware, syncAliExpress);
+
+export default router;
+📁 backend/src/app.ts
+Copy code
+Ts
+import affiliateRoutes from "./routes/affiliate.routes";
+
+app.use("/api/affiliate", affiliateRoutes);
+✅ FRONTEND MUST CALL:
+Copy code
+
+POST /api/affiliate/sync/admitad
+POST /api/affiliate/sync/aliexpress
+✅ This completely removes all 404 import errors.
+③ POINT 3 — AFFILIATE NETWORK MANAGER (WHY NETWORKS DON’T SHOW)
+🔴 CURRENT PROBLEM
+Only Admitad & AliExpress show
+Other networks are missing
+Networks page is static / demo
+✅ ROOT CAUSE
+Networks are:
+Hard-coded
+Not database-driven
+Not marked as enabled
+✅ FIX — DATABASE-DRIVEN NETWORKS
+📁 affiliate_networks table
+Copy code
+Sql
+id
+name
+slug
+api_key
+feed_url
+enabled
+created_at
+Example records:
+Copy code
+Json
+[
+  { "name": "Admitad", "enabled": true },
+  { "name": "AliExpress", "enabled": true },
+  { "name": "Awin", "enabled": false },
+  { "name": "CJ", "enabled": false }
+]
+✅ BACKEND API
+Copy code
+
+GET /api/networks
+Returns only:
+Copy code
+Sql
+WHERE enabled = true
+✅ FRONTEND RESULT
+All enabled networks appear
+Disabled networks stay hidden
+No more “missing network” issue
+④ POINT 4 — AI CONTENT & AUTOMATIC SOCIAL POSTS
+❓ YOUR QUESTION (ANSWERED CLEARLY)
+Can a product automatically go to social media once added?
+✅ YES — ORGANIC POSTS
+❌ NO — paid ads (manual approval required)
+✅ AI CONTENT ENGINE (MANDATORY)
+📁 backend/src/services/aiContent.service.ts
+Copy code
+Ts
+export function generateSocialContent(product) {
+  return {
+    facebook: `🔥 ${product.name} for $${product.price}. Buy now 👉 ${product.url}`,
+    instagram: `🛍️ ${product.name}\n💰 $${product.price}\n#Lonaat #Deals`,
+    twitter: `${product.name} now available 👉 ${product.url}`
+  };
+}
+✅ EVENT FLOW
+Copy code
+
+Affiliate Import
+→ Save to Database
+→ Marketplace Publish
+→ AI Content Generation
+→ Social Queue
+→ Auto-Post
+No AI = no automation.
+This engine is mandatory.
+⑤ POINT 5 — SOCIAL MEDIA INTEGRATION (LEGAL & SAFE)
+⚠️ VERY IMPORTANT RULE
+Social platforms do not allow auto ads.
+✅ WHAT IS ALLOWED
+Platform
+Auto Posting
+Facebook Pages
+✅
+Instagram Business
+✅
+X (Twitter)
+✅
+Telegram
+✅
+WhatsApp
+❌
+TikTok Ads
+❌
+✅ BACKEND ROUTE
+📁 backend/src/routes/social.routes.ts
+Copy code
+Ts
+router.post("/publish", authMiddleware, publishToSocials);
+📁 publishToSocials
+Copy code
+Ts
+if (platform === "facebook") publishFacebook(post);
+if (platform === "instagram") publishInstagram(post);
+if (platform === "twitter") publishTwitter(post);
+✅ USER EXPERIENCE IN LONAAT
+Admin imports product
+Product appears in marketplace
+AI generates content
+Posts go live automatically
+Clicks tracked via affiliate links
+🔐 COMMISSION & CONVERSION TRACKING (CORE)
+HOW MONEY IS TRACKED
+Copy code
+
+User Click
+→ Affiliate Tracking Link
+→ Network Sale
+→ Postback URL
+→ Lonaat Database
+📁 /api/postback
+Copy code
+Ts
+router.get("/postback", async (req, res) => {
+  await db.conversion.create({
+    data: {
+      clickId: req.query.click_id,
+      amount: req.query.amount,
+      network: req.query.network
+    }
+  });
+  res.send("OK");
+});
