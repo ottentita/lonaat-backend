@@ -126,7 +126,13 @@ const Products = () => {
   const handleImportOffer = async (offer) => {
     try {
       const { data } = await offersAPI.importOffer({
-        offer_id: offer.id || offer.offer_id || offer.name,
+        external_id: offer.id || offer.offer_id,
+        title: offer.name || offer.title,
+        price: offer.price,
+        currency: offer.currency || 'USD',
+        image: offer.image_url || offer.image,
+        affiliate_url: offer.affiliate_link || offer.url,
+        category: offer.category || 'General',
         network: importData.network,
         earn_mode: importData.earn_mode
       });
