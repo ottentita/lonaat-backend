@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export interface AuthRequest extends Request {
-  user?: JWTPayload & { isAdmin: boolean; balance: number };
+  user?: JWTPayload & { isAdmin: boolean; balance: number; name: string };
 }
 
 export async function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
@@ -25,7 +25,7 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
   try {
     const user = await prisma.user.findUnique({
       where: { id: Number(payload.id) },
-      select: { id: true, role: true, email: true, is_admin: true, balance: true, is_blocked: true, is_active: true }
+      select: { id: true, role: true, email: true, is_admin: true, balance: true, is_blocked: true, is_active: true, name: true }
     });
 
     if (!user) {
@@ -45,7 +45,8 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
       role: user.role as 'admin' | 'user',
       email: user.email,
       isAdmin: user.is_admin || user.role === 'admin',
-      balance: user.balance
+      balance: user.balance,
+      name: user.name || user.email
     };
 
     next();
