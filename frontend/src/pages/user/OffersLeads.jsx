@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import toast from 'react-hot-toast';
-import { ShoppingBag, MousePointerClick, TrendingUp, DollarSign, ExternalLink, Copy, Filter, RefreshCw } from 'lucide-react';
+import { ShoppingBag, MousePointerClick, TrendingUp, DollarSign, ExternalLink, Copy, Filter, RefreshCw, Search } from 'lucide-react';
 import api from '../../services/api';
 
 export default function OffersLeads() {
@@ -14,6 +14,10 @@ export default function OffersLeads() {
   const [activeTab, setActiveTab] = useState('offers');
   const [selectedNetwork, setSelectedNetwork] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -57,6 +61,36 @@ export default function OffersLeads() {
   const copyAffiliateLink = (link) => {
     navigator.clipboard.writeText(link);
     toast.success('Affiliate link copied!');
+  };
+
+  const searchAdmitadProducts = async () => {
+    if (!searchQuery.trim()) {
+      toast.error('Please enter a search term');
+      return;
+    }
+    try {
+      setIsSearching(true);
+      const res = await api.get(`/affiliate/admitad/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchResults(res.data.data || []);
+      setShowSearchResults(true);
+      if ((res.data.data || []).length === 0) {
+        toast('No products found for "' + searchQuery + '"', { icon: '🔍' });
+      } else {
+        toast.success(`Found ${res.data.data.length} products`);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Search failed');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
   };
 
   const networks = ['all', 'admitad', 'aliexpress', 'awin', 'digistore24', 'mylead'];
@@ -151,6 +185,98 @@ export default function OffersLeads() {
 
         {activeTab === 'offers' && (
           <>
+            <Card className="mb-4">
+              <CardContent className="pt-4">
+                <div className="flex gap-4 items-center flex-wrap">
+                  <div className="flex items-center gap-2 flex-1 min-w-[300px]">
+                    <Search className="w-4 h-4 text-dark-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && searchAdmitadProducts()}
+                      placeholder="Search Admitad products (e.g., wear, electronics)..."
+                      className="input flex-1"
+                    />
+                    <Button onClick={searchAdmitadProducts} disabled={isSearching}>
+                      {isSearching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                      <span className="ml-2">Search</span>
+                    </Button>
+                    {showSearchResults && (
+                      <Button variant="outline" onClick={clearSearch}>
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {showSearchResults && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-white">
+                    Search Results: "{searchQuery}" ({searchResults.length} products)
+                  </h3>
+                </div>
+                {searchResults.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center">
+                      <Search className="w-12 h-12 text-dark-600 mx-auto mb-4" />
+                      <p className="text-dark-400">No products found for "{searchQuery}"</p>
+                      <p className="text-dark-500 text-sm mt-2">Try different keywords</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {searchResults.map((product, index) => (
+                      <Card key={product.id || index} className="overflow-hidden">
+                        {product.image && (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-40 object-cover"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        )}
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="text-lg font-semibold text-white line-clamp-2">{product.name}</h3>
+                            <span className="px-2 py-1 text-xs rounded bg-blue-900/30 text-blue-400">Admitad</span>
+                          </div>
+                          <p className="text-dark-400 text-sm mb-3 line-clamp-2">
+                            {product.description || `From ${product.merchant}`}
+                          </p>
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-xl font-bold text-primary-400">
+                              {product.price} {product.currency}
+                            </span>
+                            <span className="text-xs text-dark-500">{product.category}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => window.open(product.url, '_blank')}
+                              className="flex-1"
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              View Product
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => copyAffiliateLink(product.url)}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+                <hr className="border-dark-700 my-4" />
+              </div>
+            )}
+
             <div className="flex gap-4 items-center">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-dark-400" />

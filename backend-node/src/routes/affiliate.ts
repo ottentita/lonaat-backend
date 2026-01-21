@@ -29,6 +29,84 @@ router.get('/admitad/feed', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/admitad/search', async (req: Request, res: Response) => {
+  try {
+    const query = (req.query.q as string || '').toLowerCase().trim();
+    const feedUrl = process.env.ADMITAD_FEED_URL;
+
+    if (!feedUrl) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: 'ADMITAD_FEED_URL not configured'
+      });
+    }
+
+    const axios = (await import('axios')).default;
+    const { XMLParser } = await import('fast-xml-parser');
+
+    const response = await axios.get(feedUrl, {
+      timeout: 60000,
+      headers: { 'User-Agent': 'Lonaat/2.0 Feed Search' }
+    });
+
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_'
+    });
+
+    const parsed = parser.parse(response.data);
+
+    const offers = parsed?.yml_catalog?.shop?.offers?.offer ||
+                   parsed?.rss?.channel?.item ||
+                   parsed?.feed?.entry ||
+                   [];
+
+    const products = Array.isArray(offers) ? offers : [offers];
+
+    const filteredProducts = query
+      ? products.filter((item: any) => {
+          const name = (item.name || item.title || item['@_name'] || '').toLowerCase();
+          const category = (item.categoryId || item.category || '').toLowerCase();
+          const description = (item.description || item.summary || '').toLowerCase();
+          const vendor = (item.vendor || item.merchant || '').toLowerCase();
+          
+          return name.includes(query) ||
+                 category.includes(query) ||
+                 description.includes(query) ||
+                 vendor.includes(query);
+        })
+      : products;
+
+    const mappedProducts = filteredProducts.slice(0, 50).map((item: any) => ({
+      id: item['@_id'] || item.id || item.guid || String(Math.random()),
+      name: item.name || item.title || item['@_name'] || '',
+      price: parseFloat(item.price || item.priceAmount || '0'),
+      currency: item.currencyId || item.currency || item.priceCurrency || 'USD',
+      image: item.picture || item.image || item.enclosure?.['@_url'] || '',
+      url: item.url || item.link || '',
+      category: item.categoryId || item.category || 'General',
+      merchant: item.vendor || item.merchant || item.author || 'Unknown',
+      availability: item.available === 'true' || item.availability === 'in stock' ? 'in_stock' : 'out_of_stock',
+      description: item.description || item.summary || ''
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: mappedProducts,
+      total: mappedProducts.length,
+      query: query || 'all'
+    });
+  } catch (error: any) {
+    console.error('Admitad search error:', error.message);
+    res.status(200).json({
+      success: true,
+      data: [],
+      error: error.message
+    });
+  }
+});
+
 router.post('/admitad/import', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { feed_url } = req.body;
