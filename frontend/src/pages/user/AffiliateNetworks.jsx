@@ -16,8 +16,9 @@ export default function AffiliateNetworks() {
   const loadNetworks = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
       const response = await fetch('/api/affiliate/networks', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
       setNetworks(data.networks || []);
@@ -31,9 +32,14 @@ export default function AffiliateNetworks() {
   const handleSync = async (networkId) => {
     try {
       setSyncing(networkId);
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
       const response = await fetch(`/api/affiliate/sync/${networkId}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ limit: 100 })
       });
       const data = await response.json();
       if (response.ok) {
