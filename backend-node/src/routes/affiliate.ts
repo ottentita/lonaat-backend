@@ -187,7 +187,7 @@ router.get('/admitad/status', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/sync/:network', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/sync/:network', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { network } = req.params;
     const { limit = 100 } = req.body;
