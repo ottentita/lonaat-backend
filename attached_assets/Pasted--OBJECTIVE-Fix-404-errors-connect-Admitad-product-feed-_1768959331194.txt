@@ -1,0 +1,130 @@
+🔧 OBJECTIVE
+Fix 404 errors, connect Admitad product feed, populate marketplace products, and ensure frontend + admin dashboard load correctly.
+🧱 STEP 1 — VERIFY ROUTES & FIX 404 ERRORS
+Instruction to agent:
+Audit all frontend and backend routes.
+Ensure the following routes exist and return valid responses (no 404):
+/
+/login
+/signup
+/dashboard
+/products
+/real-estate
+/offers-leads
+/admin
+/api/products
+/api/affiliate/admitad/feed
+If any route is missing, create it.
+Ensure frontend routes fallback to index.html (SPA routing fix).
+Backend (Express / Nest / Fastify)
+Add:
+Copy code
+Js
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
+🔐 STEP 2 — ENVIRONMENT VARIABLES (MANDATORY)
+Instruction to agent:
+Ensure the following environment variables exist and are loaded:
+Copy code
+Env
+ADMITAD_FEED_URL=<<PASTE THE GENERATED LINK HERE>>
+ADMITAD_SUBID=subid
+DATABASE_URL=postgresql://...
+JWT_SECRET=secure_random_string
+APP_NAME=Lonaat
+🛒 STEP 3 — PRODUCT FEED INGESTION SERVICE
+Instruction to agent:
+Create a background service that:
+Fetches the Admitad XML feed every 6 hours
+Parses products
+Stores them in the database
+Prevents duplicates using product URL or GTIN
+Endpoint: POST /api/affiliate/admitad/import
+Required logic:
+Parse XML
+Map fields:
+name → title
+price → price
+picture → image
+url → affiliate_link
+categoryId → category
+vendor → merchant
+availability → stock_status
+Save to products table
+🗄️ STEP 4 — DATABASE SCHEMA (REQUIRED)
+Instruction to agent:
+Ensure the database contains:
+Products Table
+Copy code
+Sql
+id
+title
+price
+currency
+image
+affiliate_link
+category
+merchant
+availability
+gtin
+source (e.g. 'admitad')
+created_at
+updated_at
+Users Table
+Copy code
+Sql
+id
+email
+role (admin | user)
+balance
+🖥️ STEP 5 — FRONTEND FIX (WHY YOU SEE EMPTY DASHBOARD)
+Instruction to agent:
+The frontend currently shows empty sections because it is not fetching real data.
+Fix frontend to:
+Call /api/products
+Render returned products on:
+Marketplace
+Admin Products
+Offers & Leads
+Replace all placeholder/mock data with API responses.
+📊 STEP 6 — OFFERS & LEADS SECTION
+Instruction to agent:
+Build /offers-leads page that:
+Lists affiliate products as “Offers”
+Tracks clicks
+Stores leads per user
+Add click tracking endpoint: /api/track/click
+🧭 STEP 7 — REAL ESTATE SECTION (FOUNDATION ONLY FOR NOW)
+Instruction to agent:
+Do NOT mix real estate with product feed. Create independent Real Estate module:
+Routes:
+/real-estate
+/api/real-estate/listings
+Keep existing Real Estate Management but:
+Fix route mismatch causing 404
+Ensure sidebar link matches route name
+🚀 STEP 8 — DEPLOYMENT READY
+Instruction to agent:
+Ensure project:
+Builds without errors
+Uses npm run build
+Uses npm run start
+Pushes to GitHub
+App must be deployable on Render.
+✅ FINAL VERIFICATION CHECKLIST
+Agent must confirm:
+No 404 errors
+Products appear in marketplace
+Admin dashboard shows real data
+Admitad products imported successfully
+Offers & Leads page loads
+Routes work after refresh
+Ready for Render deployment
+🧠 IMPORTANT CLARIFICATION (VERY IMPORTANT)
+Lonaat does NOT receive money from buyers directly.
+✔ Users click affiliate links
+✔ Sale happens on merchant site
+✔ Commission is tracked by Admitad
+✔ Money is paid to YOU by Admitad
+✔ Lonaat tracks analytics only

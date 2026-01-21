@@ -23,6 +23,8 @@ import leadsRoutes from './routes/leads';
 import realEstateAnalyticsRoutes from './routes/realEstateAnalytics';
 import { initPostGIS } from './services/gpsVerification';
 import { initializeAdmitadNetworks } from './services/admitadService';
+import affiliateRoutes from './routes/affiliate';
+import { startFeedSyncScheduler } from './services/admitadFeedService';
 
 dotenv.config();
 
@@ -67,6 +69,8 @@ app.use('/api/networks', networkStatusRoutes);
 app.use('/api/land-registry', landRegistryRoutes);
 app.use('/api/leads', leadsRoutes);
 app.use('/api/real-estate/analytics', realEstateAnalyticsRoutes);
+app.use('/api/affiliate', affiliateRoutes);
+app.use('/api/track', affiliateRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {
@@ -117,6 +121,11 @@ async function startServer() {
     console.log('Admitad/AliExpress networks initialized');
   } catch (error) {
     console.warn('Admitad initialization warning:', error);
+  }
+
+  if (process.env.ADMITAD_FEED_URL) {
+    startFeedSyncScheduler(6);
+    console.log('Admitad feed sync scheduler started (6-hour interval)');
   }
 
   app.listen(PORT, '0.0.0.0', () => {

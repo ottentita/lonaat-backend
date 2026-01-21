@@ -21,7 +21,8 @@ import {
   Bot,
   MapPin,
   UserPlus,
-  BarChart3
+  BarChart3,
+  Gift
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
 
@@ -32,6 +33,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/dashboard/products', icon: Package, label: 'My Products' },
     { to: '/dashboard/networks', icon: Globe, label: 'Affiliate Networks' },
+    { to: '/dashboard/offers-leads', icon: Gift, label: 'Offers & Leads' },
     { to: '/dashboard/real-estate', icon: Home, label: 'Real Estate' },
     { to: '/dashboard/land-registry', icon: MapPin, label: 'Land Registry' },
     { to: '/dashboard/property-leads', icon: UserPlus, label: 'Property Leads' },

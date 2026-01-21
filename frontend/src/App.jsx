@@ -22,6 +22,7 @@ import PropertyLeads from './pages/user/PropertyLeads';
 import RealEstateAnalytics from './pages/user/RealEstateAnalytics';
 import AffiliateNetworks from './pages/user/AffiliateNetworks';
 import Subscriptions from './pages/user/Subscriptions';
+import OffersLeads from './pages/user/OffersLeads';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -101,6 +102,7 @@ function App() {
         <Route path="/dashboard/property-leads" element={<ProtectedRoute><PropertyLeads /></ProtectedRoute>} />
         <Route path="/dashboard/real-estate-analytics" element={<ProtectedRoute><RealEstateAnalytics /></ProtectedRoute>} />
         <Route path="/dashboard/networks" element={<ProtectedRoute><AffiliateNetworks /></ProtectedRoute>} />
+        <Route path="/dashboard/offers-leads" element={<ProtectedRoute><OffersLeads /></ProtectedRoute>} />
         <Route path="/dashboard/subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
