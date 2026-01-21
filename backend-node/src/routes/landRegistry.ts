@@ -561,4 +561,54 @@ router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/nearby', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    const radius = parseFloat(req.query.radius as string) || 5;
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: 'Valid lat and lng required' });
+    }
+
+    const lands = await searchLandByLocation(lat, lng, radius);
+
+    res.json({
+      success: true,
+      lands: lands.map(l => ({
+        ...l,
+        area_sqm: l.area_sqm ? Number(l.area_sqm) : null,
+        center_lat: l.center_lat ? Number(l.center_lat) : null,
+        center_lng: l.center_lng ? Number(l.center_lng) : null,
+        distance: l.distance ? Number(l.distance) : null
+      })),
+      count: lands.length,
+      search_point: { lat, lng },
+      radius_km: radius
+    });
+  } catch (error) {
+    console.error('Nearby search error:', error);
+    res.status(500).json({ error: 'Failed to search nearby lands' });
+  }
+});
+
+router.get('/:id/neighbors', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const landId = parseInt(req.params.id);
+    const radius = parseFloat(req.query.radius as string) || 1;
+
+    const neighbors = await getNeighboringLands(landId, radius);
+
+    res.json({
+      success: true,
+      neighbors,
+      count: neighbors.length,
+      radius_km: radius
+    });
+  } catch (error) {
+    console.error('Neighbors error:', error);
+    res.status(500).json({ error: 'Failed to get neighboring lands' });
+  }
+});
+
 export default router;

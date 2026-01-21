@@ -1,34 +1,79 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { landRegistryAPI } from '../../services/api';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
-import { MapPin, Search, Plus, CheckCircle, AlertTriangle, Clock, FileText, Users, ChevronRight, Map } from 'lucide-react';
+import { MapPin, Search, Plus, CheckCircle, AlertTriangle, Clock, FileText, Users, ChevronRight, Map, X, Navigation, History, MapPinned, Shield, Layers } from 'lucide-react';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+const CAMEROON_CENTER = [7.3697, 12.3547];
+const CAMEROON_BOUNDS = [[1.65, 8.5], [13.1, 16.2]];
+
+function MapController({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.flyTo(center, zoom || 12);
+    }
+  }, [center, zoom, map]);
+  return null;
+}
+
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({
+    click: (e) => {
+      if (onMapClick) {
+        onMapClick(e.latlng);
+      }
+    },
+  });
+  return null;
+}
 
 export default function LandRegistry() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('map');
   const [lands, setLands] = useState([]);
+  const [mapLands, setMapLands] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState('title');
   const [searchResults, setSearchResults] = useState(null);
   const [selectedLand, setSelectedLand] = useState(null);
-  const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [detailsTab, setDetailsTab] = useState('info');
+  const [neighbors, setNeighbors] = useState([]);
+  const [mapCenter, setMapCenter] = useState(CAMEROON_CENTER);
+  const [mapZoom, setMapZoom] = useState(6);
+  const [isAddingCoords, setIsAddingCoords] = useState(false);
+  const [newCoords, setNewCoords] = useState([]);
+  const [blockedCount, setBlockedCount] = useState(0);
+  const [gpsSearchLat, setGpsSearchLat] = useState('');
+  const [gpsSearchLng, setGpsSearchLng] = useState('');
 
   useEffect(() => {
     loadData();
+    loadMapData();
   }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [landsRes, statsRes] = await Promise.all([
-        landRegistryAPI.getLands({ limit: 50 }),
+        landRegistryAPI.getLands({ limit: 100 }),
         landRegistryAPI.getStats()
       ]);
       setLands(landsRes.data.lands || []);
       setStats(statsRes.data);
+      setBlockedCount(landsRes.data.lands?.filter(l => l.status === 'blocked' || l.status === 'disputed').length || 0);
     } catch (error) {
       console.error('Error loading land data:', error);
     } finally {
@@ -36,16 +81,27 @@ export default function LandRegistry() {
     }
   };
 
+  const loadMapData = async () => {
+    try {
+      const res = await landRegistryAPI.getMapData();
+      setMapLands(res.data.lands || []);
+    } catch (error) {
+      console.error('Error loading map data:', error);
+    }
+  };
+
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
+    if (!searchQuery.trim() && searchType !== 'gps') {
       toast.error('Enter search query');
       return;
     }
 
     try {
-      const params = {};
+      let params = {};
       if (searchType === 'title') params.title = searchQuery;
       else if (searchType === 'owner') params.owner = searchQuery;
+      else if (searchType === 'region') params.region = searchQuery;
+      else if (searchType === 'town') params.town = searchQuery;
       
       const res = await landRegistryAPI.searchLands(params);
       setSearchResults(res.data.lands || []);
@@ -55,12 +111,63 @@ export default function LandRegistry() {
     }
   };
 
+  const handleGPSSearch = async () => {
+    const lat = parseFloat(gpsSearchLat);
+    const lng = parseFloat(gpsSearchLng);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      toast.error('Enter valid GPS coordinates');
+      return;
+    }
+
+    try {
+      const res = await landRegistryAPI.searchByLocation(lat, lng, 5);
+      setSearchResults(res.data.lands || []);
+      setMapCenter([lat, lng]);
+      setMapZoom(14);
+      toast.success(`Found ${res.data.lands?.length || 0} nearby lands`);
+    } catch (error) {
+      toast.error('GPS search failed');
+    }
+  };
+
   const viewLandDetails = async (landId) => {
     try {
       const res = await landRegistryAPI.getLand(landId);
       setSelectedLand(res.data);
+      setDetailsTab('info');
+      
+      if (res.data.center_lat && res.data.center_lng) {
+        setMapCenter([Number(res.data.center_lat), Number(res.data.center_lng)]);
+        setMapZoom(15);
+      }
+      
+      try {
+        const neighborsRes = await landRegistryAPI.getNeighbors(landId);
+        setNeighbors(neighborsRes.data.neighbors || []);
+      } catch (e) {
+        setNeighbors([]);
+      }
     } catch (error) {
       toast.error('Failed to load land details');
+    }
+  };
+
+  const handleMapClick = (latlng) => {
+    if (isAddingCoords) {
+      setNewCoords(prev => [...prev, { lat: latlng.lat, lng: latlng.lng }]);
+      toast.success(`Point added: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`);
+    }
+  };
+
+  const getPolygonColor = (status) => {
+    switch (status) {
+      case 'verified': return '#22c55e';
+      case 'pending': return '#eab308';
+      case 'disputed': return '#ef4444';
+      case 'blocked': return '#dc2626';
+      case 'rejected': return '#6b7280';
+      default: return '#3b82f6';
     }
   };
 
@@ -76,10 +183,11 @@ export default function LandRegistry() {
 
   const getStatusBadge = (status) => {
     const styles = {
-      verified: 'bg-green-100 text-green-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      disputed: 'bg-red-100 text-red-800',
-      rejected: 'bg-gray-100 text-gray-800'
+      verified: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+      disputed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+      blocked: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+      rejected: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
     };
     return styles[status] || 'bg-gray-100 text-gray-800';
   };
@@ -93,657 +201,441 @@ export default function LandRegistry() {
   }
 
   return (
-    <div className="space-y-6 p-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <MapPin className="w-6 h-6" />
-            GPS Land Registry
-          </h1>
-          <p className="text-muted-foreground">Verify land ownership and prevent double sales</p>
+    <div className="h-screen flex flex-col bg-background">
+      <div className="p-4 border-b bg-card">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <MapPin className="w-6 h-6 text-primary" />
+              GPS Land Registry - Cameroon
+            </h1>
+            <p className="text-muted-foreground text-sm">Verify land ownership and prevent double sales with GPS verification</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { loadData(); loadMapData(); }}>
+              Refresh
+            </Button>
+            <Button onClick={() => setActiveTab('register')}>
+              <Plus className="w-4 h-4 mr-2" /> Register Land
+            </Button>
+          </div>
         </div>
-        <Button onClick={() => setShowRegisterForm(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Register Land
-        </Button>
+
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+            <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-3 flex items-center gap-3">
+              <Map className="w-8 h-8 text-blue-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs text-muted-foreground">Total Lands</p>
+              </div>
+            </div>
+            <div className="bg-green-50 dark:bg-green-950 rounded-lg p-3 flex items-center gap-3">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.verified}</p>
+                <p className="text-xs text-muted-foreground">Verified</p>
+              </div>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-950 rounded-lg p-3 flex items-center gap-3">
+              <Clock className="w-8 h-8 text-yellow-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.pending}</p>
+                <p className="text-xs text-muted-foreground">Pending</p>
+              </div>
+            </div>
+            <div className="bg-red-50 dark:bg-red-950 rounded-lg p-3 flex items-center gap-3">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+              <div>
+                <p className="text-2xl font-bold">{stats.disputed}</p>
+                <p className="text-xs text-muted-foreground">Disputed</p>
+              </div>
+            </div>
+            <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-3 flex items-center gap-3">
+              <Shield className="w-8 h-8 text-purple-600" />
+              <div>
+                <p className="text-2xl font-bold">{blockedCount}</p>
+                <p className="text-xs text-muted-foreground">Duplicate Blocks</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Map className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.total}</p>
-                  <p className="text-sm text-muted-foreground">Total Lands</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.verified}</p>
-                  <p className="text-sm text-muted-foreground">Verified</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Clock className="w-5 h-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.pending}</p>
-                  <p className="text-sm text-muted-foreground">Pending</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.disputed}</p>
-                  <p className="text-sm text-muted-foreground">Disputed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-80 border-r bg-card flex flex-col overflow-hidden">
+          <div className="p-3 border-b">
+            <div className="flex gap-1 mb-3">
+              {['map', 'list', 'register'].map(tab => (
+                <Button
+                  key={tab}
+                  variant={activeTab === tab ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setActiveTab(tab)}
+                  className="flex-1"
+                >
+                  {tab === 'map' && <Layers className="w-4 h-4" />}
+                  {tab === 'list' && <FileText className="w-4 h-4" />}
+                  {tab === 'register' && <Plus className="w-4 h-4" />}
+                </Button>
+              ))}
+            </div>
 
-      <div className="flex flex-wrap gap-2 border-b pb-4">
-        {['overview', 'search', 'register'].map(tab => (
-          <Button
-            key={tab}
-            variant={activeTab === tab ? 'default' : 'outline'}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab === 'overview' && 'Land Records'}
-            {tab === 'search' && <><Search className="w-4 h-4 mr-1" /> Search</>}
-            {tab === 'register' && <><Plus className="w-4 h-4 mr-1" /> Register</>}
-          </Button>
-        ))}
-      </div>
-
-      {activeTab === 'overview' && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Registered Lands</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lands.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No lands registered yet
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th className="text-left p-3">Title Number</th>
-                        <th className="text-left p-3">Owner</th>
-                        <th className="text-left p-3">Region</th>
-                        <th className="text-left p-3">Area (sqm)</th>
-                        <th className="text-left p-3">Status</th>
-                        <th className="text-left p-3">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lands.map(land => (
-                        <tr key={land.id} className="border-b hover:bg-muted/50">
-                          <td className="p-3 font-mono">{land.title_number}</td>
-                          <td className="p-3">{land.current_owner}</td>
-                          <td className="p-3">{land.region}{land.city ? `, ${land.city}` : ''}</td>
-                          <td className="p-3">{land.area_sqm ? Number(land.area_sqm).toLocaleString() : 'N/A'}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(land.status)}`}>
-                              {land.status}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <Button variant="ghost" size="sm" onClick={() => viewLandDetails(land.id)}>
-                              View <ChevronRight className="w-4 h-4 ml-1" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {stats?.by_region && stats.by_region.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Lands by Region</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {stats.by_region.map(r => (
-                    <div key={r.region} className="text-center p-3 bg-muted rounded-lg">
-                      <p className="text-xl font-bold">{r.count}</p>
-                      <p className="text-sm text-muted-foreground">{r.region}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'search' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Search Land Registry</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="space-y-2">
               <select
                 value={searchType}
                 onChange={(e) => setSearchType(e.target.value)}
-                className="border rounded-md p-2"
+                className="w-full border rounded-md p-2 text-sm bg-background"
               >
                 <option value="title">By Title Number</option>
-                <option value="owner">By Owner Name/ID</option>
+                <option value="owner">By Owner Name</option>
+                <option value="region">By Region</option>
+                <option value="town">By Town</option>
+                <option value="gps">By GPS Coordinates</option>
               </select>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={searchType === 'title' ? 'Enter title number...' : 'Enter owner name or ID...'}
-                className="flex-1 border rounded-md p-2"
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <Button onClick={handleSearch}>
-                <Search className="w-4 h-4 mr-2" /> Search
+
+              {searchType === 'gps' ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={gpsSearchLat}
+                    onChange={(e) => setGpsSearchLat(e.target.value)}
+                    placeholder="Latitude (e.g., 3.8480)"
+                    className="w-full border rounded-md p-2 text-sm bg-background"
+                  />
+                  <input
+                    type="text"
+                    value={gpsSearchLng}
+                    onChange={(e) => setGpsSearchLng(e.target.value)}
+                    placeholder="Longitude (e.g., 11.5021)"
+                    className="w-full border rounded-md p-2 text-sm bg-background"
+                  />
+                  <Button size="sm" className="w-full" onClick={handleGPSSearch}>
+                    <Navigation className="w-4 h-4 mr-2" /> Search Nearby
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="flex-1 border rounded-md p-2 text-sm bg-background"
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  />
+                  <Button size="sm" onClick={handleSearch}>
+                    <Search className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            {searchResults ? (
+              <div>
+                <div className="flex justify-between items-center mb-2 px-1">
+                  <span className="text-sm font-medium">Results ({searchResults.length})</span>
+                  <Button variant="ghost" size="sm" onClick={() => setSearchResults(null)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                {searchResults.map(land => (
+                  <LandListItem 
+                    key={land.id} 
+                    land={land} 
+                    onClick={() => viewLandDetails(land.id)}
+                    isSelected={selectedLand?.id === land.id}
+                    getStatusBadge={getStatusBadge}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-medium mb-2 px-1">All Lands ({lands.length})</p>
+                {lands.map(land => (
+                  <LandListItem 
+                    key={land.id} 
+                    land={land} 
+                    onClick={() => viewLandDetails(land.id)}
+                    isSelected={selectedLand?.id === land.id}
+                    getStatusBadge={getStatusBadge}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 relative">
+          <MapContainer
+            center={CAMEROON_CENTER}
+            zoom={6}
+            style={{ height: '100%', width: '100%' }}
+            maxBounds={CAMEROON_BOUNDS}
+            minZoom={5}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            />
+            <MapController center={mapCenter} zoom={mapZoom} />
+            <MapClickHandler onMapClick={handleMapClick} />
+
+            {mapLands.map(land => {
+              if (!land.polygon?.coordinates?.[0]) return null;
+              const positions = land.polygon.coordinates[0].map(coord => [coord[1], coord[0]]);
+              return (
+                <Polygon
+                  key={land.id}
+                  positions={positions}
+                  pathOptions={{
+                    color: getPolygonColor(land.status),
+                    fillColor: getPolygonColor(land.status),
+                    fillOpacity: selectedLand?.id === land.id ? 0.6 : 0.3,
+                    weight: selectedLand?.id === land.id ? 3 : 2
+                  }}
+                  eventHandlers={{
+                    click: () => viewLandDetails(land.id)
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm">
+                      <p className="font-bold">{land.title_number}</p>
+                      <p>Owner: {land.owner_name}</p>
+                      <p>Status: {land.status}</p>
+                      {land.area_sqm && <p>Area: {land.area_sqm.toLocaleString()} sqm</p>}
+                    </div>
+                  </Popup>
+                </Polygon>
+              );
+            })}
+
+            {isAddingCoords && newCoords.map((coord, i) => (
+              <Marker key={i} position={[coord.lat, coord.lng]}>
+                <Popup>Point {i + 1}: {coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}</Popup>
+              </Marker>
+            ))}
+
+            {selectedLand?.center_lat && selectedLand?.center_lng && (
+              <Marker position={[Number(selectedLand.center_lat), Number(selectedLand.center_lng)]}>
+                <Popup>
+                  <div className="text-sm">
+                    <p className="font-bold">{selectedLand.title_number}</p>
+                    <p>{selectedLand.current_owner}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+          </MapContainer>
+
+          <div className="absolute bottom-4 left-4 bg-card rounded-lg shadow-lg p-3 z-[1000]">
+            <p className="text-xs font-medium mb-2">Legend</p>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{backgroundColor: '#22c55e'}}></span> Verified</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{backgroundColor: '#eab308'}}></span> Pending</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{backgroundColor: '#ef4444'}}></span> Disputed</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{backgroundColor: '#3b82f6'}}></span> Active</span>
+            </div>
+          </div>
+        </div>
+
+        {selectedLand && (
+          <div className="w-96 border-l bg-card flex flex-col overflow-hidden">
+            <div className="p-3 border-b flex justify-between items-center">
+              <h3 className="font-bold">Land Details</h3>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedLand(null)}>
+                <X className="w-4 h-4" />
               </Button>
             </div>
 
-            {searchResults && (
-              <div className="mt-4">
-                <h3 className="font-semibold mb-2">Search Results ({searchResults.length})</h3>
-                {searchResults.length === 0 ? (
-                  <p className="text-muted-foreground">No lands found matching your search</p>
-                ) : (
-                  <div className="space-y-2">
-                    {searchResults.map(land => (
-                      <div key={land.id} className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer" onClick={() => viewLandDetails(land.id)}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-semibold">{land.title_number}</p>
-                            <p className="text-sm text-muted-foreground">Owner: {land.current_owner}</p>
-                            <p className="text-sm text-muted-foreground">{land.region}{land.city ? `, ${land.city}` : ''}</p>
+            <div className="flex border-b">
+              {[
+                { id: 'info', icon: FileText, label: 'Info' },
+                { id: 'neighbors', icon: Users, label: 'Neighbors' },
+                { id: 'history', icon: History, label: 'History' },
+                { id: 'location', icon: MapPinned, label: 'Location' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setDetailsTab(tab.id)}
+                  className={`flex-1 p-2 text-xs flex flex-col items-center gap-1 ${
+                    detailsTab === tab.id ? 'bg-primary/10 text-primary border-b-2 border-primary' : 'text-muted-foreground'
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              {detailsTab === 'info' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-mono text-lg font-bold">{selectedLand.title_number}</p>
+                      <p className="text-muted-foreground">{selectedLand.current_owner}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(selectedLand.status)}`}>
+                      {selectedLand.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Region</p>
+                      <p className="font-medium">{selectedLand.region}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">City</p>
+                      <p className="font-medium">{selectedLand.city || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Town</p>
+                      <p className="font-medium">{selectedLand.town || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Neighborhood</p>
+                      <p className="font-medium">{selectedLand.neighborhood || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Area</p>
+                      <p className="font-medium">{selectedLand.area_sqm ? `${Number(selectedLand.area_sqm).toLocaleString()} sqm` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Land Use</p>
+                      <p className="font-medium capitalize">{selectedLand.land_use || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Purchase Price</p>
+                      <p className="font-medium">{formatPrice(selectedLand.purchase_price, selectedLand.currency)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Purchase Date</p>
+                      <p className="font-medium">{formatDate(selectedLand.purchase_date)}</p>
+                    </div>
+                  </div>
+
+                  {selectedLand.documents && (
+                    <div>
+                      <p className="text-muted-foreground text-sm mb-2">Documents</p>
+                      <div className="space-y-1">
+                        {(Array.isArray(selectedLand.documents) ? selectedLand.documents : []).map((doc, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm bg-muted p-2 rounded">
+                            <FileText className="w-4 h-4" />
+                            <span>{doc.name || doc}</span>
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(land.status)}`}>
-                            {land.status}
-                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {detailsTab === 'neighbors' && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Neighboring lands within 1km radius
+                  </p>
+                  {neighbors.length === 0 ? (
+                    <p className="text-center py-8 text-muted-foreground">No neighboring lands found</p>
+                  ) : (
+                    neighbors.map(n => (
+                      <div key={n.id} className="border rounded-lg p-3 hover:bg-muted/50 cursor-pointer" onClick={() => viewLandDetails(n.id)}>
+                        <p className="font-mono text-sm font-bold">{n.title_number}</p>
+                        <p className="text-sm text-muted-foreground">{n.current_owner}</p>
+                        <div className="flex justify-between mt-1 text-xs">
+                          <span>{n.region}</span>
+                          <span className={`px-2 py-0.5 rounded ${getStatusBadge(n.status)}`}>{n.status}</span>
                         </div>
                       </div>
-                    ))}
+                    ))
+                  )}
+                </div>
+              )}
+
+              {detailsTab === 'history' && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">Ownership & transaction history</p>
+                  {selectedLand.ownership_history?.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedLand.ownership_history.map((h, i) => (
+                        <div key={i} className="border-l-2 border-primary pl-3 py-2">
+                          <p className="font-medium">{h.owner_name}</p>
+                          <p className="text-xs text-muted-foreground">{h.transaction_type} - {formatDate(h.transaction_date)}</p>
+                          {h.price && <p className="text-sm">{formatPrice(h.price)}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center py-8 text-muted-foreground">No history available</p>
+                  )}
+                </div>
+              )}
+
+              {detailsTab === 'location' && (
+                <div className="space-y-3">
+                  <div className="bg-muted p-3 rounded-lg">
+                    <p className="text-sm font-medium mb-2">GPS Center Point</p>
+                    <p className="font-mono text-sm">
+                      {selectedLand.center_lat ? `${Number(selectedLand.center_lat).toFixed(6)}, ${Number(selectedLand.center_lng).toFixed(6)}` : 'N/A'}
+                    </p>
                   </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  
+                  {selectedLand.polygon_coords && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Boundary Coordinates</p>
+                      <div className="bg-muted rounded-lg p-2 max-h-48 overflow-y-auto">
+                        {(Array.isArray(selectedLand.polygon_coords) ? selectedLand.polygon_coords : []).map((c, i) => (
+                          <p key={i} className="font-mono text-xs py-1 border-b last:border-0">
+                            Point {i + 1}: {c.lat?.toFixed(6)}, {c.lng?.toFixed(6)}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-      {activeTab === 'register' && (
-        <RegisterLandForm onSuccess={() => { loadData(); setActiveTab('overview'); }} />
-      )}
-
-      {selectedLand && (
-        <LandDetailsModal land={selectedLand} onClose={() => setSelectedLand(null)} />
-      )}
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      if (selectedLand.center_lat && selectedLand.center_lng) {
+                        setMapCenter([Number(selectedLand.center_lat), Number(selectedLand.center_lng)]);
+                        setMapZoom(17);
+                      }
+                    }}
+                  >
+                    <Navigation className="w-4 h-4 mr-2" /> Center on Map
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function RegisterLandForm({ onSuccess }) {
-  const [form, setForm] = useState({
-    title_number: '',
-    current_owner: '',
-    owner_id_type: 'national_id',
-    owner_id_number: '',
-    region: '',
-    city: '',
-    town: '',
-    neighborhood: '',
-    land_use: 'residential',
-    purchase_date: '',
-    purchase_price: '',
-    seller_name: '',
-    seller_id_number: '',
-    notes: '',
-    polygon_coords: []
-  });
-  const [coordInput, setCoordInput] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [verificationResult, setVerificationResult] = useState(null);
-
-  const addCoordinate = () => {
-    const match = coordInput.match(/(-?\d+\.?\d*),\s*(-?\d+\.?\d*)/);
-    if (match) {
-      const lat = parseFloat(match[1]);
-      const lng = parseFloat(match[2]);
-      setForm(prev => ({
-        ...prev,
-        polygon_coords: [...prev.polygon_coords, { lat, lng }]
-      }));
-      setCoordInput('');
-    } else {
-      toast.error('Invalid format. Use: latitude, longitude');
-    }
-  };
-
-  const removeCoordinate = (index) => {
-    setForm(prev => ({
-      ...prev,
-      polygon_coords: prev.polygon_coords.filter((_, i) => i !== index)
-    }));
-  };
-
-  const verifyBoundaries = async () => {
-    if (form.polygon_coords.length < 3) {
-      toast.error('Add at least 3 coordinates');
-      return;
-    }
-
-    setVerifying(true);
-    try {
-      const res = await landRegistryAPI.verifyBoundaries(form.polygon_coords);
-      setVerificationResult(res.data);
-      if (res.data.valid) {
-        toast.success('Boundaries verified - no conflicts');
-      } else {
-        toast.error('Conflicts detected');
-      }
-    } catch (error) {
-      toast.error('Verification failed');
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (form.polygon_coords.length < 3) {
-      toast.error('Add at least 3 boundary coordinates');
-      return;
-    }
-
-    if (!verificationResult?.valid) {
-      toast.error('Verify boundaries first');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      await landRegistryAPI.registerLand(form);
-      toast.success('Land registered successfully!');
-      onSuccess();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Registration failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const regions = ['Adamawa', 'Centre', 'East', 'Far North', 'Littoral', 'North', 'Northwest', 'South', 'Southwest', 'West'];
-
+function LandListItem({ land, onClick, isSelected, getStatusBadge }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Register New Land</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Title Number *</label>
-              <input
-                type="text"
-                value={form.title_number}
-                onChange={(e) => setForm({...form, title_number: e.target.value})}
-                className="w-full border rounded-md p-2"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Current Owner Name *</label>
-              <input
-                type="text"
-                value={form.current_owner}
-                onChange={(e) => setForm({...form, current_owner: e.target.value})}
-                className="w-full border rounded-md p-2"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Owner ID Type</label>
-              <select
-                value={form.owner_id_type}
-                onChange={(e) => setForm({...form, owner_id_type: e.target.value})}
-                className="w-full border rounded-md p-2"
-              >
-                <option value="national_id">National ID</option>
-                <option value="passport">Passport</option>
-                <option value="driver_license">Driver's License</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Owner ID Number</label>
-              <input
-                type="text"
-                value={form.owner_id_number}
-                onChange={(e) => setForm({...form, owner_id_number: e.target.value})}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Region *</label>
-              <select
-                value={form.region}
-                onChange={(e) => setForm({...form, region: e.target.value})}
-                className="w-full border rounded-md p-2"
-                required
-              >
-                <option value="">Select region</option>
-                {regions.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">City</label>
-              <input
-                type="text"
-                value={form.city}
-                onChange={(e) => setForm({...form, city: e.target.value})}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Town</label>
-              <input
-                type="text"
-                value={form.town}
-                onChange={(e) => setForm({...form, town: e.target.value})}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Land Use</label>
-              <select
-                value={form.land_use}
-                onChange={(e) => setForm({...form, land_use: e.target.value})}
-                className="w-full border rounded-md p-2"
-              >
-                <option value="residential">Residential</option>
-                <option value="commercial">Commercial</option>
-                <option value="agricultural">Agricultural</option>
-                <option value="industrial">Industrial</option>
-                <option value="mixed">Mixed Use</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Purchase Date</label>
-              <input
-                type="date"
-                value={form.purchase_date}
-                onChange={(e) => setForm({...form, purchase_date: e.target.value})}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Purchase Price (XAF)</label>
-              <input
-                type="number"
-                value={form.purchase_price}
-                onChange={(e) => setForm({...form, purchase_price: e.target.value})}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Seller Name</label>
-              <input
-                type="text"
-                value={form.seller_name}
-                onChange={(e) => setForm({...form, seller_name: e.target.value})}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Seller ID Number</label>
-              <input
-                type="text"
-                value={form.seller_id_number}
-                onChange={(e) => setForm({...form, seller_id_number: e.target.value})}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Boundary Coordinates *</label>
-            <p className="text-xs text-muted-foreground mb-2">Add GPS coordinates for each corner of the land (minimum 3 points)</p>
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text"
-                value={coordInput}
-                onChange={(e) => setCoordInput(e.target.value)}
-                placeholder="latitude, longitude (e.g., 3.8480, 11.5021)"
-                className="flex-1 border rounded-md p-2"
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCoordinate())}
-              />
-              <Button type="button" onClick={addCoordinate}>Add Point</Button>
-            </div>
-            {form.polygon_coords.length > 0 && (
-              <div className="border rounded-md p-2 bg-muted">
-                <p className="text-sm font-medium mb-2">Boundary Points ({form.polygon_coords.length})</p>
-                <div className="flex flex-wrap gap-2">
-                  {form.polygon_coords.map((coord, i) => (
-                    <span key={i} className="bg-background px-2 py-1 rounded text-sm flex items-center gap-1">
-                      {coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}
-                      <button type="button" onClick={() => removeCoordinate(i)} className="text-red-500 hover:text-red-700">&times;</button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {verificationResult && (
-            <div className={`p-4 rounded-lg ${verificationResult.valid ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className="flex items-center gap-2">
-                {verificationResult.valid ? (
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                )}
-                <p className={verificationResult.valid ? 'text-green-800' : 'text-red-800'}>
-                  {verificationResult.message}
-                </p>
-              </div>
-              {verificationResult.conflicts?.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {verificationResult.conflicts.map(c => (
-                    <div key={c.id} className="text-sm text-red-700">
-                      Conflict: {c.title_number} - Owner: {c.current_owner}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-4">
-            <Button type="button" variant="outline" onClick={verifyBoundaries} disabled={verifying || form.polygon_coords.length < 3}>
-              {verifying ? 'Verifying...' : 'Verify Boundaries'}
-            </Button>
-            <Button type="submit" disabled={submitting || !verificationResult?.valid}>
-              {submitting ? 'Registering...' : 'Register Land'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function LandDetailsModal({ land, onClose }) {
-  const [history, setHistory] = useState(null);
-
-  useEffect(() => {
-    loadHistory();
-  }, [land.land.id]);
-
-  const loadHistory = async () => {
-    try {
-      const res = await landRegistryAPI.getHistory(land.land.id);
-      setHistory(res.data);
-    } catch (error) {
-      console.error('Failed to load history');
-    }
-  };
-
-  const formatDate = (date) => date ? new Date(date).toLocaleDateString() : 'N/A';
-
-  const getStatusBadge = (status) => {
-    const styles = {
-      verified: 'bg-green-100 text-green-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      disputed: 'bg-red-100 text-red-800',
-      active: 'bg-green-100 text-green-800',
-      transferred: 'bg-blue-100 text-blue-800'
-    };
-    return styles[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-start mb-4">
-            <h2 className="text-xl font-bold">Land Details</h2>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">&times;</button>
-          </div>
-
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Title Number</p>
-                <p className="font-mono font-semibold">{land.land.title_number}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(land.land.status)}`}>
-                  {land.land.status}
-                </span>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Current Owner</p>
-                <p className="font-semibold">{land.land.current_owner}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Owner ID</p>
-                <p>{land.land.owner_id_number || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Region</p>
-                <p>{land.land.region}{land.land.city ? `, ${land.land.city}` : ''}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Area</p>
-                <p>{land.land.area_sqm ? `${Number(land.land.area_sqm).toLocaleString()} sqm` : 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Land Use</p>
-                <p className="capitalize">{land.land.land_use || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Purchase Date</p>
-                <p>{formatDate(land.land.purchase_date)}</p>
-              </div>
-            </div>
-
-            {land.neighbors?.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2">Neighboring Lands ({land.neighbors.length})</h3>
-                <div className="space-y-2">
-                  {land.neighbors.map(n => (
-                    <div key={n.id} className="border rounded p-2 text-sm">
-                      <p><strong>{n.title_number}</strong> - {n.current_owner}</p>
-                      <p className="text-muted-foreground">{n.region}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {history?.ownership_history?.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <Users className="w-4 h-4" /> Ownership History
-                </h3>
-                <div className="space-y-2">
-                  {history.ownership_history.map(o => (
-                    <div key={o.id} className="border rounded p-3">
-                      <div className="flex justify-between">
-                        <p className="font-medium">{o.owner_name}</p>
-                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(o.status)}`}>
-                          {o.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Acquired: {formatDate(o.acquired_date)}
-                        {o.acquired_price && ` | Price: XAF ${Number(o.acquired_price).toLocaleString()}`}
-                      </p>
-                      {o.seller_name && <p className="text-sm text-muted-foreground">From: {o.seller_name}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {history?.audit_logs?.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <FileText className="w-4 h-4" /> Audit Log
-                </h3>
-                <div className="space-y-1 text-sm">
-                  {history.audit_logs.slice(0, 5).map(log => (
-                    <div key={log.id} className="flex justify-between text-muted-foreground">
-                      <span>{log.action} by {log.actor_name || 'System'}</span>
-                      <span>{formatDate(log.created_at)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <Button variant="outline" onClick={onClose}>Close</Button>
-          </div>
+    <div 
+      className={`p-2 rounded-lg cursor-pointer mb-1 border ${
+        isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-muted border-transparent'
+      }`}
+      onClick={onClick}
+    >
+      <div className="flex justify-between items-start">
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-sm font-medium truncate">{land.title_number}</p>
+          <p className="text-xs text-muted-foreground truncate">{land.current_owner}</p>
+          <p className="text-xs text-muted-foreground">{land.region}{land.city ? `, ${land.city}` : ''}</p>
         </div>
+        <span className={`px-1.5 py-0.5 rounded text-[10px] ${getStatusBadge(land.status)}`}>
+          {land.status}
+        </span>
       </div>
     </div>
   );

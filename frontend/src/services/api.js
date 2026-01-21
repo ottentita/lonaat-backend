@@ -278,6 +278,9 @@ export const landRegistryAPI = {
   verifyLand: (id, data) => api.put(`/land-registry/${id}/verify`, data),
   transferOwnership: (id, data) => api.post(`/land-registry/${id}/transfer`, data),
   getStats: () => api.get('/land-registry/stats/overview'),
+  getMapData: () => api.get('/land-registry/map'),
+  searchByLocation: (lat, lng, radiusKm = 5) => api.get('/land-registry/nearby', { params: { lat, lng, radius: radiusKm } }),
+  getNeighbors: (id) => api.get(`/land-registry/${id}/neighbors`),
 };
 
 export const leadsAPI = {
