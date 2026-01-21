@@ -187,6 +187,178 @@ router.get('/admitad/status', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/sync/:network', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { network } = req.params;
+    const { limit = 100 } = req.body;
+    
+    console.log(`Starting sync for network: ${network}`);
+    
+    if (network === 'admitad') {
+      const feedUrl = process.env.ADMITAD_FEED_URL;
+      if (!feedUrl) {
+        return res.status(400).json({ 
+          error: 'ADMITAD_FEED_URL not configured',
+          hint: 'Set ADMITAD_FEED_URL in environment variables'
+        });
+      }
+      
+      const axios = (await import('axios')).default;
+      const { XMLParser } = await import('fast-xml-parser');
+      
+      console.log('Fetching Admitad feed...');
+      const response = await axios.get(feedUrl, {
+        timeout: 120000,
+        headers: { 'User-Agent': 'Lonaat/2.0 Sync' }
+      });
+      
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: '@_'
+      });
+      
+      const parsed = parser.parse(response.data);
+      const offers = parsed?.yml_catalog?.shop?.offers?.offer ||
+                     parsed?.rss?.channel?.item ||
+                     [];
+      
+      const items = Array.isArray(offers) ? offers.slice(0, limit) : [offers];
+      
+      let imported = 0;
+      let skipped = 0;
+      
+      for (const item of items) {
+        const externalId = item['@_id'] || item.id || String(Math.random());
+        const name = item.name || item.title || item['@_name'];
+        const price = parseFloat(item.price || item.priceAmount || '0');
+        const image = item.picture || item.image || '';
+        const url = item.url || item.link || '';
+        const category = item.categoryId || item.category || 'General';
+        const description = item.description || item.summary || '';
+        
+        if (!name || !url) {
+          skipped++;
+          continue;
+        }
+        
+        const existing = await prisma.product.findFirst({
+          where: {
+            network: 'admitad',
+            extra_data: { path: ['external_id'], equals: externalId }
+          }
+        });
+        
+        if (existing) {
+          skipped++;
+          continue;
+        }
+        
+        await prisma.product.create({
+          data: {
+            name,
+            price: price > 0 ? `$${price.toFixed(2)} USD` : null,
+            image_url: image || null,
+            description: description.substring(0, 500),
+            affiliate_link: url,
+            network: 'admitad',
+            category,
+            user_id: req.user?.id || null,
+            is_active: true,
+            extra_data: {
+              external_id: externalId,
+              currency: 'USD',
+              vendor: item.vendor || 'Admitad',
+              imported_at: new Date().toISOString()
+            }
+          }
+        });
+        imported++;
+      }
+      
+      return res.json({
+        success: true,
+        network: 'admitad',
+        imported,
+        skipped,
+        total_in_feed: items.length
+      });
+    }
+    
+    if (network === 'aliexpress') {
+      const products = await searchAliExpressProducts('trending');
+      
+      let imported = 0;
+      for (const p of products.slice(0, limit)) {
+        try {
+          const prod = p as any;
+          await prisma.product.create({
+            data: {
+              name: prod.name || prod.title || 'Unknown',
+              price: prod.price ? String(prod.price) : null,
+              image_url: prod.image || prod.image_url || null,
+              description: prod.description || '',
+              affiliate_link: prod.affiliate_link || prod.url || '',
+              network: 'aliexpress',
+              category: prod.category || 'General',
+              user_id: req.user?.id || null,
+              is_active: true,
+              extra_data: {
+                external_id: prod.id || String(Math.random()),
+                imported_at: new Date().toISOString()
+              }
+            }
+          });
+          imported++;
+        } catch (e) {
+          // Skip duplicates
+        }
+      }
+      
+      return res.json({
+        success: true,
+        network: 'aliexpress',
+        imported,
+        message: 'AliExpress products synced'
+      });
+    }
+    
+    if (network === 'digistore24') {
+      return res.json({
+        success: true,
+        network: 'digistore24',
+        imported: 0,
+        message: 'Digistore24 works via API - use product discovery instead'
+      });
+    }
+    
+    if (network === 'awin') {
+      return res.json({
+        success: true,
+        network: 'awin',
+        imported: 0,
+        message: 'Awin requires feed configuration - use product discovery'
+      });
+    }
+    
+    if (network === 'mylead') {
+      return res.json({
+        success: true,
+        network: 'mylead',
+        imported: 0,
+        message: 'MyLead works via API - use product discovery'
+      });
+    }
+    
+    res.status(400).json({ error: `Unknown network: ${network}` });
+  } catch (error: any) {
+    console.error(`Sync error for ${req.params.network}:`, error);
+    res.status(500).json({ 
+      error: 'Sync failed',
+      details: error.message
+    });
+  }
+});
+
 router.get('/admitad/feed', async (req: Request, res: Response) => {
   try {
     const feedUrl = process.env.ADMITAD_FEED_URL;

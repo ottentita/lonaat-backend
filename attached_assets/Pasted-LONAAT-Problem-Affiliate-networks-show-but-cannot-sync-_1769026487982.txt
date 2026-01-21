@@ -1,0 +1,106 @@
+LONAAT Problem: Affiliate networks show but cannot sync products. Sync always fails. Marketplace empty. Ads fail.
+STEP 1 — CREATE AFFILIATE NETWORKS TABLE
+Copy code
+Sql
+CREATE TABLE affiliate_networks (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(50) UNIQUE,
+  name VARCHAR(100),
+  enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+Insert networks:
+Copy code
+Sql
+INSERT INTO affiliate_networks (key, name) VALUES
+('admitad', 'Admitad'),
+('aliexpress', 'AliExpress'),
+('cj', 'Commission Junction'),
+('digistore24', 'Digistore24');
+STEP 2 — BACKEND: LIST NETWORKS API
+📁 backend/src/routes/affiliate.ts
+Copy code
+Ts
+router.get("/networks", async (req, res) => {
+  const networks = await db.query(
+    "SELECT key, name FROM affiliate_networks WHERE enabled=true"
+  );
+  res.json(networks.rows);
+});
+✅ Frontend must now fetch networks dynamically.
+STEP 3 — SYNC ENDPOINT (WHY BUTTON FAILS)
+Route
+Copy code
+Ts
+router.post("/sync/:network", auth, AffiliateController.syncNetwork);
+STEP 4 — CONTROLLER LOGIC (CRITICAL)
+📁 backend/src/controllers/affiliate.controller.ts
+Copy code
+Ts
+import axios from "axios";
+import xml2js from "xml2js";
+import db from "../db";
+
+export async function syncNetwork(req, res) {
+  const { network } = req.params;
+
+  try {
+    if (network === "admitad") {
+      const feedUrl = process.env.ADMITAD_FEED_URL;
+      const xml = await axios.get(feedUrl);
+      const parsed = await xml2js.parseStringPromise(xml.data);
+
+      const items = parsed?.yml_catalog?.shop?.[0]?.offers?.[0]?.offer || [];
+
+      for (const item of items.slice(0, 100)) {
+        await db.query(
+          `INSERT INTO affiliate_products
+          (network, external_id, title, price, currency, image, affiliate_url)
+          VALUES ($1,$2,$3,$4,$5,$6,$7)
+          ON CONFLICT DO NOTHING`,
+          [
+            "admitad",
+            item.$.id,
+            item.name?.[0],
+            item.price?.[0],
+            "USD",
+            item.picture?.[0],
+            item.url?.[0]
+          ]
+        );
+      }
+    }
+
+    if (network === "aliexpress") {
+      // placeholder for Portals API
+      throw new Error("AliExpress API not yet configured");
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Sync failed", details: err.message });
+  }
+}
+STEP 5 — ENV VARIABLES (MANDATORY)
+Replit Secrets:
+Copy code
+
+ADMITAD_FEED_URL=https://...generated-feed-link...
+If this is missing → sync WILL FAIL.
+STEP 6 — FRONTEND FIX (WHY BUTTON FAILS)
+Frontend Sync Products button must call:
+Copy code
+
+POST /api/affiliate/sync/{networkKey}
+Example:
+Copy code
+
+POST /api/affiliate/sync/admitad
+STEP 7 — VERIFY SUCCESS
+After clicking Sync Products (Admitad):
+Check DB:
+Copy code
+Sql
+SELECT COUNT(*) FROM affiliate_products;
+If count > 0 → SUCCESS.
