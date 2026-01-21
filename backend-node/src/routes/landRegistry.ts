@@ -12,6 +12,7 @@ import {
   saveGeometry,
   initPostGIS
 } from '../services/gpsVerification';
+import { generateLandHash, detectTampering } from '../services/landHash';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -145,7 +146,8 @@ router.post('/register', authMiddleware, async (req: AuthRequest, res: Response)
           center_lat: center.lat,
           center_lng: center.lng,
           land_use,
-          status: 'pending',
+          status: 'submitted',
+          verification_status: 'submitted',
           purchase_date: purchase_date ? new Date(purchase_date) : null,
           purchase_price,
           currency: currency || 'XAF',
@@ -275,16 +277,18 @@ router.get('/stats/overview', authMiddleware, async (req: AuthRequest, res: Resp
   try {
     const [
       totalLands,
+      submittedLands,
       verifiedLands,
-      pendingLands,
-      disputedLands,
+      approvedLands,
+      lockedLands,
       byRegion,
       recentRegistrations
     ] = await Promise.all([
       prisma.land.count(),
-      prisma.land.count({ where: { status: 'verified' } }),
-      prisma.land.count({ where: { status: 'pending' } }),
-      prisma.land.count({ where: { status: 'disputed' } }),
+      prisma.land.count({ where: { verification_status: 'submitted' } }),
+      prisma.land.count({ where: { verification_status: 'verified' } }),
+      prisma.land.count({ where: { verification_status: 'approved' } }),
+      prisma.land.count({ where: { is_locked: true } }),
       prisma.land.groupBy({
         by: ['region'],
         _count: true,
@@ -299,7 +303,8 @@ router.get('/stats/overview', authMiddleware, async (req: AuthRequest, res: Resp
           title_number: true,
           current_owner: true,
           region: true,
-          status: true,
+          verification_status: true,
+          is_locked: true,
           created_at: true
         }
       })
@@ -307,11 +312,16 @@ router.get('/stats/overview', authMiddleware, async (req: AuthRequest, res: Resp
 
     res.json({
       total: totalLands,
+      pending: submittedLands,
       verified: verifiedLands,
-      pending: pendingLands,
-      disputed: disputedLands,
+      approved: approvedLands,
+      locked: lockedLands,
+      disputed: 0,
       by_region: byRegion.map(r => ({ region: r.region, count: r._count })),
-      recent: recentRegistrations
+      recent: recentRegistrations.map(r => ({
+        ...r,
+        status: r.is_locked ? 'locked' : r.verification_status
+      }))
     });
   } catch (error) {
     console.error('Stats error:', error);
@@ -325,6 +335,7 @@ router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
       SELECT
         id,
         title_number,
+        land_name,
         current_owner AS owner_name,
         region,
         city,
@@ -332,25 +343,32 @@ router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
         neighborhood,
         area_sqm,
         status,
+        verification_status,
+        is_locked,
+        land_hash,
         ST_AsGeoJSON(geom) AS polygon_geojson,
         center_lat,
         center_lng
       FROM lands
       WHERE geom IS NOT NULL
-        AND status != 'rejected'
+        AND verification_status != 'rejected'
       ORDER BY created_at DESC
     `;
 
     const mapData = lands.map(land => ({
       id: land.id,
       title_number: land.title_number,
+      land_name: land.land_name,
       owner_name: land.owner_name,
       region: land.region,
       city: land.city,
       town: land.town,
       neighborhood: land.neighborhood,
       area_sqm: land.area_sqm ? Number(land.area_sqm) : null,
-      status: land.status,
+      status: land.is_locked ? 'locked' : land.verification_status,
+      verification_status: land.verification_status,
+      is_locked: land.is_locked,
+      land_hash: land.land_hash,
       polygon: land.polygon_geojson ? JSON.parse(land.polygon_geojson) : null,
       center: land.center_lat && land.center_lng 
         ? { lat: Number(land.center_lat), lng: Number(land.center_lng) }
@@ -427,8 +445,8 @@ router.put('/:id/verify', authMiddleware, adminOnlyMiddleware, async (req: AuthR
     const landId = parseInt(req.params.id);
     const { status, notes } = req.body;
 
-    if (!['verified', 'disputed', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: 'Status must be: verified, disputed, or rejected' });
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be: verified or rejected. Use POST /:id/verify-authority for full workflow.' });
     }
 
     const land = await prisma.land.findUnique({ where: { id: landId } });
@@ -436,15 +454,16 @@ router.put('/:id/verify', authMiddleware, adminOnlyMiddleware, async (req: AuthR
       return res.status(404).json({ error: 'Land not found' });
     }
 
-    const oldStatus = land.status;
+    const oldStatus = land.verification_status;
 
     const updated = await prisma.land.update({
       where: { id: landId },
       data: {
         status,
+        verification_status: status,
         verification_date: status === 'verified' ? new Date() : null,
         verified_by: status === 'verified' ? req.user!.id : null,
-        is_locked: status === 'verified',
+        verified_by_name: status === 'verified' ? req.user!.name : null,
         notes: notes || land.notes
       }
     });
@@ -463,9 +482,9 @@ router.put('/:id/verify', authMiddleware, adminOnlyMiddleware, async (req: AuthR
         actor_id: req.user!.id,
         actor_name: req.user!.name,
         actor_role: 'admin',
-        old_data: { status: oldStatus },
-        new_data: { status, notes },
-        description: `Land status changed from ${oldStatus} to ${status}`
+        old_data: { verification_status: oldStatus },
+        new_data: { verification_status: status, notes },
+        description: `Land verification_status changed from ${oldStatus} to ${status}`
       }
     });
 
@@ -546,7 +565,9 @@ router.post('/:id/transfer', authMiddleware, adminOnlyMiddleware, async (req: Au
         purchase_date: new Date(),
         purchase_price: transfer_price,
         seller_name: previousOwner,
-        status: 'pending'
+        status: 'submitted',
+        verification_status: 'submitted',
+        land_hash: null
       }
     });
 
@@ -608,6 +629,166 @@ router.get('/:id/neighbors', authMiddleware, async (req: AuthRequest, res: Respo
   } catch (error) {
     console.error('Neighbors error:', error);
     res.status(500).json({ error: 'Failed to get neighboring lands' });
+  }
+});
+
+router.post('/:id/verify-authority', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const landId = parseInt(req.params.id);
+    const { action, notes } = req.body;
+
+    const land = await prisma.land.findUnique({ where: { id: landId } });
+    if (!land) {
+      return res.status(404).json({ error: 'Land not found' });
+    }
+
+    if (land.is_locked) {
+      return res.status(400).json({ error: 'Land is locked and cannot be modified' });
+    }
+
+    const validActions = ['verify', 'approve', 'reject', 'lock'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ error: 'Invalid action. Use: verify, approve, reject, or lock' });
+    }
+
+    let newStatus = land.verification_status;
+    let updateData: any = {};
+
+    if (action === 'verify') {
+      if (land.verification_status !== 'submitted' && land.verification_status !== 'under_review') {
+        return res.status(400).json({ error: 'Can only verify lands with submitted or under_review status' });
+      }
+      newStatus = 'verified';
+      updateData = {
+        verification_status: 'verified',
+        status: 'verified',
+        verification_date: new Date(),
+        verified_by: req.user!.id,
+        verified_by_name: req.user!.name
+      };
+    } else if (action === 'approve') {
+      if (land.verification_status !== 'verified') {
+        return res.status(400).json({ error: 'Can only approve lands that are verified first' });
+      }
+      newStatus = 'approved';
+      
+      const landData = {
+        title_number: land.title_number,
+        current_owner: land.current_owner,
+        area_sqm: land.area_sqm ? parseFloat(land.area_sqm.toString()) : null,
+        polygon_wkt: land.polygon_wkt,
+        region: land.region,
+        town: land.town
+      };
+      const landHash = generateLandHash(landData);
+
+      updateData = {
+        verification_status: 'approved',
+        status: 'approved',
+        approved_at: new Date(),
+        approved_by: req.user!.id,
+        approved_by_name: req.user!.name,
+        land_hash: landHash
+      };
+    } else if (action === 'reject') {
+      newStatus = 'rejected';
+      updateData = {
+        verification_status: 'rejected',
+        status: 'rejected',
+        notes: notes ? `${land.notes || ''}\nRejected: ${notes}` : land.notes
+      };
+    } else if (action === 'lock') {
+      updateData = {
+        is_locked: true,
+        lock_reason: notes || 'Locked by authority'
+      };
+    }
+
+    const updated = await prisma.land.update({
+      where: { id: landId },
+      data: updateData
+    });
+
+    await prisma.landAuditLog.create({
+      data: {
+        land_id: landId,
+        action: `AUTHORITY_${action.toUpperCase()}`,
+        actor_id: req.user!.id,
+        actor_name: req.user!.name || 'Admin',
+        actor_role: 'admin',
+        old_data: { verification_status: land.verification_status },
+        new_data: { verification_status: newStatus, action },
+        description: `Authority ${action}: ${land.title_number}${notes ? ` - ${notes}` : ''}`
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Land ${action}d successfully`,
+      land: updated
+    });
+  } catch (error) {
+    console.error('Authority verification error:', error);
+    res.status(500).json({ error: 'Failed to process authority verification' });
+  }
+});
+
+router.get('/:id/verify-integrity', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const landId = parseInt(req.params.id);
+
+    const land = await prisma.land.findUnique({ where: { id: landId } });
+    if (!land) {
+      return res.status(404).json({ error: 'Land not found' });
+    }
+
+    const landData = {
+      title_number: land.title_number,
+      current_owner: land.current_owner,
+      area_sqm: land.area_sqm ? parseFloat(land.area_sqm.toString()) : null,
+      polygon_wkt: land.polygon_wkt,
+      region: land.region,
+      town: land.town
+    };
+
+    const result = detectTampering(landData, land.land_hash);
+    const currentHash = generateLandHash(landData);
+
+    res.json({
+      land_id: landId,
+      title_number: land.title_number,
+      integrity_check: result,
+      stored_hash: land.land_hash,
+      computed_hash: currentHash,
+      hashes_match: land.land_hash === currentHash
+    });
+  } catch (error) {
+    console.error('Integrity check error:', error);
+    res.status(500).json({ error: 'Failed to verify land integrity' });
+  }
+});
+
+router.get('/pending-verification', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const status = req.query.status as string || 'submitted';
+    
+    const lands = await prisma.land.findMany({
+      where: { verification_status: status },
+      orderBy: { created_at: 'asc' },
+      include: {
+        ownership_history: { orderBy: { created_at: 'desc' }, take: 1 }
+      }
+    });
+
+    res.json({
+      success: true,
+      lands,
+      count: lands.length,
+      status_filter: status
+    });
+  } catch (error) {
+    console.error('Pending verification error:', error);
+    res.status(500).json({ error: 'Failed to get pending verifications' });
   }
 });
 

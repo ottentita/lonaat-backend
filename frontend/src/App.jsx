@@ -37,6 +37,7 @@ import AdminSubscriptions from './pages/admin/Subscriptions';
 import FraudDetection from './pages/admin/FraudDetection';
 import AIControlCenter from './pages/admin/AIControlCenter';
 import AdminCommissions from './pages/admin/Commissions';
+import AdminLandRegistry from './pages/admin/LandRegistry';
 
 // Legal Pages
 import Terms from './pages/Terms';
@@ -117,6 +118,7 @@ function App() {
         <Route path="/admin/fraud" element={<ProtectedRoute adminOnly><FraudDetection /></ProtectedRoute>} />
         <Route path="/admin/ai" element={<ProtectedRoute adminOnly><AIControlCenter /></ProtectedRoute>} />
         <Route path="/admin/commissions" element={<ProtectedRoute adminOnly><AdminCommissions /></ProtectedRoute>} />
+        <Route path="/admin/land-registry" element={<ProtectedRoute adminOnly><AdminLandRegistry /></ProtectedRoute>} />
 
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />

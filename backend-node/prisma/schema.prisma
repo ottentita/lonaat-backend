@@ -422,6 +422,7 @@ model BankAccount {
 model Land {
   id                Int       @id @default(autoincrement())
   title_number      String    @unique @db.VarChar(100)
+  land_name         String?   @db.VarChar(255)
   owner_id          Int?
   current_owner     String    @db.VarChar(255)
   owner_id_type     String?   @db.VarChar(50)
@@ -436,11 +437,17 @@ model Land {
   center_lat        Decimal?  @db.Decimal(10, 8)
   center_lng        Decimal?  @db.Decimal(11, 8)
   land_use          String?   @db.VarChar(50)
-  status            String    @default("verified") @db.VarChar(20)
+  status            String    @default("submitted") @db.VarChar(30)
+  verification_status String  @default("submitted") @db.VarChar(30)
   is_locked         Boolean   @default(false)
   lock_reason       String?   @db.Text
   verification_date DateTime?
   verified_by       Int?
+  verified_by_name  String?   @db.VarChar(255)
+  approved_at       DateTime?
+  approved_by       Int?
+  approved_by_name  String?   @db.VarChar(255)
+  land_hash         String?   @db.VarChar(64)
   purchase_date     DateTime?
   purchase_price    Decimal?  @db.Decimal(15, 2)
   currency          String    @default("XAF") @db.VarChar(10)
@@ -457,6 +464,8 @@ model Land {
 
   @@index([region, city])
   @@index([current_owner])
+  @@index([verification_status])
+  @@index([land_hash])
   @@map("lands")
 }
 

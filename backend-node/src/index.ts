@@ -24,6 +24,7 @@ import realEstateAnalyticsRoutes from './routes/realEstateAnalytics';
 import { initPostGIS } from './services/gpsVerification';
 import { initializeAdmitadNetworks } from './services/admitadService';
 import affiliateRoutes from './routes/affiliate';
+import mobileRoutes from './routes/mobile';
 import { startFeedSyncScheduler } from './services/admitadFeedService';
 
 dotenv.config();
@@ -71,6 +72,7 @@ app.use('/api/leads', leadsRoutes);
 app.use('/api/real-estate/analytics', realEstateAnalyticsRoutes);
 app.use('/api/affiliate', affiliateRoutes);
 app.use('/api/track', affiliateRoutes);
+app.use('/api/mobile', mobileRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {

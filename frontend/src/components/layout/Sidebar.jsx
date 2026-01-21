@@ -53,6 +53,7 @@ const Sidebar = ({ onLogout }) => {
     { to: '/admin/users', icon: Users, label: 'Users' },
     { to: '/admin/products', icon: Package2, label: 'Products' },
     { to: '/admin/real-estate', icon: Home, label: 'Real Estate' },
+    { to: '/admin/land-registry', icon: MapPin, label: 'Land Registry' },
     { to: '/admin/ads', icon: Megaphone, label: 'Ad Campaigns' },
     { to: '/admin/commissions', icon: TrendingUp, label: 'Commissions' },
     { to: '/admin/subscriptions', icon: Crown, label: 'Subscriptions' },
