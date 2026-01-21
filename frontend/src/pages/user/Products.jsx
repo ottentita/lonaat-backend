@@ -107,14 +107,16 @@ const Products = () => {
     
     try {
       setSearchLoading(true);
-      const { data } = await offersAPI.getOffers(importData.network, searchQuery);
-      setSearchResults(data.products || []);
-      if (data.products.length === 0) {
+      const response = await offersAPI.getOffers(importData.network, searchQuery);
+      const products = response?.data?.products || response?.data?.offers || [];
+      setSearchResults(products);
+      if (products.length === 0) {
         toast('No offers found. Try a different search term.', { icon: '🔍' });
       }
     } catch (error) {
-      console.error('Search error:', error);
-      toast.error(error.response?.data?.error || error.message || 'Failed to search offers');
+      console.error('Search error:', error?.response?.data || error?.message || error);
+      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to search offers';
+      toast.error(errorMsg);
       setSearchResults([]);
     } finally {
       setSearchLoading(false);
