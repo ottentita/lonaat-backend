@@ -73,6 +73,7 @@ app.use('/api/land-registry', landRegistryRoutes);
 app.use('/api/leads', leadsRoutes);
 app.use('/api/real-estate/analytics', realEstateAnalyticsRoutes);
 app.use('/api/affiliate', affiliateRoutes);
+app.use('/api/offers', affiliateRoutes);
 app.use('/api/track', affiliateRoutes);
 app.use('/api/mobile', mobileRoutes);
 app.use('/api/ads', adsRoutes);

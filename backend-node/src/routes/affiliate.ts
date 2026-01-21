@@ -7,6 +7,62 @@ import { searchAdmitadProducts, searchAliExpressProducts, getAdmitadStatus } fro
 const router = Router();
 const prisma = new PrismaClient();
 
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const category = req.query.category as string;
+    const network = req.query.network as string;
+    const q = req.query.q as string;
+    const skip = (page - 1) * limit;
+
+    const where: any = { is_active: true };
+    if (category) where.category = category;
+    if (network) where.network = { equals: network, mode: 'insensitive' };
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { category: { contains: q, mode: 'insensitive' } }
+      ];
+    }
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          image_url: true,
+          affiliate_link: true,
+          network: true,
+          category: true,
+          ai_generated_ad: true,
+          extra_data: true
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    res.json({
+      products: products.map(p => ({
+        ...p,
+        commission: '10-30%',
+        price: p.price || 'Contact for price'
+      })),
+      offers: products,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/networks', async (req: Request, res: Response) => {
   try {
     const networks = await prisma.affiliateNetwork.findMany({
@@ -691,6 +747,11 @@ router.get('/offers', async (req: Request, res: Response) => {
     ]);
 
     res.json({
+      products: products.map(p => ({
+        ...p,
+        commission: '10-30%',
+        price: p.price || 'Contact for price'
+      })),
       offers: products,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     });
