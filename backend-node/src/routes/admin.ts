@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
-import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts, detectFraud, runFraudScan, autoBoostAdminProducts, scanNetworksForProducts } from '../services/ai';
+import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts, detectFraud, runFraudScan, autoBoostAdminProducts, scanNetworksForProducts, autoImportAliExpressProducts, runAIAutoImportCycle } from '../services/ai';
 import { syncAllNetworks, syncDigistore24Products, syncAwinProducts, syncMyLeadProducts, syncPartnerStackProducts, getNetworkStatus } from '../services/networkSync';
 
 const router = Router();
@@ -796,6 +796,35 @@ router.post('/ai/scan-networks', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Network scan error:', error);
     res.status(500).json({ error: 'Failed to scan networks' });
+  }
+});
+
+router.post('/ai/auto-import-aliexpress', async (req: AuthRequest, res: Response) => {
+  try {
+    const { category, count } = req.body;
+    const result = await autoImportAliExpressProducts(category, count || 20);
+    res.json({
+      message: `Auto-imported ${result.imported} AliExpress products with AI ads`,
+      ...result
+    });
+  } catch (error) {
+    console.error('AliExpress auto-import error:', error);
+    res.status(500).json({ error: 'Failed to auto-import AliExpress products' });
+  }
+});
+
+router.post('/ai/run-full-cycle', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await runAIAutoImportCycle();
+    res.json({
+      message: 'AI auto-import cycle completed',
+      aliexpress_products: result.aliexpress_imported,
+      ads_generated: result.ads_generated,
+      campaigns_boosted: result.boosted
+    });
+  } catch (error) {
+    console.error('AI cycle error:', error);
+    res.status(500).json({ error: 'Failed to run AI auto-import cycle' });
   }
 });
 

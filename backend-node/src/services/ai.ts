@@ -585,3 +585,95 @@ export async function scanNetworksForProducts(): Promise<{ discovered: number }>
   const result = await importDiscoveredProducts(products, adminUser.id, true);
   return { discovered: result.imported };
 }
+
+export async function autoImportAliExpressProducts(category?: string, count: number = 20): Promise<{ imported: number; products: any[] }> {
+  const { searchAliExpressProducts } = await import('./admitadService');
+  
+  const adminUser = await prisma.user.findFirst({
+    where: { is_admin: true }
+  });
+
+  if (!adminUser) {
+    return { imported: 0, products: [] };
+  }
+
+  const query = category || 'trending products';
+  const aliProducts = await searchAliExpressProducts(query);
+  const importedProducts: any[] = [];
+
+  for (const product of aliProducts.slice(0, count)) {
+    try {
+      const existingProduct = await prisma.product.findFirst({
+        where: {
+          network: 'aliexpress',
+          extra_data: { path: ['external_id'], equals: product.id }
+        }
+      });
+
+      if (!existingProduct) {
+        const adText = await generateProductAd(product);
+
+        const created = await prisma.product.create({
+          data: {
+            user_id: adminUser.id,
+            name: product.name,
+            description: product.description,
+            price: `$${product.price}`,
+            category: product.category,
+            network: 'aliexpress',
+            affiliate_link: product.url,
+            image_url: product.image_url,
+            ai_generated_ad: adText,
+            extra_data: { 
+              external_id: product.id,
+              commission_rate: product.commission_rate,
+              merchant: product.merchant,
+              ai_imported: true
+            },
+            is_active: true
+          }
+        });
+
+        importedProducts.push(created);
+      }
+    } catch (err) {
+      console.error(`Failed to import AliExpress product ${product.name}:`, err);
+    }
+  }
+
+  return { imported: importedProducts.length, products: importedProducts };
+}
+
+export async function runAIAutoImportCycle(): Promise<{ aliexpress_imported: number; ads_generated: number; boosted: number }> {
+  console.log('Running AI auto-import cycle...');
+  
+  const aliexpress = await autoImportAliExpressProducts();
+  console.log(`Imported ${aliexpress.imported} AliExpress products`);
+
+  const products = await prisma.product.findMany({
+    where: { is_active: true, ai_generated_ad: null },
+    take: 10
+  });
+
+  let adsGenerated = 0;
+  for (const product of products) {
+    try {
+      const adText = await generateProductAd(product);
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { ai_generated_ad: adText }
+      });
+      adsGenerated++;
+    } catch (err) {
+      console.error(`Failed to generate ad for product ${product.id}:`, err);
+    }
+  }
+
+  const boostResult = await autoBoostAdminProducts();
+
+  return {
+    aliexpress_imported: aliexpress.imported,
+    ads_generated: adsGenerated,
+    boosted: boostResult.boosted
+  };
+}
