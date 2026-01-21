@@ -53,6 +53,19 @@ export default function AdminLandRegistry() {
   const [sections, setSections] = useState([]);
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSection, setNewSection] = useState({ section_name: '', section_type: 'sitting', area_sqm: '', description: '', capacity: '' });
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState({
+    auto_verify_threshold: 1000,
+    require_gps_for_registration: true,
+    allow_self_registration: true,
+    min_area_sqm: 100,
+    max_area_sqm: 100000,
+    default_currency: 'XAF',
+    verification_expiry_days: 365,
+    require_documents: true,
+    notify_on_verification: true,
+    allow_transfer_requests: true
+  });
 
   const getToken = () => localStorage.getItem('token');
 
@@ -295,8 +308,138 @@ export default function AdminLandRegistry() {
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowSettings(!showSettings)}
+            className="flex items-center gap-2"
+          >
+            Settings
+          </Button>
         </div>
       </div>
+
+      {showSettings && (
+        <Card className="bg-gray-50">
+          <CardHeader>
+            <CardTitle className="text-lg">Land Registry Settings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-4">
+                <h4 className="font-semibold text-sm text-gray-700 border-b pb-2">Registration Settings</h4>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={settings.require_gps_for_registration}
+                    onChange={(e) => setSettings({...settings, require_gps_for_registration: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">Require GPS coordinates for registration</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={settings.allow_self_registration}
+                    onChange={(e) => setSettings({...settings, allow_self_registration: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">Allow self-registration by users</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={settings.require_documents}
+                    onChange={(e) => setSettings({...settings, require_documents: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">Require document uploads</span>
+                </label>
+                <div>
+                  <label className="text-sm text-gray-600">Default Currency</label>
+                  <select
+                    value={settings.default_currency}
+                    onChange={(e) => setSettings({...settings, default_currency: e.target.value})}
+                    className="w-full mt-1 px-3 py-2 border rounded text-sm"
+                  >
+                    <option value="XAF">XAF (CFA Franc)</option>
+                    <option value="USD">USD (US Dollar)</option>
+                    <option value="EUR">EUR (Euro)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-semibold text-sm text-gray-700 border-b pb-2">Area Limits</h4>
+                <div>
+                  <label className="text-sm text-gray-600">Minimum Area (m²)</label>
+                  <input
+                    type="number"
+                    value={settings.min_area_sqm}
+                    onChange={(e) => setSettings({...settings, min_area_sqm: parseInt(e.target.value) || 0})}
+                    className="w-full mt-1 px-3 py-2 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600">Maximum Area (m²)</label>
+                  <input
+                    type="number"
+                    value={settings.max_area_sqm}
+                    onChange={(e) => setSettings({...settings, max_area_sqm: parseInt(e.target.value) || 0})}
+                    className="w-full mt-1 px-3 py-2 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600">Auto-Verify Below (m²)</label>
+                  <input
+                    type="number"
+                    value={settings.auto_verify_threshold}
+                    onChange={(e) => setSettings({...settings, auto_verify_threshold: parseInt(e.target.value) || 0})}
+                    className="w-full mt-1 px-3 py-2 border rounded text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Lands below this area can be auto-verified</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-semibold text-sm text-gray-700 border-b pb-2">Verification Settings</h4>
+                <div>
+                  <label className="text-sm text-gray-600">Verification Expiry (days)</label>
+                  <input
+                    type="number"
+                    value={settings.verification_expiry_days}
+                    onChange={(e) => setSettings({...settings, verification_expiry_days: parseInt(e.target.value) || 0})}
+                    className="w-full mt-1 px-3 py-2 border rounded text-sm"
+                  />
+                </div>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={settings.notify_on_verification}
+                    onChange={(e) => setSettings({...settings, notify_on_verification: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">Notify owner on verification status change</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={settings.allow_transfer_requests}
+                    onChange={(e) => setSettings({...settings, allow_transfer_requests: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">Allow ownership transfer requests</span>
+                </label>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowSettings(false)}>Cancel</Button>
+              <Button onClick={() => { toast.success('Settings saved'); setShowSettings(false); }}>
+                Save Settings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
