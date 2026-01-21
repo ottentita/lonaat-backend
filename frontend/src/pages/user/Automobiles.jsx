@@ -29,7 +29,7 @@ export default function Automobiles() {
     try {
       setLoading(true);
       const [autosRes, statsRes] = await Promise.all([
-        fetch('/api/automobiles?status=all', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/automobiles/mine', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/automobiles/stats', { headers: { Authorization: `Bearer ${token}` } })
       ]);
       

@@ -42,6 +42,35 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/mine', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+    const status = req.query.status as string;
+
+    const where: any = { seller_id: req.user?.id };
+    if (status && status !== 'all') where.status = status;
+
+    const [automobiles, total] = await Promise.all([
+      prisma.automobile.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.automobile.count({ where })
+    ]);
+
+    res.json({
+      automobiles,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/stats', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.isAdmin ? undefined : req.user?.id;
