@@ -110,7 +110,7 @@ const Products = () => {
       const { data } = await offersAPI.getOffers(importData.network, searchQuery);
       setSearchResults(data.products || []);
       if (data.products.length === 0) {
-        toast.info('No offers found. Try a different search term.');
+        toast('No offers found. Try a different search term.', { icon: '🔍' });
       }
     } catch (error) {
       console.error('Search error:', error);
