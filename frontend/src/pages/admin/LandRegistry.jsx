@@ -46,6 +46,10 @@ export default function AdminLandRegistry() {
   const [filter, setFilter] = useState('all');
   const [mapCenter, setMapCenter] = useState([7.3697, 12.3547]);
   const [mapZoom, setMapZoom] = useState(6);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [detailsTab, setDetailsTab] = useState('info');
+  const [history, setHistory] = useState([]);
+  const [neighbors, setNeighbors] = useState([]);
 
   const getToken = () => localStorage.getItem('token');
 
@@ -86,6 +90,32 @@ export default function AdminLandRegistry() {
       console.error('Error fetching stats:', error);
     }
   }, []);
+
+  const fetchHistory = async (landId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/land-registry/${landId}/history`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+      });
+      const data = await response.json();
+      setHistory(data.history || data.auditLog || []);
+    } catch (error) {
+      console.error('Error fetching history:', error);
+      setHistory([]);
+    }
+  };
+
+  const fetchNeighbors = async (landId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/land-registry/${landId}/neighbors`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+      });
+      const data = await response.json();
+      setNeighbors(data.neighbors || []);
+    } catch (error) {
+      console.error('Error fetching neighbors:', error);
+      setNeighbors([]);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -154,13 +184,35 @@ export default function AdminLandRegistry() {
       setMapZoom(15);
     }
     setSelectedLand(land);
+    setDetailsTab('info');
+    fetchHistory(land.id);
+    fetchNeighbors(land.id);
   };
+
+  const filteredLands = lands.filter(land => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      land.title_number?.toLowerCase().includes(query) ||
+      land.current_owner?.toLowerCase().includes(query) ||
+      land.region?.toLowerCase().includes(query) ||
+      land.town?.toLowerCase().includes(query) ||
+      land.city?.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-3xl font-bold text-gray-900">Land Registry Management</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="text"
+            placeholder="Search owner, title, region..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+          />
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -273,33 +325,52 @@ export default function AdminLandRegistry() {
           <Card>
             <CardHeader>
               <CardTitle>Land Details</CardTitle>
+              {selectedLand && (
+                <div className="flex gap-1 mt-2 border-b">
+                  {['info', 'history', 'neighbors'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setDetailsTab(tab)}
+                      className={`px-3 py-1.5 text-sm font-medium capitalize ${
+                        detailsTab === tab 
+                          ? 'border-b-2 border-blue-600 text-blue-600' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {selectedLand ? (
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Title Number</label>
-                    <p className="font-bold">{selectedLand.title_number}</p>
-                  </div>
-                  {selectedLand.land_name && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Land Name</label>
-                      <p>{selectedLand.land_name}</p>
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Owner</label>
-                    <p>{selectedLand.current_owner}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Location</label>
-                    <p>{selectedLand.region}, {selectedLand.city || selectedLand.town}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Area</label>
-                    <p>{selectedLand.area_sqm?.toLocaleString()} m²</p>
-                  </div>
-                  <div>
+                  {detailsTab === 'info' && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Title Number</label>
+                        <p className="font-bold">{selectedLand.title_number}</p>
+                      </div>
+                      {selectedLand.land_name && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Land Name</label>
+                          <p>{selectedLand.land_name}</p>
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Owner</label>
+                        <p>{selectedLand.current_owner}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Location</label>
+                        <p>{selectedLand.region}, {selectedLand.city || selectedLand.town}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Area</label>
+                        <p>{selectedLand.area_sqm?.toLocaleString()} m²</p>
+                      </div>
+                      <div>
                     <label className="text-sm font-medium text-gray-500">Status</label>
                     <span className={`ml-2 px-2 py-1 text-xs rounded ${
                       selectedLand.verification_status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -366,14 +437,62 @@ export default function AdminLandRegistry() {
                       )}
                     </div>
                     <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleVerifyIntegrity(selectedLand.id)}
-                      className="w-full mt-2"
-                    >
-                      Verify Integrity (Hash Check)
-                    </Button>
-                  </div>
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleVerifyIntegrity(selectedLand.id)}
+                          className="w-full mt-2"
+                        >
+                          Verify Integrity (Hash Check)
+                        </Button>
+                      </div>
+                    </>
+                  )}
+
+                  {detailsTab === 'history' && (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {history.length === 0 ? (
+                        <p className="text-gray-500 text-sm">No history available</p>
+                      ) : (
+                        history.map((entry, idx) => (
+                          <div key={idx} className="border-l-2 border-blue-400 pl-3 py-1">
+                            <p className="font-medium text-sm">{entry.action || entry.description}</p>
+                            <p className="text-xs text-gray-500">
+                              {entry.actor_name && `By: ${entry.actor_name} | `}
+                              {new Date(entry.created_at || entry.timestamp).toLocaleString()}
+                            </p>
+                            {entry.notes && <p className="text-xs text-gray-600 mt-1">{entry.notes}</p>}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {detailsTab === 'neighbors' && (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {neighbors.length === 0 ? (
+                        <p className="text-gray-500 text-sm">No neighboring lands found</p>
+                      ) : (
+                        neighbors.map((neighbor, idx) => (
+                          <div 
+                            key={idx} 
+                            className="p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                            onClick={() => focusOnLand(neighbor)}
+                          >
+                            <p className="font-medium text-sm">{neighbor.title_number}</p>
+                            <p className="text-xs text-gray-600">{neighbor.current_owner || neighbor.owner_name}</p>
+                            <p className="text-xs text-gray-500">{neighbor.region}, {neighbor.town}</p>
+                            <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded ${
+                              getStatus(neighbor) === 'approved' ? 'bg-green-100 text-green-800' :
+                              getStatus(neighbor) === 'verified' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {getStatus(neighbor)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-gray-500 text-center py-8">
@@ -387,7 +506,7 @@ export default function AdminLandRegistry() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Land Registry Records ({lands.length})</CardTitle>
+          <CardTitle>Land Registry Records ({filteredLands.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -407,7 +526,7 @@ export default function AdminLandRegistry() {
                   </tr>
                 </thead>
                 <tbody>
-                  {lands.map((land) => (
+                  {filteredLands.map((land) => (
                     <tr
                       key={land.id}
                       className={`border-b hover:bg-gray-50 cursor-pointer ${

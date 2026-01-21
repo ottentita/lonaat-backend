@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
+import { authMiddleware, AuthRequest, adminOnlyMiddleware, authorityMiddleware } from '../middleware/auth';
 import { 
   verifyLandRegistration, 
   searchLandByLocation, 
@@ -632,7 +632,7 @@ router.get('/:id/neighbors', authMiddleware, async (req: AuthRequest, res: Respo
   }
 });
 
-router.post('/:id/verify-authority', authMiddleware, adminOnlyMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/:id/verify-authority', authMiddleware, authorityMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const landId = parseInt(req.params.id);
     const { action, notes } = req.body;

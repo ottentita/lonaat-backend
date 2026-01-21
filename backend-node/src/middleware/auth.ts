@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export interface AuthRequest extends Request {
-  user?: JWTPayload & { isAdmin: boolean; balance: number; name: string };
+  user?: JWTPayload & { isAdmin: boolean; isAuthority: boolean; balance: number; name: string };
 }
 
 export async function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
@@ -42,9 +42,10 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
 
     req.user = {
       id: user.id,
-      role: user.role as 'admin' | 'user',
+      role: user.role as 'admin' | 'user' | 'authority',
       email: user.email,
       isAdmin: user.is_admin || user.role === 'admin',
+      isAuthority: user.role === 'authority' || user.role === 'admin',
       balance: user.balance,
       name: user.name || user.email
     };
@@ -63,6 +64,18 @@ export async function adminOnlyMiddleware(req: AuthRequest, res: Response, next:
 
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  next();
+}
+
+export async function authorityMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!req.user.isAuthority) {
+    return res.status(403).json({ error: 'Government/Authority access required' });
   }
 
   next();
