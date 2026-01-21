@@ -575,21 +575,17 @@ router.get('/admitad/search', async (req: Request, res: Response) => {
     const feedUrl = process.env.ADMITAD_FEED_URL;
 
     if (source === 'database' || !feedUrl) {
+      const whereClause: any = { is_active: true };
+      if (query) {
+        whereClause.OR = [
+          { name: { contains: query, mode: 'insensitive' } },
+          { category: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } }
+        ];
+      }
+      
       const dbProducts = await prisma.product.findMany({
-        where: {
-          is_active: true,
-          OR: [
-            { network: 'admitad' },
-            { network: 'aliexpress' }
-          ],
-          ...(query ? {
-            OR: [
-              { name: { contains: query, mode: 'insensitive' } },
-              { category: { contains: query, mode: 'insensitive' } },
-              { description: { contains: query, mode: 'insensitive' } }
-            ]
-          } : {})
-        },
+        where: whereClause,
         take: 50,
         orderBy: { created_at: 'desc' }
       });

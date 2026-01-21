@@ -113,7 +113,8 @@ const Products = () => {
         toast.info('No offers found. Try a different search term.');
       }
     } catch (error) {
-      toast.error('Failed to search offers');
+      console.error('Search error:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to search offers');
       setSearchResults([]);
     } finally {
       setSearchLoading(false);
