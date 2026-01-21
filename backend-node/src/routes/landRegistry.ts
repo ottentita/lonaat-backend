@@ -271,6 +271,134 @@ router.get('/point', authMiddleware, async (req: AuthRequest, res: Response) => 
   }
 });
 
+router.get('/stats/overview', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const [
+      totalLands,
+      verifiedLands,
+      pendingLands,
+      disputedLands,
+      byRegion,
+      recentRegistrations
+    ] = await Promise.all([
+      prisma.land.count(),
+      prisma.land.count({ where: { status: 'verified' } }),
+      prisma.land.count({ where: { status: 'pending' } }),
+      prisma.land.count({ where: { status: 'disputed' } }),
+      prisma.land.groupBy({
+        by: ['region'],
+        _count: true,
+        orderBy: { _count: { region: 'desc' } },
+        take: 10
+      }),
+      prisma.land.findMany({
+        orderBy: { created_at: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          title_number: true,
+          current_owner: true,
+          region: true,
+          status: true,
+          created_at: true
+        }
+      })
+    ]);
+
+    res.json({
+      total: totalLands,
+      verified: verifiedLands,
+      pending: pendingLands,
+      disputed: disputedLands,
+      by_region: byRegion.map(r => ({ region: r.region, count: r._count })),
+      recent: recentRegistrations
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ error: 'Failed to get land statistics' });
+  }
+});
+
+router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const lands: any[] = await prisma.$queryRaw`
+      SELECT
+        id,
+        title_number,
+        current_owner AS owner_name,
+        region,
+        city,
+        town,
+        neighborhood,
+        area_sqm,
+        status,
+        ST_AsGeoJSON(geom) AS polygon_geojson,
+        center_lat,
+        center_lng
+      FROM lands
+      WHERE geom IS NOT NULL
+        AND status != 'rejected'
+      ORDER BY created_at DESC
+    `;
+
+    const mapData = lands.map(land => ({
+      id: land.id,
+      title_number: land.title_number,
+      owner_name: land.owner_name,
+      region: land.region,
+      city: land.city,
+      town: land.town,
+      neighborhood: land.neighborhood,
+      area_sqm: land.area_sqm ? Number(land.area_sqm) : null,
+      status: land.status,
+      polygon: land.polygon_geojson ? JSON.parse(land.polygon_geojson) : null,
+      center: land.center_lat && land.center_lng 
+        ? { lat: Number(land.center_lat), lng: Number(land.center_lng) }
+        : null
+    }));
+
+    res.json({
+      success: true,
+      count: mapData.length,
+      lands: mapData
+    });
+  } catch (error) {
+    console.error('Map data error:', error);
+    res.status(500).json({ error: 'Failed to get map data' });
+  }
+});
+
+router.get('/nearby', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    const radius = parseFloat(req.query.radius as string) || 5;
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: 'Valid lat and lng required' });
+    }
+
+    const lands = await searchLandByLocation(lat, lng, radius);
+
+    res.json({
+      success: true,
+      lands: lands.map(l => ({
+        ...l,
+        area_sqm: l.area_sqm ? Number(l.area_sqm) : null,
+        center_lat: l.center_lat ? Number(l.center_lat) : null,
+        center_lng: l.center_lng ? Number(l.center_lng) : null,
+        distance: l.distance ? Number(l.distance) : null
+      })),
+      count: lands.length,
+      search_point: { lat, lng },
+      radius_km: radius
+    });
+  } catch (error) {
+    console.error('Nearby search error:', error);
+    res.status(500).json({ error: 'Failed to search nearby lands' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const land = await prisma.land.findUnique({
@@ -461,134 +589,6 @@ router.get('/:id/history', authMiddleware, async (req: AuthRequest, res: Respons
   } catch (error) {
     console.error('Get history error:', error);
     res.status(500).json({ error: 'Failed to get land history' });
-  }
-});
-
-router.get('/stats/overview', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const [
-      totalLands,
-      verifiedLands,
-      pendingLands,
-      disputedLands,
-      byRegion,
-      recentRegistrations
-    ] = await Promise.all([
-      prisma.land.count(),
-      prisma.land.count({ where: { status: 'verified' } }),
-      prisma.land.count({ where: { status: 'pending' } }),
-      prisma.land.count({ where: { status: 'disputed' } }),
-      prisma.land.groupBy({
-        by: ['region'],
-        _count: true,
-        orderBy: { _count: { region: 'desc' } },
-        take: 10
-      }),
-      prisma.land.findMany({
-        orderBy: { created_at: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          title_number: true,
-          current_owner: true,
-          region: true,
-          status: true,
-          created_at: true
-        }
-      })
-    ]);
-
-    res.json({
-      total: totalLands,
-      verified: verifiedLands,
-      pending: pendingLands,
-      disputed: disputedLands,
-      by_region: byRegion.map(r => ({ region: r.region, count: r._count })),
-      recent: recentRegistrations
-    });
-  } catch (error) {
-    console.error('Stats error:', error);
-    res.status(500).json({ error: 'Failed to get land statistics' });
-  }
-});
-
-router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const lands: any[] = await prisma.$queryRaw`
-      SELECT
-        id,
-        title_number,
-        current_owner AS owner_name,
-        region,
-        city,
-        town,
-        neighborhood,
-        area_sqm,
-        status,
-        ST_AsGeoJSON(geom) AS polygon_geojson,
-        center_lat,
-        center_lng
-      FROM lands
-      WHERE geom IS NOT NULL
-        AND status != 'rejected'
-      ORDER BY created_at DESC
-    `;
-
-    const mapData = lands.map(land => ({
-      id: land.id,
-      title_number: land.title_number,
-      owner_name: land.owner_name,
-      region: land.region,
-      city: land.city,
-      town: land.town,
-      neighborhood: land.neighborhood,
-      area_sqm: land.area_sqm ? Number(land.area_sqm) : null,
-      status: land.status,
-      polygon: land.polygon_geojson ? JSON.parse(land.polygon_geojson) : null,
-      center: land.center_lat && land.center_lng 
-        ? { lat: Number(land.center_lat), lng: Number(land.center_lng) }
-        : null
-    }));
-
-    res.json({
-      success: true,
-      count: mapData.length,
-      lands: mapData
-    });
-  } catch (error) {
-    console.error('Map data error:', error);
-    res.status(500).json({ error: 'Failed to get map data' });
-  }
-});
-
-router.get('/nearby', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const lat = parseFloat(req.query.lat as string);
-    const lng = parseFloat(req.query.lng as string);
-    const radius = parseFloat(req.query.radius as string) || 5;
-
-    if (isNaN(lat) || isNaN(lng)) {
-      return res.status(400).json({ error: 'Valid lat and lng required' });
-    }
-
-    const lands = await searchLandByLocation(lat, lng, radius);
-
-    res.json({
-      success: true,
-      lands: lands.map(l => ({
-        ...l,
-        area_sqm: l.area_sqm ? Number(l.area_sqm) : null,
-        center_lat: l.center_lat ? Number(l.center_lat) : null,
-        center_lng: l.center_lng ? Number(l.center_lng) : null,
-        distance: l.distance ? Number(l.distance) : null
-      })),
-      count: lands.length,
-      search_point: { lat, lng },
-      radius_km: radius
-    });
-  } catch (error) {
-    console.error('Nearby search error:', error);
-    res.status(500).json({ error: 'Failed to search nearby lands' });
   }
 });
 
