@@ -6,7 +6,7 @@ import { authMiddleware, AuthRequest, creditCheckMiddleware } from '../middlewar
 const router = Router();
 const prisma = new PrismaClient();
 
-const CAMPAIGN_COST = 10;
+const CAMPAIGN_COST = 0;
 const CAMPAIGN_DURATION_HOURS = 24;
 const MAX_AI_BOOSTS_PER_DAY = 5;
 
