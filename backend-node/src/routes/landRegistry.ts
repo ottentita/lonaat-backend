@@ -512,4 +512,53 @@ router.get('/stats/overview', authMiddleware, async (req: AuthRequest, res: Resp
   }
 });
 
+router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const lands: any[] = await prisma.$queryRaw`
+      SELECT
+        id,
+        title_number,
+        current_owner AS owner_name,
+        region,
+        city,
+        town,
+        neighborhood,
+        area_sqm,
+        status,
+        ST_AsGeoJSON(geom) AS polygon_geojson,
+        center_lat,
+        center_lng
+      FROM lands
+      WHERE geom IS NOT NULL
+        AND status != 'rejected'
+      ORDER BY created_at DESC
+    `;
+
+    const mapData = lands.map(land => ({
+      id: land.id,
+      title_number: land.title_number,
+      owner_name: land.owner_name,
+      region: land.region,
+      city: land.city,
+      town: land.town,
+      neighborhood: land.neighborhood,
+      area_sqm: land.area_sqm ? Number(land.area_sqm) : null,
+      status: land.status,
+      polygon: land.polygon_geojson ? JSON.parse(land.polygon_geojson) : null,
+      center: land.center_lat && land.center_lng 
+        ? { lat: Number(land.center_lat), lng: Number(land.center_lng) }
+        : null
+    }));
+
+    res.json({
+      success: true,
+      count: mapData.length,
+      lands: mapData
+    });
+  } catch (error) {
+    console.error('Map data error:', error);
+    res.status(500).json({ error: 'Failed to get map data' });
+  }
+});
+
 export default router;
