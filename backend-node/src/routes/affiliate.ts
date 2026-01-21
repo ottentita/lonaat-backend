@@ -7,6 +7,177 @@ import { searchAdmitadProducts, searchAliExpressProducts, getAdmitadStatus } fro
 const router = Router();
 const prisma = new PrismaClient();
 
+router.get('/networks', async (req: Request, res: Response) => {
+  try {
+    const networks = await prisma.affiliateNetwork.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' }
+    });
+
+    const defaultNetworks = [
+      { id: 'digistore24', name: 'Digistore24', slug: 'digistore24', status: 'active' },
+      { id: 'awin', name: 'Awin', slug: 'awin', status: 'active' },
+      { id: 'mylead', name: 'MyLead', slug: 'mylead', status: 'active' },
+      { id: 'admitad', name: 'Admitad', slug: 'admitad', status: 'active' },
+      { id: 'aliexpress', name: 'AliExpress', slug: 'aliexpress', status: 'active' }
+    ];
+
+    const allNetworks = networks.length > 0 
+      ? networks.map(n => ({ id: n.slug, name: n.name, slug: n.slug, status: n.status }))
+      : defaultNetworks;
+
+    res.json({ networks: allNetworks });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/search', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const network = req.query.network as string;
+    const q = req.query.q as string;
+
+    if (!network || !q) {
+      return res.status(400).json({ error: 'Missing params: network and q required' });
+    }
+
+    const products = await prisma.product.findMany({
+      where: {
+        is_active: true,
+        network: { equals: network, mode: 'insensitive' },
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { description: { contains: q, mode: 'insensitive' } },
+          { category: { contains: q, mode: 'insensitive' } }
+        ]
+      },
+      take: 50,
+      orderBy: { created_at: 'desc' }
+    });
+
+    res.json({ 
+      products: products.map(p => ({
+        id: p.id,
+        external_id: (p.extra_data as any)?.external_id || `prod_${p.id}`,
+        title: p.name,
+        price: parseFloat(p.price?.replace(/[^\d.]/g, '') || '0'),
+        currency: 'USD',
+        image: p.image_url,
+        affiliate_url: p.affiliate_link,
+        category: p.category,
+        network: p.network
+      })),
+      total: products.length
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/import', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { network, external_id, title, price, currency, image, affiliate_url, category } = req.body;
+
+    if (!title || !affiliate_url) {
+      return res.status(400).json({ error: 'Title and affiliate_url are required' });
+    }
+
+    const product = await prisma.product.create({
+      data: {
+        name: title,
+        price: price ? String(price) : null,
+        image_url: image || null,
+        affiliate_link: affiliate_url,
+        network: network || 'unknown',
+        category: category || 'General',
+        user_id: req.user?.id || null,
+        is_active: true,
+        extra_data: {
+          external_id: external_id || null,
+          currency: currency || 'USD',
+          imported_at: new Date().toISOString()
+        }
+      }
+    });
+
+    res.json({ success: true, product_id: product.id });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/bulk-import', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { products } = req.body;
+
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: 'Products array is required' });
+    }
+
+    const results = { imported: 0, failed: 0, errors: [] as string[] };
+
+    for (const p of products) {
+      try {
+        await prisma.product.create({
+          data: {
+            name: p.title || p.name,
+            price: p.price ? String(p.price) : null,
+            image_url: p.image || p.image_url || null,
+            affiliate_link: p.affiliate_url || p.affiliate_link,
+            network: p.network || 'unknown',
+            category: p.category || 'General',
+            user_id: req.user?.id || null,
+            is_active: true,
+            extra_data: {
+              external_id: p.external_id || null,
+              currency: p.currency || 'USD',
+              imported_at: new Date().toISOString()
+            }
+          }
+        });
+        results.imported++;
+      } catch (err: any) {
+        results.failed++;
+        results.errors.push(`Failed to import "${p.title || p.name}": ${err.message}`);
+      }
+    }
+
+    res.json({ success: true, ...results });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/click/:id', async (req: Request, res: Response) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const userId = req.query.user ? parseInt(req.query.user as string) : null;
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId }
+    });
+
+    if (!product || !product.affiliate_link) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    await prisma.affiliateClick.create({
+      data: {
+        user_id: userId,
+        product_id: productId,
+        network: product.network || 'unknown',
+        click_id: `click_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        ip_address: req.ip || req.headers['x-forwarded-for'] as string || 'unknown',
+        user_agent: req.headers['user-agent'] || 'unknown'
+      }
+    });
+
+    res.redirect(product.affiliate_link);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/admitad/status', async (req: Request, res: Response) => {
   try {
     const status = getAdmitadStatus();

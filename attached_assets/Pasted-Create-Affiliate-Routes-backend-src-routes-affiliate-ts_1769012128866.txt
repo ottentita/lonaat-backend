@@ -1,0 +1,188 @@
+Create Affiliate Routes
+📁 backend/src/routes/affiliate.ts
+Copy code
+Ts
+import { Router } from "express";
+import * as AffiliateController from "../controllers/affiliate.controller";
+import auth from "../middleware/auth";
+
+const router = Router();
+
+// list networks
+router.get("/networks", AffiliateController.listNetworks);
+
+// search products from network
+router.get("/search", auth, AffiliateController.searchProducts);
+
+// import single product
+router.post("/import", auth, AffiliateController.importProduct);
+
+// bulk import
+router.post("/bulk-import", auth, AffiliateController.bulkImport);
+
+// click tracking
+router.get("/click/:id", AffiliateController.trackClick);
+
+export default router;
+1.2 Mount Routes (THIS IS WHAT FIXES 404)
+📁 backend/src/app.ts
+Copy code
+Ts
+import affiliateRoutes from "./routes/affiliate";
+
+app.use("/api/affiliate", affiliateRoutes);
+Restart backend after this.
+STEP 2 — DATABASE (THIS IS WHY MARKETPLACE IS EMPTY)
+2.1 Create Affiliate Products Table
+Copy code
+Sql
+CREATE TABLE affiliate_products (
+  id SERIAL PRIMARY KEY,
+  network VARCHAR(50),
+  external_id VARCHAR(255),
+  title VARCHAR(255),
+  price NUMERIC,
+  currency VARCHAR(10),
+  image TEXT,
+  affiliate_url TEXT,
+  category VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+2.2 Click Tracking Table
+Copy code
+Sql
+CREATE TABLE affiliate_clicks (
+  id SERIAL PRIMARY KEY,
+  product_id INTEGER REFERENCES affiliate_products(id),
+  user_id INTEGER,
+  network VARCHAR(50),
+  clicked_at TIMESTAMP DEFAULT NOW()
+);
+STEP 3 — AFFILIATE CONTROLLER (CORE LOGIC)
+📁 backend/src/controllers/affiliate.controller.ts
+Copy code
+Ts
+import db from "../db";
+
+// 1. Networks list
+export function listNetworks(req, res) {
+  res.json([
+    { id: "admitad", name: "Admitad" },
+    { id: "aliexpress", name: "AliExpress" }
+  ]);
+}
+
+// 2. Search products
+export async function searchProducts(req, res) {
+  const { network, q } = req.query;
+
+  if (!network || !q) {
+    return res.status(400).json({ error: "Missing params" });
+  }
+
+  // TEMP: return preview results
+  res.json({ products: [] });
+}
+
+// 3. Import product
+export async function importProduct(req, res) {
+  const p = req.body;
+
+  await db.query(`
+    INSERT INTO affiliate_products
+    (network, external_id, title, price, currency, image, affiliate_url, category)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+  `, [
+    p.network,
+    p.external_id,
+    p.title,
+    p.price,
+    p.currency,
+    p.image,
+    p.affiliate_url,
+    p.category
+  ]);
+
+  res.json({ success: true });
+}
+
+// 4. Bulk import
+export async function bulkImport(req, res) {
+  const { products } = req.body;
+
+  for (const p of products) {
+    await db.query(`
+      INSERT INTO affiliate_products
+      (network, external_id, title, price, currency, image, affiliate_url, category)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `, [
+      p.network,
+      p.external_id,
+      p.title,
+      p.price,
+      p.currency,
+      p.image,
+      p.affiliate_url,
+      p.category
+    ]);
+  }
+
+  res.json({ success: true });
+}
+
+// 5. Click tracking
+export async function trackClick(req, res) {
+  const productId = req.params.id;
+  const userId = req.query.user;
+
+  const product = await db.query(
+    "SELECT affiliate_url FROM affiliate_products WHERE id=$1",
+    [productId]
+  );
+
+  await db.query(`
+    INSERT INTO affiliate_clicks (product_id, user_id)
+    VALUES ($1,$2)
+  `, [productId, userId]);
+
+  res.redirect(product.rows[0].affiliate_url);
+}
+STEP 4 — MARKETPLACE FIX (USERS SEE PRODUCTS)
+User marketplace must call:
+Copy code
+
+GET /api/products/affiliate
+📁 backend/src/routes/products.ts
+Copy code
+Ts
+router.get("/affiliate", async (_, res) => {
+  const products = await db.query(
+    "SELECT * FROM affiliate_products ORDER BY created_at DESC"
+  );
+  res.json(products.rows);
+});
+STEP 5 — ADS SYSTEM FIX (WHY ADS FAIL)
+Rule:
+Ads can ONLY run on products that exist in affiliate_products
+Before running ads:
+Validate product exists
+Validate affiliate_url exists
+STEP 6 — COMMISSION TRACKING (WHAT ACTUALLY MAKES MONEY)
+How commissions work (IMPORTANT)
+User clicks:
+Copy code
+
+/api/affiliate/click/:productId?user=123
+Affiliate network tracks sale using subid
+Network pays YOU
+LONAAT only tracks analytics
+👉 No payment processing in LONAAT
+STEP 7 — FINAL TEST CHECKLIST
+Agent must confirm:
+[ ] /api/affiliate/networks works
+[ ] /api/affiliate/search returns 200
+[ ] Import adds rows to affiliate_products
+[ ] Marketplace shows products
+[ ] Click redirects correctly
+[ ] No 404 anywhere
+[ ] Ads no longer fail

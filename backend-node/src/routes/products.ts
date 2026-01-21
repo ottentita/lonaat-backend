@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { body, validationResult } from 'express-validator';
 import { authMiddleware, AuthRequest, creditCheckMiddleware } from '../middleware/auth';
@@ -6,6 +6,62 @@ import { getUserProductLimit, checkProductCreationAllowed, getSubscriptionPlansF
 
 const router = Router();
 const prisma = new PrismaClient();
+
+router.get('/affiliate', async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const network = req.query.network as string;
+    const category = req.query.category as string;
+    const skip = (page - 1) * limit;
+
+    const where: any = { is_active: true };
+    if (network) where.network = { equals: network, mode: 'insensitive' };
+    if (category) where.category = { contains: category, mode: 'insensitive' };
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          image_url: true,
+          affiliate_link: true,
+          network: true,
+          category: true,
+          ai_generated_ad: true,
+          extra_data: true,
+          created_at: true
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    res.json({
+      products: products.map(p => ({
+        id: p.id,
+        title: p.name,
+        description: p.description,
+        price: parseFloat(p.price?.replace(/[^\d.]/g, '') || '0'),
+        currency: (p.extra_data as any)?.currency || 'USD',
+        image: p.image_url,
+        affiliate_url: p.affiliate_link,
+        network: p.network,
+        category: p.category,
+        ad_copy: p.ai_generated_ad
+      })),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
+  } catch (error: any) {
+    console.error('Affiliate products error:', error);
+    res.status(500).json({ error: 'Failed to get affiliate products' });
+  }
+});
 
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
