@@ -43,6 +43,7 @@ model User {
   credit_wallet       CreditWallet?
   real_estate         RealEstateProperty[]
   bank_account        BankAccount?
+  affiliate_clicks    AffiliateClick[]
 
   @@map("users")
 }
@@ -540,4 +541,39 @@ model LandAuditLog {
   @@index([action])
   @@index([created_at])
   @@map("land_audit_logs")
+}
+
+model AffiliateNetwork {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  slug        String    @unique @db.VarChar(50)
+  parent_slug String?   @db.VarChar(50)
+  api_base    String?   @db.VarChar(255)
+  status      String    @default("active") @db.VarChar(20)
+  config      Json?     @db.JsonB
+  created_at  DateTime  @default(now())
+
+  @@map("affiliate_networks")
+}
+
+model AffiliateClick {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  product_id    Int?
+  network       String   @db.VarChar(50)
+  click_id      String   @unique @db.VarChar(255)
+  subid         String?  @db.VarChar(255)
+  product_url   String?  @db.Text
+  ip_address    String?  @db.VarChar(45)
+  user_agent    String?  @db.Text
+  converted     Boolean  @default(false)
+  conversion_id String?  @db.VarChar(255)
+  created_at    DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([network])
+  @@index([created_at])
+  @@map("affiliate_clicks")
 }

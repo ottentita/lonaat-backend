@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { searchAliExpressProducts, getAdmitadStatus } from './admitadService';
 
 const prisma = new PrismaClient();
 
@@ -177,15 +178,77 @@ export async function syncPartnerStackProducts(userId?: number): Promise<SyncRes
   };
 }
 
+export async function syncAliExpressProducts(userId?: number): Promise<SyncResult> {
+  try {
+    const status = await getAdmitadStatus();
+    if (!status.configured) {
+      return { network: 'aliexpress', success: false, products_synced: 0, error: 'Admitad not configured' };
+    }
+
+    const products = await searchAliExpressProducts('trending');
+    let synced = 0;
+
+    for (const product of products.slice(0, 20)) {
+      const existingProduct = await prisma.product.findFirst({
+        where: {
+          network: 'aliexpress',
+          extra_data: { path: ['external_id'], equals: product.id }
+        }
+      });
+
+      if (existingProduct) {
+        await prisma.product.update({
+          where: { id: existingProduct.id },
+          data: {
+            name: product.name,
+            description: product.description,
+            price: `$${product.price}`,
+            affiliate_link: product.url,
+            category: product.category,
+            image_url: product.image_url,
+            extra_data: { 
+              external_id: product.id,
+              commission_rate: product.commission_rate,
+              merchant: product.merchant
+            }
+          }
+        });
+      } else {
+        await prisma.product.create({
+          data: {
+            name: product.name,
+            description: product.description,
+            price: `$${product.price}`,
+            affiliate_link: product.url,
+            network: 'aliexpress',
+            category: product.category,
+            image_url: product.image_url,
+            user_id: userId,
+            extra_data: { 
+              external_id: product.id,
+              commission_rate: product.commission_rate,
+              merchant: product.merchant
+            }
+          }
+        });
+      }
+      synced++;
+    }
+
+    return { network: 'aliexpress', success: true, products_synced: synced };
+  } catch (error: any) {
+    return { network: 'aliexpress', success: false, products_synced: 0, error: error.message };
+  }
+}
+
 export async function syncAllNetworks(userId?: number): Promise<SyncResult[]> {
-  // PartnerStack excluded - network disabled
   const results = await Promise.all([
     syncDigistore24Products(userId),
     syncAwinProducts(userId),
-    syncMyLeadProducts(userId)
+    syncMyLeadProducts(userId),
+    syncAliExpressProducts(userId)
   ]);
 
-  // Add PartnerStack disabled status
   results.push({
     network: 'partnerstack',
     success: false,
@@ -200,10 +263,15 @@ export async function getNetworkStatus(): Promise<{network: string; configured: 
   const awinConfigured = !!process.env.AWIN_TOKEN && !!process.env.AWIN_PUBLISHER_ID;
   const awinMissing = !process.env.AWIN_TOKEN ? 'AWIN_TOKEN' : (!process.env.AWIN_PUBLISHER_ID ? 'AWIN_PUBLISHER_ID' : undefined);
   
+  const admitadConfigured = !!(process.env.ADMITAD_ACCESS_TOKEN || (process.env.ADMITAD_CLIENT_ID && process.env.ADMITAD_CLIENT_SECRET));
+  const admitadMissing = !admitadConfigured ? 'ADMITAD_ACCESS_TOKEN or ADMITAD_CLIENT_ID+SECRET' : undefined;
+  
   return [
     { network: 'digistore24', configured: !!process.env.DIGISTORE_API_KEY, key_name: 'DIGISTORE_API_KEY', sync_type: 'api' },
     { network: 'awin', configured: awinConfigured, key_name: 'AWIN_TOKEN + AWIN_PUBLISHER_ID', sync_type: 'api', missing: awinMissing },
     { network: 'mylead', configured: true, key_name: 'N/A', sync_type: 'postback (link-based CPA)' },
+    { network: 'admitad', configured: admitadConfigured, key_name: 'ADMITAD_ACCESS_TOKEN', sync_type: 'api', missing: admitadMissing },
+    { network: 'aliexpress', configured: admitadConfigured, key_name: 'Via Admitad', sync_type: 'api (via Admitad)' },
     { network: 'partnerstack', configured: false, key_name: 'N/A', sync_type: 'disabled', disabled: true }
   ];
 }
@@ -220,6 +288,10 @@ export async function syncProductsFromNetwork(network: string, userId?: number):
       break;
     case 'mylead':
       result = await syncMyLeadProducts(userId);
+      break;
+    case 'aliexpress':
+    case 'admitad':
+      result = await syncAliExpressProducts(userId);
       break;
     case 'partnerstack':
       throw new Error('PartnerStack not connected - network disabled');

@@ -22,6 +22,7 @@ import landRegistryRoutes from './routes/landRegistry';
 import leadsRoutes from './routes/leads';
 import realEstateAnalyticsRoutes from './routes/realEstateAnalytics';
 import { initPostGIS } from './services/gpsVerification';
+import { initializeAdmitadNetworks } from './services/admitadService';
 
 dotenv.config();
 
@@ -109,6 +110,13 @@ async function startServer() {
     console.log('PostGIS spatial database initialized');
   } catch (error) {
     console.warn('PostGIS initialization warning:', error);
+  }
+
+  try {
+    await initializeAdmitadNetworks();
+    console.log('Admitad/AliExpress networks initialized');
+  } catch (error) {
+    console.warn('Admitad initialization warning:', error);
   }
 
   app.listen(PORT, '0.0.0.0', () => {

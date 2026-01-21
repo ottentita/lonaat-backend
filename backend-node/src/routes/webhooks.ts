@@ -1,6 +1,7 @@
 import { Router, Response, Request } from 'express';
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import { handleAdmitadPostback } from '../services/admitadService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -248,6 +249,40 @@ router.post('/partnerstack', async (req: Request, res: Response) => {
     error: 'PartnerStack not connected',
     message: 'PartnerStack network is currently disabled'
   });
+});
+
+router.post('/admitad', async (req: Request, res: Response) => {
+  try {
+    console.log('[Admitad] Postback received:', JSON.stringify(req.body));
+    
+    const result = await handleAdmitadPostback(req.body);
+    
+    if (result.success) {
+      res.json({ status: 'ok', message: result.message });
+    } else {
+      res.status(400).json({ status: 'error', message: result.message });
+    }
+  } catch (error: any) {
+    console.error('Admitad webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+router.get('/admitad', async (req: Request, res: Response) => {
+  try {
+    console.log('[Admitad] GET Postback received:', req.query);
+    
+    const result = await handleAdmitadPostback(req.query);
+    
+    if (result.success) {
+      res.json({ status: 'ok', message: result.message });
+    } else {
+      res.status(400).json({ status: 'error', message: result.message });
+    }
+  } catch (error: any) {
+    console.error('Admitad webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
 });
 
 export default router;

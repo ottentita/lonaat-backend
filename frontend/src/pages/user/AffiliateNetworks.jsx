@@ -55,7 +55,10 @@ export default function AffiliateNetworks() {
       partnerstack: '💼',
       amazon: '📦',
       clickbank: '💰',
-      shareasale: '🤝'
+      shareasale: '🤝',
+      admitad: '🌍',
+      aliexpress: '🛍️',
+      mylead: '📊'
     };
     return icons[id] || '🌐';
   };

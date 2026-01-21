@@ -1,4 +1,5 @@
 import axios from "axios";
+import { searchAdmitadProducts, searchAliExpressProducts } from "./admitadService";
 
 const DISABLED_NETWORKS = ['partnerstack'];
 
@@ -19,10 +20,56 @@ export async function searchAffiliateOffers(
       return searchAwin(query);
     case "mylead":
       return searchMyLead(query);
+    case "admitad":
+      return searchAdmitad(query);
+    case "aliexpress":
+      return searchAliExpress(query);
     case "all":
       return searchAllNetworks(query);
     default:
       throw new Error("Unsupported affiliate network");
+  }
+}
+
+async function searchAdmitad(query: string) {
+  try {
+    const products = await searchAdmitadProducts(query);
+    return products.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      price: `$${p.price}`,
+      commission: `${p.commission_rate}%`,
+      network: 'admitad',
+      category: p.category,
+      image_url: p.image_url,
+      affiliate_link: p.url,
+      merchant: p.merchant
+    }));
+  } catch (error) {
+    console.error('Admitad search error:', error);
+    return [];
+  }
+}
+
+async function searchAliExpress(query: string) {
+  try {
+    const products = await searchAliExpressProducts(query);
+    return products.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      price: `$${p.price}`,
+      commission: `${p.commission_rate}%`,
+      network: 'aliexpress',
+      category: p.category,
+      image_url: p.image_url,
+      affiliate_link: p.url,
+      merchant: 'AliExpress'
+    }));
+  } catch (error) {
+    console.error('AliExpress search error:', error);
+    return [];
   }
 }
 
@@ -245,11 +292,12 @@ async function searchPartnerStack(query: string) {
 export async function searchAllNetworks(query: string) {
   const results: any[] = [];
   
-  // Only search enabled networks (PartnerStack disabled)
-  const [digistoreOffers, awinOffers, myleadOffers] = await Promise.allSettled([
+  const [digistoreOffers, awinOffers, myleadOffers, admitadOffers, aliexpressOffers] = await Promise.allSettled([
     searchDigistore24(query),
     searchAwin(query),
-    searchMyLead(query)
+    searchMyLead(query),
+    searchAdmitad(query),
+    searchAliExpress(query)
   ]);
 
   if (digistoreOffers.status === 'fulfilled' && digistoreOffers.value?.length) {
@@ -260,6 +308,12 @@ export async function searchAllNetworks(query: string) {
   }
   if (myleadOffers.status === 'fulfilled' && myleadOffers.value?.length) {
     results.push(...myleadOffers.value);
+  }
+  if (admitadOffers.status === 'fulfilled' && admitadOffers.value?.length) {
+    results.push(...admitadOffers.value);
+  }
+  if (aliexpressOffers.status === 'fulfilled' && aliexpressOffers.value?.length) {
+    results.push(...aliexpressOffers.value);
   }
 
   return results;
