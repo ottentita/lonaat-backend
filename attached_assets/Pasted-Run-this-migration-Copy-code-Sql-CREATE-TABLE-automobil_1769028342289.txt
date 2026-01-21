@@ -1,0 +1,172 @@
+Run this migration:
+Copy code
+Sql
+CREATE TABLE automobiles (
+  id SERIAL PRIMARY KEY,
+
+  title VARCHAR(255) NOT NULL,
+  brand VARCHAR(100),
+  model VARCHAR(100),
+  year INT,
+  mileage INT,
+
+  fuel_type VARCHAR(50),
+  transmission VARCHAR(50),
+  condition VARCHAR(50),
+
+  price NUMERIC(12,2),
+  currency VARCHAR(10) DEFAULT 'USD',
+
+  location VARCHAR(150),
+  images JSONB,
+
+  seller_id INTEGER REFERENCES users(id),
+  listing_type VARCHAR(30) DEFAULT 'direct', -- direct | affiliate
+
+  affiliate_network VARCHAR(50),
+  affiliate_url TEXT,
+  commission_rate NUMERIC(5,2),
+
+  status VARCHAR(30) DEFAULT 'pending', -- pending | approved | sold
+  views INT DEFAULT 0,
+
+  created_at TIMESTAMP DEFAULT NOW()
+);
+STEP 2 — BACKEND ROUTES
+📁 backend/src/routes/automobiles.ts
+Copy code
+Ts
+import express from "express";
+import auth from "../middleware/auth";
+import * as AutoController from "../controllers/automobile.controller";
+
+const router = express.Router();
+
+router.get("/", AutoController.listAutomobiles);
+router.get("/:id", AutoController.getAutomobile);
+
+router.post("/", auth, AutoController.createAutomobile);
+router.put("/:id/status", auth, AutoController.updateStatus);
+
+router.post("/affiliate/import", auth, AutoController.importAffiliateAutos);
+
+export default router;
+Register it:
+📁 backend/src/app.ts
+Copy code
+Ts
+app.use("/api/automobiles", automobileRoutes);
+STEP 3 — AUTOMOBILE CONTROLLER
+📁 backend/src/controllers/automobile.controller.ts
+Copy code
+Ts
+import db from "../db";
+
+export async function listAutomobiles(req, res) {
+  const autos = await db.query(
+    "SELECT * FROM automobiles WHERE status='approved' ORDER BY created_at DESC"
+  );
+  res.json(autos.rows);
+}
+
+export async function createAutomobile(req, res) {
+  const {
+    title, brand, model, year, mileage,
+    fuel_type, transmission, condition,
+    price, location, images
+  } = req.body;
+
+  const auto = await db.query(
+    `INSERT INTO automobiles
+     (title, brand, model, year, mileage, fuel_type, transmission,
+      condition, price, location, images, seller_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     RETURNING *`,
+    [
+      title, brand, model, year, mileage,
+      fuel_type, transmission, condition,
+      price, location, images, req.user.id
+    ]
+  );
+
+  res.json(auto.rows[0]);
+}
+STEP 4 — AFFILIATE AUTOMOBILE IMPORT
+This fixes your affiliate 404 problem for cars.
+Copy code
+Ts
+export async function importAffiliateAutos(req, res) {
+  const { network, items } = req.body;
+
+  for (const item of items) {
+    await db.query(
+      `INSERT INTO automobiles
+       (title, brand, model, year, price, affiliate_network,
+        affiliate_url, listing_type, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'affiliate','approved')
+       ON CONFLICT DO NOTHING`,
+      [
+        item.title,
+        item.brand,
+        item.model,
+        item.year,
+        item.price,
+        network,
+        item.url
+      ]
+    );
+  }
+
+  res.json({ success: true });
+}
+STEP 5 — FRONTEND NAVIGATION
+Add Automobiles to sidebar:
+Copy code
+Ts
+{
+  label: "Automobiles",
+  icon: "car",
+  route: "/dashboard/automobiles"
+}
+STEP 6 — AUTOMOBILE DASHBOARD PAGE
+Route:
+Copy code
+
+/dashboard/automobiles
+Features:
+Total Listings
+Active Listings
+Sold Vehicles
+Revenue from automobiles
+“Manage” button (same pattern as Real Estate)
+STEP 7 — MARKETPLACE VISIBILITY
+Marketplace query must include:
+Copy code
+Sql
+SELECT * FROM automobiles
+WHERE status='approved'
+So:
+Users see cars
+Ads can promote cars
+Affiliate cars appear automatically
+STEP 8 — ANALYTICS SUPPORT
+Add:
+Copy code
+Sql
+ALTER TABLE automobiles ADD COLUMN clicks INT DEFAULT 0;
+ALTER TABLE automobiles ADD COLUMN conversions INT DEFAULT 0;
+These power:
+Revenue charts
+Commission tracking
+Performance stats
+STEP 9 — REMOVE 404 ERRORS (CRITICAL)
+Ensure ALL routes exist:
+Action
+Route
+List autos
+GET /api/automobiles
+Import affiliate autos
+POST /api/automobiles/affiliate/import
+View auto
+GET /api/automobiles/:id
+Any missing route = 404.

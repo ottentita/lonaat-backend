@@ -26,6 +26,7 @@ import { initializeAdmitadNetworks } from './services/admitadService';
 import affiliateRoutes from './routes/affiliate';
 import mobileRoutes from './routes/mobile';
 import adsRoutes from './routes/ads';
+import automobilesRoutes from './routes/automobiles';
 import { startFeedSyncScheduler } from './services/admitadFeedService';
 
 dotenv.config();
@@ -75,6 +76,7 @@ app.use('/api/affiliate', affiliateRoutes);
 app.use('/api/track', affiliateRoutes);
 app.use('/api/mobile', mobileRoutes);
 app.use('/api/ads', adsRoutes);
+app.use('/api/automobiles', automobilesRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get('/api/health', async (req, res) => {

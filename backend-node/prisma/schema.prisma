@@ -44,6 +44,7 @@ model User {
   real_estate         RealEstateProperty[]
   bank_account        BankAccount?
   affiliate_clicks    AffiliateClick[]
+  automobiles         Automobile[]
 
   @@map("users")
 }
@@ -609,4 +610,40 @@ model AffiliateClick {
   @@index([network])
   @@index([created_at])
   @@map("affiliate_clicks")
+}
+
+model Automobile {
+  id              Int       @id @default(autoincrement())
+  title           String    @db.VarChar(255)
+  brand           String?   @db.VarChar(100)
+  model           String?   @db.VarChar(100)
+  year            Int?
+  mileage         Int?
+  fuel_type       String?   @db.VarChar(50)
+  transmission    String?   @db.VarChar(50)
+  condition       String?   @db.VarChar(50)
+  price           Decimal?  @db.Decimal(12, 2)
+  currency        String    @default("USD") @db.VarChar(10)
+  location        String?   @db.VarChar(150)
+  images          Json?     @db.JsonB
+  description     String?   @db.Text
+  seller_id       Int?
+  listing_type    String    @default("direct") @db.VarChar(30)
+  affiliate_network String? @db.VarChar(50)
+  affiliate_url   String?   @db.Text
+  commission_rate Decimal?  @db.Decimal(5, 2)
+  status          String    @default("pending") @db.VarChar(30)
+  views           Int       @default(0)
+  clicks          Int       @default(0)
+  conversions     Int       @default(0)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  seller User? @relation(fields: [seller_id], references: [id])
+
+  @@index([status])
+  @@index([seller_id])
+  @@index([brand])
+  @@index([created_at])
+  @@map("automobiles")
 }
