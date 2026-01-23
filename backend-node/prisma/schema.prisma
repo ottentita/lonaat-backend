@@ -46,6 +46,7 @@ model User {
   affiliate_clicks    AffiliateClick[]
   automobiles         Automobile[]
   payout_methods      PayoutMethod[]
+  payouts             Payout[]
 
   @@map("users")
 }
@@ -421,37 +422,114 @@ model BankAccount {
 model PayoutMethod {
   id              Int      @id @default(autoincrement())
   user_id         Int
-  method_type     String   @db.VarChar(50) // payoneer, flutterwave, mobile_money, usdt, bank_transfer
+  method_type     String   @db.VarChar(50) // payoneer, mobile_money, usdt, btc, eth, bank_transfer
   is_default      Boolean  @default(false)
   currency        String   @default("USD") @db.VarChar(10)
   
   // Payoneer
   payoneer_email       String?  @db.VarChar(255)
   
-  // Flutterwave
-  flutterwave_account  String?  @db.VarChar(100)
-  flutterwave_bank     String?  @db.VarChar(100)
-  
-  // Mobile Money
-  mobile_network       String?  @db.VarChar(50) // mtn, airtel, orange, etc
+  // Mobile Money (MTN MoMo, Orange Money)
+  mobile_network       String?  @db.VarChar(50) // mtn_momo, orange_money
   mobile_number        String?  @db.VarChar(20)
-  mobile_country       String?  @db.VarChar(50)
+  mobile_country       String?  @db.VarChar(10) // CM, SN, CI, etc
   
-  // USDT/Crypto
+  // USDT (TRC20 required)
   usdt_network         String?  @db.VarChar(20) // trc20, erc20, bep20
   usdt_address         String?  @db.VarChar(100)
+  
+  // Bitcoin
+  btc_address          String?  @db.VarChar(100)
+  btc_network          String?  @db.VarChar(20) // mainnet, lightning
+  
+  // Ethereum
+  eth_address          String?  @db.VarChar(100)
+  eth_network          String?  @db.VarChar(20) // mainnet, polygon, arbitrum
   
   // Bank Transfer
   bank_account_id      Int?
   
+  // Verification
   is_verified     Boolean  @default(false)
   verified_at     DateTime?
+  verification_code String? @db.VarChar(20)
+  
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
   user User @relation(fields: [user_id], references: [id])
+  payouts Payout[]
 
   @@map("payout_methods")
+}
+
+// Unified Payout Tracking
+model Payout {
+  id                Int       @id @default(autoincrement())
+  user_id           Int
+  payout_method_id  Int
+  withdrawal_id     Int?
+  
+  amount            Decimal   @db.Decimal(15, 4)
+  currency          String    @db.VarChar(10) // USD, XAF, EUR, USDT, BTC, ETH
+  amount_in_usd     Decimal?  @db.Decimal(15, 4) // Converted amount for reporting
+  
+  // Provider details
+  provider          String    @db.VarChar(50)  // payoneer, mtn_momo, orange_money, crypto
+  provider_ref      String?   @db.VarChar(255) // External transaction ID
+  provider_fee      Decimal?  @db.Decimal(10, 4)
+  
+  // Status tracking
+  status            String    @default("pending") @db.VarChar(30) // pending, approved, processing, completed, failed, cancelled
+  
+  // Admin approval
+  approved_at       DateTime?
+  approved_by       Int?
+  approved_by_name  String?   @db.VarChar(100)
+  
+  // Processing
+  processed_at      DateTime?
+  completed_at      DateTime?
+  failed_at         DateTime?
+  failure_reason    String?   @db.Text
+  
+  // Fraud check
+  fraud_score       Int       @default(0)
+  fraud_flags       Json?     @db.JsonB
+  fraud_cleared     Boolean   @default(false)
+  fraud_cleared_by  Int?
+  
+  // Metadata
+  notes             String?   @db.Text
+  admin_notes       String?   @db.Text
+  extra_data        Json?     @db.JsonB
+  
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  user          User          @relation(fields: [user_id], references: [id])
+  payout_method PayoutMethod  @relation(fields: [payout_method_id], references: [id])
+
+  @@index([user_id])
+  @@index([status])
+  @@index([created_at])
+  @@map("payouts")
+}
+
+// Multi-Currency Wallet Balances
+model WalletBalance {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  currency    String   @db.VarChar(10) // USD, XAF, EUR, USDT
+  balance     Decimal  @default(0) @db.Decimal(15, 4)
+  pending     Decimal  @default(0) @db.Decimal(15, 4)
+  locked      Decimal  @default(0) @db.Decimal(15, 4) // Locked for pending withdrawals
+  
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([user_id, currency])
+  @@map("wallet_balances")
 }
 
 /// Land Registry with PostGIS spatial support
