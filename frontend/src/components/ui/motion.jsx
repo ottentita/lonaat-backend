@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { motion } from "framer-motion"
 
 export const FadeIn = ({ children, delay = 0, ...props }) => (

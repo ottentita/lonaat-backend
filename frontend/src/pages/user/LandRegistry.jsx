@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { landRegistryAPI } from '../../services/api';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -53,7 +53,7 @@ export default function LandRegistry() {
   const [neighbors, setNeighbors] = useState([]);
   const [mapCenter, setMapCenter] = useState(CAMEROON_CENTER);
   const [mapZoom, setMapZoom] = useState(6);
-  const [isAddingCoords, setIsAddingCoords] = useState(false);
+  const [isAddingCoords, _setIsAddingCoords] = useState(false);
   const [newCoords, setNewCoords] = useState([]);
   const [blockedCount, setBlockedCount] = useState(0);
   const [gpsSearchLat, setGpsSearchLat] = useState('');
@@ -145,7 +145,7 @@ export default function LandRegistry() {
       try {
         const neighborsRes = await landRegistryAPI.getNeighbors(landId);
         setNeighbors(neighborsRes.data.neighbors || []);
-      } catch (e) {
+      } catch (_e) {
         setNeighbors([]);
       }
     } catch (error) {

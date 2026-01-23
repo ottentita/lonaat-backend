@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Share2, Send, MessageCircle, Facebook, Twitter, Plus, RefreshCw, Trash2, CheckCircle, Clock, AlertCircle, Settings } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import { socialAPI, productsAPI } from '../../services/api';
+import { socialAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const SocialAutomation = () => {

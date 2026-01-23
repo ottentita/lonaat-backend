@@ -136,14 +136,14 @@ const Products = () => {
         network: importData.network,
         earn_mode: importData.earn_mode
       };
-      const { data } = await offersAPI.importOffer(importPayload);
+      await offersAPI.importOffer(importPayload);
       toast.success(`Product imported successfully in ${importData.earn_mode} mode!`);
       setShowImportModal(false);
       setSearchResults([]);
       setSearchQuery('');
       fetchProducts();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to import offer');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to import offer');
     }
   };
 

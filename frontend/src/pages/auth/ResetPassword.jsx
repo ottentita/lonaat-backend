@@ -9,7 +9,7 @@ const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const [loading, setLoading] = useState(false);
-  const [showRequestForm, setShowRequestForm] = useState(!token);
+  const [showRequestForm, _setShowRequestForm] = useState(!token);
   const [email, setEmail] = useState('');
   const [formData, setFormData] = useState({
     password: '',

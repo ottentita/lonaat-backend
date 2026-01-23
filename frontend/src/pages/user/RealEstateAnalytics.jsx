@@ -6,7 +6,7 @@ import { BarChart3, TrendingUp, Eye, Users, Building, MapPin, DollarSign, Activi
 
 export default function RealEstateAnalytics() {
   const [overview, setOverview] = useState(null);
-  const [revenue, setRevenue] = useState(null);
+  const [, setRevenue] = useState(null);
   const [performance, setPerformance] = useState(null);
   const [landAnalytics, setLandAnalytics] = useState(null);
   const [leadAnalytics, setLeadAnalytics] = useState(null);

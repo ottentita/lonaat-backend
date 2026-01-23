@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { adsAPI, adminAPI } from '@/services/api';
+import { adsAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 import { 
   Megaphone, 

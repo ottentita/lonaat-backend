@@ -345,7 +345,7 @@ function PropertyListingForm({ propertyType, typesInfo, listingFees, onBack, onS
       const res = await realEstateAPI.uploadImages(formDataUpload);
       setFormData(prev => ({ ...prev, images: [...prev.images, ...res.data.images] }));
       toast.success(`${res.data.images.length} image(s) uploaded`);
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to upload images');
     } finally {
       setUploadingImages(false);
@@ -363,7 +363,7 @@ function PropertyListingForm({ propertyType, typesInfo, listingFees, onBack, onS
       const res = await realEstateAPI.uploadVideo(formDataUpload);
       setFormData(prev => ({ ...prev, videos: [...prev.videos, res.data.video] }));
       toast.success('Video uploaded');
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to upload video');
     } finally {
       setUploadingVideo(false);
@@ -381,7 +381,7 @@ function PropertyListingForm({ propertyType, typesInfo, listingFees, onBack, onS
       const res = await realEstateAPI.uploadDocuments(formDataUpload);
       setFormData(prev => ({ ...prev, documents: [...prev.documents, ...res.data.documents] }));
       toast.success('Documents uploaded');
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to upload documents');
     } finally {
       setUploadingDocs(false);
@@ -944,7 +944,7 @@ function MyListingsView({ properties, formatPrice, onPayFee, onViewDetails, onRe
       await realEstateAPI.deleteProperty(id);
       toast.success('Property deleted');
       onRefresh();
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to delete property');
     }
   };
@@ -1083,7 +1083,7 @@ function PaymentModal({ propertyId, listingFees, properties, fileInputRef, onClo
       await realEstateAPI.payListingFee(propertyId, formData);
       toast.success('Payment receipt uploaded');
       onSuccess();
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to upload receipt');
     } finally {
       setUploading(false);
