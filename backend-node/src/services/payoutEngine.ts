@@ -263,7 +263,19 @@ export async function createPayout(request: PayoutRequest): Promise<PayoutResult
   const provider = getProviderFromMethod(payoutMethod);
   const providerConfig = PAYOUT_PROVIDERS[provider as keyof typeof PAYOUT_PROVIDERS];
   
-  if (providerConfig && amount < providerConfig.minAmount) {
+  if (!providerConfig) {
+    return { success: false, error: 'Unknown payout provider', requiresApproval: false };
+  }
+
+  if (!providerConfig.currencies.includes(currency)) {
+    return { 
+      success: false, 
+      error: `${providerConfig.name} does not support ${currency}. Supported: ${providerConfig.currencies.join(', ')}`,
+      requiresApproval: false
+    };
+  }
+  
+  if (amount < providerConfig.minAmount) {
     return { 
       success: false, 
       error: `Minimum payout for ${providerConfig.name} is ${providerConfig.minAmount} ${currency}`,

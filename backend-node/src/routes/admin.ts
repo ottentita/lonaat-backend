@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { body, validationResult } from 'express-validator';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
 import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts, detectFraud, runFraudScan, autoBoostAdminProducts, scanNetworksForProducts, autoImportAliExpressProducts, runAIAutoImportCycle } from '../services/ai';
 import { syncAllNetworks, syncDigistore24Products, syncAwinProducts, syncMyLeadProducts, syncPartnerStackProducts, getNetworkStatus } from '../services/networkSync';
@@ -1613,6 +1614,174 @@ router.put('/property-payments/:id/reject', async (req: AuthRequest, res: Respon
   } catch (error) {
     console.error('Reject property payment error:', error);
     res.status(500).json({ error: 'Failed to reject payment' });
+  }
+});
+
+import { 
+  getPendingPayoutsForAdmin, 
+  approvePayout, 
+  rejectPayout, 
+  processPayout 
+} from '../services/payoutEngine';
+
+router.get('/payouts/pending', async (req: AuthRequest, res: Response) => {
+  try {
+    const { limit, offset } = req.query;
+    
+    const payouts = await getPendingPayoutsForAdmin({
+      limit: limit ? parseInt(limit as string) : 50,
+      offset: offset ? parseInt(offset as string) : 0
+    });
+
+    const count = await prisma.payout.count({ where: { status: 'pending' } });
+
+    res.json({
+      payouts: payouts.map((p: any) => ({
+        id: p.id,
+        user: p.user,
+        amount: Number(p.amount),
+        currency: p.currency,
+        amount_in_usd: p.amount_in_usd ? Number(p.amount_in_usd) : null,
+        provider: p.provider,
+        fraud_score: p.fraud_score,
+        fraud_flags: p.fraud_flags,
+        created_at: p.created_at,
+        payout_method: p.payout_method
+      })),
+      total: count
+    });
+  } catch (error) {
+    console.error('Get pending payouts error:', error);
+    res.status(500).json({ error: 'Failed to get pending payouts' });
+  }
+});
+
+router.get('/payouts', async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, limit, offset } = req.query;
+    
+    const where: any = {};
+    if (status) {
+      where.status = status;
+    }
+
+    const payouts = await prisma.payout.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        payout_method: { select: { method_type: true, mobile_network: true } }
+      },
+      orderBy: { created_at: 'desc' },
+      take: limit ? parseInt(limit as string) : 50,
+      skip: offset ? parseInt(offset as string) : 0
+    });
+
+    const stats = await prisma.payout.groupBy({
+      by: ['status'],
+      _count: { id: true },
+      _sum: { amount_in_usd: true }
+    });
+
+    res.json({
+      payouts: payouts.map(p => ({
+        ...p,
+        amount: Number(p.amount),
+        amount_in_usd: p.amount_in_usd ? Number(p.amount_in_usd) : null,
+        provider_fee: p.provider_fee ? Number(p.provider_fee) : null
+      })),
+      stats: stats.map(s => ({
+        status: s.status,
+        count: s._count.id,
+        total_usd: s._sum.amount_in_usd ? Number(s._sum.amount_in_usd) : 0
+      }))
+    });
+  } catch (error) {
+    console.error('Get payouts error:', error);
+    res.status(500).json({ error: 'Failed to get payouts' });
+  }
+});
+
+router.post('/payouts/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    const result = await approvePayout(id, req.user!.id, req.user!.name || 'Admin');
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({ message: 'Payout approved successfully', status: 'approved' });
+  } catch (error) {
+    console.error('Approve payout error:', error);
+    res.status(500).json({ error: 'Failed to approve payout' });
+  }
+});
+
+router.post('/payouts/:id/reject', [
+  body('reason').notEmpty().withMessage('Rejection reason required')
+], async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const id = parseInt(req.params.id);
+    const { reason } = req.body;
+    
+    const result = await rejectPayout(id, req.user!.id, reason);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({ message: 'Payout rejected', status: 'cancelled', reason });
+  } catch (error) {
+    console.error('Reject payout error:', error);
+    res.status(500).json({ error: 'Failed to reject payout' });
+  }
+});
+
+router.post('/payouts/:id/process', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    const result = await processPayout(id);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({ 
+      message: 'Payout processed successfully', 
+      status: 'completed',
+      provider_ref: result.providerRef
+    });
+  } catch (error) {
+    console.error('Process payout error:', error);
+    res.status(500).json({ error: 'Failed to process payout' });
+  }
+});
+
+router.post('/payouts/:id/clear-fraud', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { notes } = req.body;
+    
+    await prisma.payout.update({
+      where: { id },
+      data: {
+        fraud_cleared: true,
+        fraud_cleared_by: req.user!.id,
+        admin_notes: notes
+      }
+    });
+
+    res.json({ message: 'Fraud flags cleared', fraud_cleared: true });
+  } catch (error) {
+    console.error('Clear fraud error:', error);
+    res.status(500).json({ error: 'Failed to clear fraud flags' });
   }
 });
 

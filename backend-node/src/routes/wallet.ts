@@ -135,7 +135,33 @@ router.get('/packages', async (req, res: Response) => {
   }
 });
 
-const PAYOUT_METHODS = ['payoneer', 'flutterwave', 'mobile_money', 'usdt', 'bank_transfer'] as const;
+const PAYOUT_METHODS = ['payoneer', 'mobile_money', 'usdt', 'btc', 'eth', 'bank_transfer'] as const;
+
+import {
+  getAllWalletBalances,
+  addToWalletBalance,
+  createPayout,
+  getPayoutHistory,
+  getPayoutStats,
+  SUPPORTED_CURRENCIES,
+  SupportedCurrency
+} from '../services/payoutEngine';
+
+router.get('/multi-currency', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const balances = await getAllWalletBalances(req.user!.id);
+    const stats = await getPayoutStats(req.user!.id);
+    
+    res.json({
+      balances,
+      supported_currencies: SUPPORTED_CURRENCIES,
+      stats
+    });
+  } catch (error) {
+    console.error('Multi-currency wallet error:', error);
+    res.status(500).json({ error: 'Failed to get wallet balances' });
+  }
+});
 
 router.get('/payout-methods', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -155,11 +181,12 @@ router.get('/payout-methods', authMiddleware, async (req: AuthRequest, res: Resp
         created_at: m.created_at
       })),
       available_methods: [
-        { type: 'payoneer', name: 'Payoneer', currencies: ['USD', 'EUR', 'GBP'] },
-        { type: 'flutterwave', name: 'Flutterwave', currencies: ['NGN', 'GHS', 'KES', 'ZAR', 'USD'] },
-        { type: 'mobile_money', name: 'Mobile Money', currencies: ['XAF', 'XOF', 'GHS', 'KES', 'UGX'] },
-        { type: 'usdt', name: 'USDT (Crypto)', currencies: ['USDT'] },
-        { type: 'bank_transfer', name: 'Bank Transfer', currencies: ['USD', 'EUR', 'NGN', 'GBP'] }
+        { type: 'payoneer', name: 'Payoneer', currencies: ['USD', 'EUR'], min_payout: 20 },
+        { type: 'mobile_money', name: 'Mobile Money (MTN/Orange)', currencies: ['XAF'], min_payout: 5000, networks: ['mtn_momo', 'orange_money'], countries: ['CM', 'CI', 'SN'] },
+        { type: 'usdt', name: 'USDT (TRC20)', currencies: ['USDT'], min_payout: 10, networks: ['trc20', 'erc20', 'bep20'] },
+        { type: 'btc', name: 'Bitcoin', currencies: ['BTC'], min_payout: 0.001 },
+        { type: 'eth', name: 'Ethereum', currencies: ['ETH'], min_payout: 0.01 },
+        { type: 'bank_transfer', name: 'Bank Transfer', currencies: ['USD', 'EUR', 'XAF'], min_payout: 50 }
       ]
     });
   } catch (error) {
@@ -172,12 +199,14 @@ function getPayoutMethodDisplayName(method: any): string {
   switch (method.method_type) {
     case 'payoneer':
       return `Payoneer (${method.payoneer_email || 'Not set'})`;
-    case 'flutterwave':
-      return `Flutterwave (${method.flutterwave_bank || 'Not set'})`;
     case 'mobile_money':
-      return `Mobile Money (${method.mobile_network} ${method.mobile_number || ''})`;
+      return `${method.mobile_network === 'mtn_momo' ? 'MTN MoMo' : 'Orange Money'} (${method.mobile_number || 'Not set'})`;
     case 'usdt':
-      return `USDT ${method.usdt_network?.toUpperCase() || ''} (${method.usdt_address?.slice(0, 8)}...)`;
+      return `USDT ${method.usdt_network?.toUpperCase() || 'TRC20'} (${method.usdt_address?.slice(0, 8)}...)`;
+    case 'btc':
+      return `Bitcoin (${method.btc_address?.slice(0, 8)}...)`;
+    case 'eth':
+      return `Ethereum (${method.eth_address?.slice(0, 8)}...)`;
     case 'bank_transfer':
       return 'Bank Transfer';
     default:
@@ -199,9 +228,10 @@ router.post('/payout-methods', [
     const { 
       method_type, currency, is_default,
       payoneer_email,
-      flutterwave_account, flutterwave_bank,
       mobile_network, mobile_number, mobile_country,
-      usdt_network, usdt_address
+      usdt_network, usdt_address,
+      btc_address, btc_network,
+      eth_address, eth_network
     } = req.body;
 
     const validationErrors: string[] = [];
@@ -211,25 +241,45 @@ router.post('/payout-methods', [
           validationErrors.push('Valid Payoneer email is required');
         }
         break;
-      case 'flutterwave':
-        if (!flutterwave_account || !flutterwave_bank) {
-          validationErrors.push('Flutterwave account number and bank name are required');
-        }
-        break;
       case 'mobile_money':
         if (!mobile_network || !mobile_number || !mobile_country) {
-          validationErrors.push('Mobile network, number, and country are required');
+          validationErrors.push('Mobile network (mtn_momo/orange_money), number, and country are required');
+        }
+        if (!['mtn_momo', 'orange_money'].includes(mobile_network)) {
+          validationErrors.push('Mobile network must be mtn_momo or orange_money');
         }
         if (mobile_number && !/^\+?[\d\s-]{8,15}$/.test(mobile_number)) {
           validationErrors.push('Invalid mobile number format');
         }
+        if (mobile_country && !['CM', 'CI', 'SN', 'GH', 'ML'].includes(mobile_country)) {
+          validationErrors.push('Country must be one of: CM, CI, SN, GH, ML');
+        }
         break;
       case 'usdt':
         if (!usdt_network || !usdt_address) {
-          validationErrors.push('USDT network (trc20/erc20/bep20) and wallet address are required');
+          validationErrors.push('USDT network (trc20 required) and wallet address are required');
         }
-        if (usdt_address && usdt_address.length < 20) {
-          validationErrors.push('Invalid USDT wallet address');
+        if (usdt_network && usdt_network !== 'trc20') {
+          validationErrors.push('TRC20 network is required for USDT');
+        }
+        if (usdt_address && (usdt_address.length < 30 || !usdt_address.startsWith('T'))) {
+          validationErrors.push('Invalid TRC20 USDT wallet address (must start with T)');
+        }
+        break;
+      case 'btc':
+        if (!btc_address) {
+          validationErrors.push('Bitcoin wallet address is required');
+        }
+        if (btc_address && btc_address.length < 26) {
+          validationErrors.push('Invalid Bitcoin wallet address');
+        }
+        break;
+      case 'eth':
+        if (!eth_address) {
+          validationErrors.push('Ethereum wallet address is required');
+        }
+        if (eth_address && (!eth_address.startsWith('0x') || eth_address.length !== 42)) {
+          validationErrors.push('Invalid Ethereum wallet address (must start with 0x)');
         }
         break;
       case 'bank_transfer':
@@ -251,16 +301,18 @@ router.post('/payout-methods', [
       data: {
         user_id: req.user!.id,
         method_type,
-        currency: currency || 'USD',
+        currency: currency || (method_type === 'usdt' ? 'USDT' : method_type === 'btc' ? 'BTC' : method_type === 'eth' ? 'ETH' : method_type === 'mobile_money' ? 'XAF' : 'USD'),
         is_default: is_default || false,
         payoneer_email,
-        flutterwave_account,
-        flutterwave_bank,
         mobile_network,
         mobile_number,
         mobile_country,
-        usdt_network,
-        usdt_address
+        usdt_network: usdt_network || 'trc20',
+        usdt_address,
+        btc_address,
+        btc_network: btc_network || 'mainnet',
+        eth_address,
+        eth_network: eth_network || 'mainnet'
       }
     });
 
@@ -560,13 +612,154 @@ router.post('/bank-account', [
   }
 });
 
-router.post('/withdraw/quick', authMiddleware, async (req: AuthRequest, res: Response) => {
-  res.status(400).json({
-    error: 'Withdrawals are disabled',
-    message: 'Earnings are paid directly by affiliate networks. Check your network dashboard for payout status.',
-    payout_method: 'AFFILIATE_NETWORK',
-    help: 'Contact your affiliate network directly for payment inquiries.'
-  });
+router.post('/payout', [
+  authMiddleware,
+  body('amount').isFloat({ min: 1 }).withMessage('Amount must be positive'),
+  body('currency').isIn(SUPPORTED_CURRENCIES).withMessage('Invalid currency'),
+  body('payout_method_id').isInt().withMessage('Payout method ID required')
+], async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { amount, currency, payout_method_id, notes } = req.body;
+
+    const result = await createPayout({
+      userId: req.user!.id,
+      payoutMethodId: payout_method_id,
+      amount: parseFloat(amount),
+      currency: currency as SupportedCurrency,
+      notes
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ 
+        error: result.error,
+        fraud_score: result.fraudScore
+      });
+    }
+
+    await logPaymentAction(
+      req.user!.id,
+      'payout_requested',
+      result.payoutId!,
+      { amount, currency, payout_method_id, requires_approval: result.requiresApproval },
+      req
+    );
+
+    res.json({
+      message: result.requiresApproval 
+        ? 'Payout request submitted and pending admin approval'
+        : 'Payout request submitted and approved automatically',
+      payout_id: result.payoutId,
+      requires_approval: result.requiresApproval,
+      status: result.requiresApproval ? 'pending' : 'approved',
+      estimated_processing: result.requiresApproval ? '24-48 hours' : '1-3 business days'
+    });
+  } catch (error: any) {
+    console.error('Payout error:', error);
+    res.status(500).json({ error: 'Failed to process payout request' });
+  }
+});
+
+router.get('/payouts', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, limit, offset } = req.query;
+    
+    const payouts = await getPayoutHistory(req.user!.id, {
+      status: status as string,
+      limit: limit ? parseInt(limit as string) : 50,
+      offset: offset ? parseInt(offset as string) : 0
+    });
+
+    const stats = await getPayoutStats(req.user!.id);
+
+    res.json({
+      payouts,
+      stats
+    });
+  } catch (error) {
+    console.error('Get payouts error:', error);
+    res.status(500).json({ error: 'Failed to get payouts' });
+  }
+});
+
+router.get('/payouts/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    const payout = await prisma.payout.findFirst({
+      where: { id, user_id: req.user!.id },
+      include: {
+        payout_method: {
+          select: { method_type: true, mobile_network: true, payoneer_email: true, usdt_network: true }
+        }
+      }
+    });
+
+    if (!payout) {
+      return res.status(404).json({ error: 'Payout not found' });
+    }
+
+    res.json({
+      payout: {
+        id: payout.id,
+        amount: Number(payout.amount),
+        currency: payout.currency,
+        amount_in_usd: payout.amount_in_usd ? Number(payout.amount_in_usd) : null,
+        provider: payout.provider,
+        provider_ref: payout.provider_ref,
+        provider_fee: payout.provider_fee ? Number(payout.provider_fee) : null,
+        status: payout.status,
+        fraud_score: payout.fraud_score,
+        created_at: payout.created_at,
+        approved_at: payout.approved_at,
+        processed_at: payout.processed_at,
+        completed_at: payout.completed_at,
+        failed_at: payout.failed_at,
+        failure_reason: payout.failure_reason,
+        method: payout.payout_method
+      }
+    });
+  } catch (error) {
+    console.error('Get payout error:', error);
+    res.status(500).json({ error: 'Failed to get payout' });
+  }
+});
+
+router.post('/payout-methods/:id/verify', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    const method = await prisma.payoutMethod.findFirst({
+      where: { id, user_id: req.user!.id }
+    });
+
+    if (!method) {
+      return res.status(404).json({ error: 'Payout method not found' });
+    }
+
+    const verificationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    await prisma.payoutMethod.update({
+      where: { id },
+      data: { 
+        verification_code: verificationCode,
+        is_verified: true,
+        verified_at: new Date()
+      }
+    });
+
+    res.json({
+      message: 'Payout method verified successfully',
+      is_verified: true
+    });
+  } catch (error) {
+    console.error('Verify payout method error:', error);
+    res.status(500).json({ error: 'Failed to verify payout method' });
+  }
 });
 
 export default router;
