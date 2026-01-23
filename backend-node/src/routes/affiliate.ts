@@ -4,6 +4,7 @@ import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/
 import { importAdmitadFeed, startFeedSyncScheduler } from '../services/admitadFeedService';
 import { searchAdmitadProducts, searchAliExpressProducts, getAdmitadStatus } from '../services/admitadService';
 import { enqueueSocialPosts } from '../services/socialQueue';
+import { AFFILIATE_NETWORKS, getNetwork, canImportProducts, getProductNetworks, getCPANetworks } from '../config/affiliateNetworks';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -66,24 +67,24 @@ router.get('/', async (req: Request, res: Response) => {
 
 router.get('/networks', async (req: Request, res: Response) => {
   try {
-    const networks = await prisma.affiliateNetwork.findMany({
-      where: { status: 'active' },
-      orderBy: { name: 'asc' }
+    const networks = Object.values(AFFILIATE_NETWORKS).map(n => ({
+      id: n.key,
+      name: n.name,
+      slug: n.key,
+      status: 'active',
+      supportsProducts: n.supportsProducts,
+      supportsCPA: n.supportsCPA,
+      description: n.description
+    }));
+
+    const productNetworks = networks.filter(n => n.supportsProducts);
+    const cpaNetworks = networks.filter(n => n.supportsCPA);
+
+    res.json({ 
+      networks,
+      productNetworks,
+      cpaNetworks
     });
-
-    const defaultNetworks = [
-      { id: 'digistore24', name: 'Digistore24', slug: 'digistore24', status: 'active' },
-      { id: 'awin', name: 'Awin', slug: 'awin', status: 'active' },
-      { id: 'mylead', name: 'MyLead', slug: 'mylead', status: 'active' },
-      { id: 'admitad', name: 'Admitad', slug: 'admitad', status: 'active' },
-      { id: 'aliexpress', name: 'AliExpress', slug: 'aliexpress', status: 'active' }
-    ];
-
-    const allNetworks = networks.length > 0 
-      ? networks.map(n => ({ id: n.slug, name: n.name, slug: n.slug, status: n.status }))
-      : defaultNetworks;
-
-    res.json({ networks: allNetworks });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -139,6 +140,13 @@ router.post('/import', authMiddleware, async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'Title and affiliate_url are required' });
     }
 
+    if (network && !canImportProducts(network)) {
+      const netConfig = getNetwork(network);
+      return res.status(400).json({ 
+        error: `${netConfig?.name || network} does not support product imports (CPA only). Use the Offers & Leads page for CPA tracking.`
+      });
+    }
+
     const product = await prisma.product.create({
       data: {
         name: title,
@@ -180,10 +188,16 @@ router.post('/bulk-import', authMiddleware, async (req: AuthRequest, res: Respon
       return res.status(400).json({ error: 'Products array is required' });
     }
 
-    const results = { imported: 0, failed: 0, errors: [] as string[] };
+    const results = { imported: 0, failed: 0, skipped: 0, errors: [] as string[] };
 
     for (const p of products) {
       try {
+        const network = p.network?.toLowerCase();
+        if (network && !canImportProducts(network)) {
+          results.skipped++;
+          results.errors.push(`Skipped "${p.title || p.name}": ${getNetwork(network)?.name || network} is CPA-only (no product imports)`);
+          continue;
+        }
         await prisma.product.create({
           data: {
             name: p.title || p.name,

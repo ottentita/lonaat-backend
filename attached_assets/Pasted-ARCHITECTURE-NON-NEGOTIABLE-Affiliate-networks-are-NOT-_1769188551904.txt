@@ -1,0 +1,233 @@
+ARCHITECTURE (NON-NEGOTIABLE)
+Affiliate networks are NOT the same.
+Network
+Type
+Can Import Products
+Can Track CPA
+Admitad
+Product Feed
+✅ Yes
+✅ Yes
+AliExpress
+Product Feed
+✅ Yes
+❌ No
+AWIN
+Product Feed
+✅ Yes
+✅ Yes
+MyLead
+CPA Only
+❌ No
+✅ Yes
+🚫 MyLead must NEVER be used for product import
+1️⃣ BACKEND: NETWORK CAPABILITY LAYER (CRITICAL)
+Create this file
+Copy code
+
+src/config/affiliateNetworks.ts
+Copy code
+Ts
+export const AFFILIATE_NETWORKS = {
+  admitad: {
+    key: "admitad",
+    name: "Admitad",
+    supportsProducts: true,
+    supportsCPA: true
+  },
+  aliexpress: {
+    key: "aliexpress",
+    name: "AliExpress",
+    supportsProducts: true,
+    supportsCPA: false
+  },
+  awin: {
+    key: "awin",
+    name: "AWIN",
+    supportsProducts: true,
+    supportsCPA: true
+  },
+  mylead: {
+    key: "mylead",
+    name: "MyLead",
+    supportsProducts: false,
+    supportsCPA: true
+  }
+};
+2️⃣ BACKEND: FIX ALL 404 ERRORS (EXPRESS)
+🔥 THIS IS THE ROOT CAUSE OF YOUR ERRORS
+Edit:
+Copy code
+
+src/routes/networks.ts
+Copy code
+Ts
+import { AFFILIATE_NETWORKS } from "../config/affiliateNetworks";
+
+router.post("/:network/sync-products", async (req, res) => {
+  const network = req.params.network;
+
+  const config = AFFILIATE_NETWORKS[network];
+  if (!config) {
+    return res.status(404).json({ error: "Network not supported" });
+  }
+
+  if (!config.supportsProducts) {
+    return res.status(400).json({
+      error: `${config.name} does not support product imports (CPA only)`
+    });
+  }
+
+  // SAFE: Only Admitad, AliExpress, AWIN reach here
+  const products = await importProductsFromNetwork(network);
+  res.json({ success: true, productsImported: products.length });
+});
+✅ 404 errors STOP
+✅ Clean API behavior
+✅ System becomes predictable
+3️⃣ BACKEND: PRODUCT IMPORT PIPELINE (FIXED)
+REQUIRED TABLE
+Copy code
+
+products
+Fields (minimum):
+Copy code
+Sql
+id UUID PRIMARY KEY
+title TEXT
+price DECIMAL
+image TEXT
+source_network TEXT
+affiliate_url TEXT
+category TEXT
+status ENUM('draft','active')
+created_at TIMESTAMP
+Import function
+Copy code
+
+src/services/importProducts.ts
+Copy code
+Ts
+export async function importProductsFromNetwork(network: string) {
+  const feed = await fetchFeed(network);
+  const products = normalize(feed);
+
+  for (const product of products) {
+    await db.products.upsert({
+      title: product.title,
+      price: product.price,
+      image: product.image,
+      affiliate_url: product.url,
+      source_network: network,
+      status: "active"
+    });
+  }
+
+  return products;
+}
+4️⃣ FRONTEND: FIX IMPORT UI (VERY IMPORTANT)
+❌ CURRENT BUG
+Frontend allows MyLead → product import → backend rejects → 404
+✅ FIX
+Copy code
+Ts
+const productNetworks = networks.filter(n => n.supportsProducts);
+UI SHOULD SHOW ONLY
+Admitad
+AliExpress
+AWIN
+🚫 MyLead MUST NOT appear in:
+Import Product modal
+Bulk Import
+Marketplace
+5️⃣ CPA SYSTEM (MYLEAD – DONE CORRECTLY)
+A. MyLead API Keys (YOU DID RIGHT)
+Store in Replit Secrets:
+Copy code
+
+MYLEAD_API_KEY
+MYLEAD_API_EMAIL
+MYLEAD_API_BASE=https://api.mylead.global
+B. POSTBACK ENDPOINT (KEEP THIS)
+Copy code
+
+/api/postback/mylead
+Copy code
+Ts
+router.get("/postback/mylead", async (req, res) => {
+  const { transaction_id, status, payout, offer_id } = req.query;
+
+  await db.conversions.create({
+    network: "mylead",
+    transaction_id,
+    status,
+    payout,
+    offer_id
+  });
+
+  res.send("OK");
+});
+✅ Your screenshots confirm this works
+C. CPA OFFERS PAGE (NEW)
+Create:
+Copy code
+
+/dashboard/affiliate/cpa-offers
+Features:
+Offer name
+Network (MyLead)
+Tracking link
+Conversions
+Earnings
+🚫 NO product cards
+🚫 NO marketplace push
+6️⃣ ADS SYSTEM (WHY IT FAILED & FIX)
+RULE
+Ads can ONLY run for:
+Marketplace products
+With product_id
+With image & price
+Enforcement (backend)
+Copy code
+Ts
+if (!productId) {
+  throw new Error("Ads can only be created for marketplace products");
+}
+Result
+✅ Ads stop failing
+✅ Clean reporting
+✅ No phantom ads
+7️⃣ MARKETPLACE VISIBILITY (USER SIDE)
+Users see:
+Imported products from Admitad / AliExpress / AWIN
+Prices
+Buy buttons
+Affiliate redirects
+Users DO NOT see:
+MyLead offers
+CPA links
+8️⃣ AFFILIATE NETWORKS PAGE (FIX DISPLAY)
+/dashboard/networks
+Show:
+Product Networks section
+CPA Networks section
+Copy code
+
+Product Networks:
+  - Admitad
+  - AliExpress
+  - AWIN
+
+CPA Networks:
+  - MyLead
+Each has its own Sync / Manage logic.
+9️⃣ FINAL TEST CHECKLIST (MANDATORY)
+Tell your agent to confirm:
+☑ Import product from Admitad → appears in marketplace
+☑ Import product from AliExpress → appears in marketplace
+☑ Click Sync MyLead → blocked (CPA only message)
+☑ MyLead postback records conversions
+☑ Ads create successfully for marketplace products
+☑ No 404 errors anywhere
+☑ Users see products
+☑ Admin sees conversions & commissions
