@@ -18,7 +18,7 @@ export async function enqueueSocialPosts(product: Product, userId?: number, useA
       ? await generateSocialContent(product)
       : generateQuickContent(product);
 
-    const platforms = ['facebook', 'twitter', 'telegram'] as const;
+    const platforms = ['facebook', 'twitter', 'telegram', 'instagram', 'tiktok'] as const;
     
     for (const platform of platforms) {
       const existingPost = await prisma.socialPost.findFirst({

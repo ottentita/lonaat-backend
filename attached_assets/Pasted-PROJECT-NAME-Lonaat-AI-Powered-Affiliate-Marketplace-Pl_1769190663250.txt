@@ -1,0 +1,89 @@
+PROJECT NAME: Lonaat (AI-Powered Affiliate & Marketplace Platform)
+📌 OBJECTIVE
+Fix and fully implement the Affiliate System + AI Growth Engine, eliminating all 404 errors and demo-mode limitations.
+🔧 MANDATORY TASKS (IMPLEMENT ALL)
+1. Affiliate Network Integration
+Fully implement:
+Admitad (product feeds + postback)
+AliExpress API
+MyLead API
+Remove all Demo Mode logic
+Ensure products can be:
+Searched
+Imported
+Bulk-imported
+Saved into the marketplace database
+Fix 404 causes:
+Missing backend routes
+Frontend calling non-existent endpoints
+Invalid or missing API secrets
+Required routes:
+Copy code
+
+POST   /api/affiliate/search
+POST   /api/affiliate/import
+POST   /api/affiliate/sync
+GET    /api/networks
+2. Marketplace Sync
+Imported affiliate products MUST:
+Appear in marketplace
+Be visible to users
+Have affiliate tracking links attached
+No product should stay “visible but not stored”
+3. Automated Social Media Posting
+Implement auto-posting to:
+Facebook Pages
+Instagram Business
+X (Twitter)
+TikTok Business
+Telegram
+Flow:
+Copy code
+
+Product imported → AI generates creatives → Scheduled social post
+4. AI Ad Creatives Engine
+Generate:
+Ad copy
+Headlines
+Hashtags
+CTA
+Platform-specific tone & formatting
+Trigger automatically on product import
+5. Fraud Detection System
+Track:
+IP
+Device fingerprint
+Geo location
+Click velocity
+Conversion timing
+Block:
+Self-referrals
+Bot traffic
+VPN abuse
+6. Multi-Currency Wallet & Payouts
+Internal wallet system
+Support:
+Payoneer
+Flutterwave
+Mobile Money
+USDT (crypto)
+Affiliate networks pay platform → platform pays users
+7. AI Growth Engine (×100 Boost)
+AI must:
+Rank best products
+Choose best ad platforms
+Optimize posting times
+Detect fraud early
+Improve ROI automatically
+⚠️ IMPORTANT
+NO demo mode
+NO fake data
+NO UI-only fixes
+All features must be functional end-to-end
+✅ DELIVERABLES
+Fully working affiliate import
+Zero 404 errors
+Products syncing correctly
+AI ads running
+Commissions tracked
+Fraud blocked

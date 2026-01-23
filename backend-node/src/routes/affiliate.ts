@@ -267,6 +267,62 @@ router.get('/admitad/status', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/sync', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { networks, limit = 50 } = req.body;
+    const targetNetworks = networks || ['admitad', 'aliexpress', 'digistore24', 'awin'];
+    
+    const results: any = {};
+    
+    for (const network of targetNetworks) {
+      try {
+        const searchResults = await searchAffiliateOffers(network, 'popular');
+        
+        let imported = 0;
+        for (const offer of searchResults.slice(0, limit)) {
+          if (offer.name && offer.affiliate_link) {
+            const existing = await prisma.product.findFirst({
+              where: { affiliate_link: offer.affiliate_link }
+            });
+            
+            if (!existing) {
+              await prisma.product.create({
+                data: {
+                  name: offer.name,
+                  description: offer.description || '',
+                  price: offer.price || '0',
+                  category: offer.category || 'General',
+                  affiliate_link: offer.affiliate_link,
+                  image_url: offer.image_url,
+                  network: network,
+                  is_active: true
+                }
+              });
+              imported++;
+            }
+          }
+        }
+        
+        results[network] = { 
+          status: 'success', 
+          products_found: searchResults.length,
+          products_imported: imported
+        };
+      } catch (error: any) {
+        results[network] = { status: 'error', message: error.message };
+      }
+    }
+    
+    res.json({
+      message: 'Sync completed',
+      networks: targetNetworks,
+      results
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/sync/:network', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { network } = req.params;

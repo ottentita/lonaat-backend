@@ -128,8 +128,8 @@ export async function searchAliExpressProducts(
   const websiteId = process.env.ADMITAD_WEBSITE_ID;
 
   if (!websiteId) {
-    console.warn('ADMITAD_WEBSITE_ID not configured');
-    return getMockAliExpressProducts(query);
+    console.warn('ADMITAD_WEBSITE_ID not configured - returning empty results');
+    return [];
   }
 
   try {
@@ -151,8 +151,8 @@ export async function searchAliExpressProducts(
     );
 
     if (!aliexpressCampaign) {
-      console.log('AliExpress campaign not found in Admitad, using mock data');
-      return getMockAliExpressProducts(query);
+      console.log('AliExpress campaign not found in Admitad - returning empty results');
+      return [];
     }
 
     const productsResponse = await axios.get(
@@ -185,30 +185,8 @@ export async function searchAliExpressProducts(
     }));
   } catch (error: any) {
     console.error('AliExpress search error:', error.response?.data || error.message);
-    return getMockAliExpressProducts(query);
+    return [];
   }
-}
-
-function getMockAliExpressProducts(query: string): AdmitadProduct[] {
-  const categories = ['Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Beauty'];
-  const products: AdmitadProduct[] = [];
-
-  for (let i = 1; i <= 10; i++) {
-    products.push({
-      id: `ali_mock_${i}_${Date.now()}`,
-      name: `${query} - Product ${i}`,
-      description: `High quality ${query} from AliExpress. Fast shipping worldwide.`,
-      price: Math.floor(Math.random() * 100) + 5,
-      currency: 'USD',
-      image_url: `https://via.placeholder.com/300x300?text=AliExpress+${i}`,
-      url: `https://www.aliexpress.com/item/${1000000000 + i}.html`,
-      category: categories[i % categories.length],
-      commission_rate: 3 + (i % 5),
-      merchant: 'AliExpress'
-    });
-  }
-
-  return products;
 }
 
 export async function generateDeeplink(productUrl: string, userId: number): Promise<string> {

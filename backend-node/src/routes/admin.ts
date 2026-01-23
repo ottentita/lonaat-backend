@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
 import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts, detectFraud, runFraudScan, autoBoostAdminProducts, scanNetworksForProducts, autoImportAliExpressProducts, runAIAutoImportCycle } from '../services/ai';
 import { syncAllNetworks, syncDigistore24Products, syncAwinProducts, syncMyLeadProducts, syncPartnerStackProducts, getNetworkStatus } from '../services/networkSync';
+import { generateGrowthReport, rankProducts, getAIRecommendations } from '../services/growthEngine';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -709,6 +710,39 @@ router.get('/ai/fraud-check/:userId', async (req: AuthRequest, res: Response) =>
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Failed to check fraud' });
+  }
+});
+
+router.get('/ai/growth-report/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const report = await generateGrowthReport(userId);
+    res.json({ report });
+  } catch (error) {
+    console.error('Growth report error:', error);
+    res.status(500).json({ error: 'Failed to generate growth report' });
+  }
+});
+
+router.get('/ai/product-rankings', async (req: AuthRequest, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const rankings = await rankProducts(undefined, limit);
+    res.json({ rankings, total: rankings.length });
+  } catch (error) {
+    console.error('Product rankings error:', error);
+    res.status(500).json({ error: 'Failed to get product rankings' });
+  }
+});
+
+router.get('/ai/recommendations/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const recommendations = await getAIRecommendations(userId);
+    res.json({ recommendations });
+  } catch (error) {
+    console.error('AI recommendations error:', error);
+    res.status(500).json({ error: 'Failed to get AI recommendations' });
   }
 });
 
