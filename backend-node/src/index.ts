@@ -9,6 +9,7 @@ import userRoutes from "./routes/users";
 import productRoutes from "./routes/products";
 import campaignRoutes from "./routes/campaigns";
 import adminRoutes from "./routes/admin";
+import trackRoutes from "./routes/track";
 import commissionRoutes from "./routes/commissions";
 import paymentRoutes from "./routes/payments";
 import subscriptionRoutes from "./routes/subscriptions";
@@ -62,6 +63,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/products-import", productImportRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/track", trackRoutes);
 app.use("/api/commissions", commissionRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
@@ -146,7 +148,9 @@ async function startServer() {
     startFeedSyncScheduler(6);
     console.log("Admitad feed sync scheduler started (6-hour interval)");
   }
-
+  app.get("/", (req, res) => {
+    res.send("Lonaat API is running");
+  });
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Lonaat API v2.0 running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);

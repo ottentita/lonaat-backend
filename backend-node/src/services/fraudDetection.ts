@@ -395,7 +395,7 @@ export async function logFraudEvent(
         details: {
           user_agent: signals.userAgent,
           device_fingerprint: signals.deviceFingerprint,
-          geo: JSON.parse(JSON.stringify(geoData)),
+          geo: {},
           is_vpn: signals.isVpn,
           is_tor: signals.isTor,
           is_proxy: signals.isProxy,

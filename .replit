@@ -1,9 +1,9 @@
 entrypoint = "main.py"
-modules = ["python-3.11", "nodejs-20", "python3", "postgresql-16"]
+modules = ["nodejs-20", "postgresql-16", "python-3.11", "python3"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "rustc", "jq", "psmisc", "nano"]
+packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "rustc", "jq", "psmisc", "nano", "u-root-cmds", "lsof"]
 
 [unitTest]
 language = "python3"
@@ -62,7 +62,7 @@ outputType = "webview"
 
 [[ports]]
 localPort = 3000
-externalPort = 3001
+externalPort = 3000
 
 [[ports]]
 localPort = 5000
@@ -70,11 +70,11 @@ externalPort = 80
 
 [[ports]]
 localPort = 5555
-externalPort = 3000
+externalPort = 3001
 
 [[ports]]
-localPort = 8000
-externalPort = 8000
+localPort = 5556
+externalPort = 3002
 
 [userenv]
 
