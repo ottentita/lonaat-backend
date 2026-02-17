@@ -4,11 +4,14 @@
   "description": "Lonaat Affiliate Marketing Platform - Node.js Backend",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node --transpile-only src/index.ts",
+    "prisma:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "seed": "ts-node src/seed.ts",
     "seed:admin": "ts-node prisma/seeds/adminSeed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^4.16.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
@@ -29,7 +32,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.9.0",
-    "prisma": "^5.22.0",
+    "prisma": "^4.16.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
