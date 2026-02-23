@@ -2,7 +2,7 @@
   "name": "lonaat-backend-wrapper",
   "private": true,
   "scripts": {
-    "build": "cd backend-node && npm install && npm run build",
+    "build": "cd frontend && npm ci && npm run build && cd .. && cd backend-node && npm ci && npm run build",
     "start": "cd backend-node && npm start"
   },
   "engines": {
