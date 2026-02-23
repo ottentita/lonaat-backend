@@ -12,6 +12,7 @@ import {
   DollarSign,
   Loader2
 } from 'lucide-react';
+import { formatCurrency } from '../../lib/currency';
 
 const Profile = () => {
   const [loading, setLoading] = useState(true);
@@ -134,7 +135,7 @@ const Profile = () => {
               <span className="text-dark-400 text-sm">Total Earnings</span>
             </div>
             <p className="text-2xl font-bold text-dark-50">
-              ${(profile.total_earnings || 0).toLocaleString()}
+              {formatCurrency(profile.total_earnings || 0, 'USD')}
             </p>
           </div>
           <div className="card">

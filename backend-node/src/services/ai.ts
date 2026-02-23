@@ -618,7 +618,7 @@ export async function autoImportAliExpressProducts(category?: string, count: num
             user_id: adminUser.id,
             name: product.name,
             description: product.description,
-            price: `$${product.price}`,
+            price: product.price ? Number(product.price) : null,
             category: product.category,
             network: 'aliexpress',
             affiliate_link: product.url,

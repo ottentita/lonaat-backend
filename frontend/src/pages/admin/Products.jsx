@@ -17,7 +17,8 @@ export default function AdminProducts() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/products', {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/admin/products`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       const data = await response.json();

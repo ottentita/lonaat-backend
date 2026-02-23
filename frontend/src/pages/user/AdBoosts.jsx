@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adsAPI, productsAPI, walletAPI } from '@/services/api';
 import { isAdmin } from '@/utils/auth';
+import { formatCurrency } from '@/lib/currency' 
 import toast from 'react-hot-toast';
 import { 
   Megaphone, 
@@ -130,7 +131,7 @@ const AdBoosts = () => {
               <div className="flex items-center gap-2 text-sm">
                 <Wallet className="w-4 h-4 text-green-500" />
                 <span className="text-dark-400">Balance:</span>
-                <span className="text-dark-50 font-semibold">${balance.toLocaleString()}</span>
+                <span className="text-dark-50 font-semibold">{formatCurrency(balance, 'USD')}</span>
               </div>
             </div>
             <button
@@ -284,13 +285,13 @@ const AdBoosts = () => {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-dark-300">Total Cost</span>
                     <span className="text-2xl font-bold text-primary-500">
-                      ${calculateCost().toLocaleString()}
+                      {formatCurrency(calculateCost(), 'USD')}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-dark-400">Your Balance</span>
                     <span className={balance >= calculateCost() ? 'text-green-500' : 'text-red-500'}>
-                      ${balance.toLocaleString()}
+                      {formatCurrency(balance, 'USD')}
                     </span>
                   </div>
                 </div>

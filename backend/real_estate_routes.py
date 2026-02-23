@@ -12,6 +12,8 @@ from auth import is_admin_user, check_user_blocked
 from datetime import datetime, timedelta
 import logging
 import json
+import re
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +130,15 @@ def create_property():
         
         status = 'approved' if user.is_admin else 'pending'
         
+        raw_price = data.get('price')
+        price_val = None
+        if raw_price is not None:
+            if isinstance(raw_price, str):
+                cleaned = re.sub(r"[^\d\.]+", "", raw_price).strip()
+                price_val = Decimal(cleaned) if cleaned != "" else None
+            else:
+                price_val = Decimal(str(raw_price))
+
         property_obj = Property(
             user_id=user_id,
             title=data['title'],
@@ -136,7 +147,7 @@ def create_property():
             country='Cameroon',
             city=data['city'],
             address=data.get('address'),
-            price=data.get('price'),
+            price=price_val,
             currency=data.get('currency', 'XAF'),
             price_type=data.get('price_type'),
             bedrooms=data.get('bedrooms'),
@@ -150,11 +161,19 @@ def create_property():
         
         if data['property_type'] in ['rental', 'guest_house', 'car_rental']:
             rental_data = data.get('rental_details', {})
+            def parse_money(v):
+                if v is None:
+                    return None
+                if isinstance(v, str):
+                    cleaned = re.sub(r"[^\d\.]+", "", v).strip()
+                    return Decimal(cleaned) if cleaned != "" else None
+                return Decimal(str(v))
+
             rental_details = RentalDetails(
                 property_id=property_obj.id,
-                daily_rate=rental_data.get('daily_rate'),
-                weekly_rate=rental_data.get('weekly_rate'),
-                monthly_rate=rental_data.get('monthly_rate'),
+                daily_rate=parse_money(rental_data.get('daily_rate')),
+                weekly_rate=parse_money(rental_data.get('weekly_rate')),
+                monthly_rate=parse_money(rental_data.get('monthly_rate')),
                 min_stay_days=rental_data.get('min_stay_days', 1),
                 max_stay_days=rental_data.get('max_stay_days'),
                 max_guests=rental_data.get('max_guests'),
@@ -162,7 +181,7 @@ def create_property():
                 vehicle_model=rental_data.get('vehicle_model'),
                 vehicle_year=rental_data.get('vehicle_year'),
                 vehicle_type=rental_data.get('vehicle_type'),
-                deposit_required=rental_data.get('deposit_required'),
+                deposit_required=parse_money(rental_data.get('deposit_required')),
                 cancellation_policy=rental_data.get('cancellation_policy', 'flexible')
             )
             db.session.add(rental_details)
@@ -223,7 +242,15 @@ def update_property(property_id):
         if 'address' in data:
             property_obj.address = data['address']
         if 'price' in data:
-            property_obj.price = data['price']
+            raw_price = data.get('price')
+            if raw_price is None:
+                property_obj.price = None
+            else:
+                if isinstance(raw_price, str):
+                    cleaned = re.sub(r"[^\d\.]+", "", raw_price).strip()
+                    property_obj.price = Decimal(cleaned) if cleaned != "" else None
+                else:
+                    property_obj.price = Decimal(str(raw_price))
         if 'price_type' in data:
             property_obj.price_type = data['price_type']
         if 'bedrooms' in data:

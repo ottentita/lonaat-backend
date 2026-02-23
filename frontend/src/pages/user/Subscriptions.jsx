@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
+import { formatCurrency } from '../../lib/currency';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
 
@@ -15,11 +16,12 @@ export default function Subscriptions() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
       const [plansRes, currentRes] = await Promise.all([
-        fetch('/api/plans', {
+        fetch(`${BASE}/api/plans`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         }),
-        fetch('/api/subscription/current', {
+        fetch(`${BASE}/api/subscription/current`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
       ]);
@@ -38,7 +40,8 @@ export default function Subscriptions() {
 
   const handleSubscribe = async (planId) => {
     try {
-      const response = await fetch('/api/subscription/subscribe', {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/subscription/subscribe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,7 +110,7 @@ export default function Subscriptions() {
             <CardHeader>
               <CardTitle>{plan.name}</CardTitle>
               <div className="text-3xl font-bold">
-                ${plan.price?.toLocaleString()}
+                {formatCurrency(plan.price, plan.currency || 'USD')}
                 <span className="text-sm font-normal text-muted-foreground">/{plan.duration_days} days</span>
               </div>
             </CardHeader>

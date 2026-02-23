@@ -1,7 +1,10 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// Prefer explicit VITE_API_URL, fall back to localhost backend for development
+const envBase = import.meta.env.VITE_API_URL || '';
+const base = envBase || 'http://localhost:4000';
+const API_BASE_URL = `${base.replace(/\/$/, '')}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,6 +17,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
+    // TEMP DEBUG: log token presence
+    console.debug('[api] Request:', config.method, config.url, 'token present:', !!token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,6 +32,8 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    // TEMP DEBUG: log error details
+    console.error('[api] Error response:', error?.response?.status, error?.response?.data || error.message);
 
     // Handle 401 - Unauthorized
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -94,6 +101,13 @@ export const authAPI = {
   updateProfile: (data) => api.put('/user/profile', data),
 };
 
+// User settings APIs
+export const settingsAPI = {
+  get: () => api.get('/user/settings'),
+  update: (data) => api.put('/user/settings', data),
+  changePassword: (currentPassword, newPassword) => api.put('/user/password', { currentPassword, newPassword })
+}
+
 // Affiliate Offers APIs - Digistore24 & Awin Only
 export const offersAPI = {
   getOffers: (network, query = '', page = 1) => api.get('/offers', { params: { network, q: query, page } }),
@@ -111,6 +125,25 @@ export const productsAPI = {
   import: (data) => api.post('/products/import', data),
   getUsage: () => api.get('/products/usage'),
 };
+
+export const categoriesAPI = {
+  getAll: () => api.get('/categories'),
+  getListingsBySlug: (slug, params) => api.get(`/categories/${slug}/listings`, { params })
+}
+
+export const listingsAPI = {
+  getAll: (params) => api.get('/listings', { params }),
+  getSeller: () => api.get('/listings/seller'),
+  create: (data) => api.post('/listings', data),
+  update: (id, data) => api.put(`/listings/${id}`, data),
+  remove: (id) => api.delete(`/listings/${id}`)
+}
+
+export const marketAPI = {
+  // Marketplace product categories and public listings
+  getCategories: () => api.get('/marketplace/categories'),
+  getListings: (params) => api.get('/marketplace/products', { params })
+}
 
 // Commissions APIs
 export const commissionsAPI = {
@@ -134,7 +167,26 @@ export const adsAPI = {
 
 // Wallet APIs
 export const walletAPI = {
-  getBalance: () => api.get('/wallet'),
+  getBalance: async () => {
+    const resp = await api.get('/wallet');
+    // normalize numeric balance for UI consumers (Prisma Decimal serializes as string)
+    if (resp?.data?.wallet?.balance !== undefined) {
+      const parsed = Number(resp.data.wallet.balance);
+      resp.data.wallet.balance = Number.isNaN(parsed) ? resp.data.wallet.balance : parsed;
+      // keep a top-level `balance` for callers that expect it (backwards-compat)
+      resp.data.balance = resp.data.wallet.balance;
+    }
+    return resp;
+  },
+  // UI-friendly alias — prefer explicit summary endpoint
+  getSummary: async () => {
+    const resp = await api.get('/wallet/summary');
+    if (resp?.data?.wallet?.balance !== undefined) {
+      const parsed = Number(resp.data.wallet.balance);
+      resp.data.wallet.balance = Number.isNaN(parsed) ? resp.data.wallet.balance : parsed;
+    }
+    return resp;
+  },
   buyCredits: (data) => api.post('/wallet/buy_credits', data),
   getTransactions: () => api.get('/wallet/transactions'),
   getBankAccount: () => api.get('/wallet/bank-account'),
@@ -220,7 +272,7 @@ export const adminAIAPI = {
 
 // Affiliate APIs
 export const affiliateAPI = {
-  getStats: (productId) => api.get(`/affiliate/stats/${productId}`),
+  getStats: () => api.get('/affiliate/stats'),
 };
 
 // Real Estate APIs
@@ -316,3 +368,6 @@ export const socialAPI = {
 };
 
 export default api;
+
+// Export internal axios instance for unit tests and small integrations
+export { api };

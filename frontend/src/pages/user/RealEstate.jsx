@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
 import { Home, Building, MapPin, Store, Hotel, Key, Plus, Eye, Upload, X, Phone, Mail, MessageCircle, FileText, Camera, Video, CheckCircle } from 'lucide-react';
+import { formatCurrency, parseNumericInput } from '../../lib/currency';
 
 const PROPERTY_ICONS = {
   house: Home,
@@ -58,9 +59,9 @@ export default function RealEstate() {
   };
 
   const formatPrice = (price, currency = 'XAF') => {
-    if (!price) return 'Contact for price';
-    return `${currency} ${Number(price).toLocaleString()}`;
-  };
+    if (price === null || price === undefined || price === '') return 'Contact for price'
+    return formatCurrency(price, currency || 'XAF')
+  }
 
   if (loading) {
     return (
@@ -918,7 +919,7 @@ function PropertyListingForm({ propertyType, typesInfo, listingFees, onBack, onS
 
             <div className="p-4 bg-muted rounded-lg">
               <h4 className="font-medium mb-2">Listing Fee</h4>
-              <p className="text-2xl font-bold text-primary">XAF {getListingFee().toLocaleString()}</p>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(getListingFee(), 'XAF')}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 Payment via bank transfer. Details will be shown after submission.
               </p>
@@ -1102,7 +1103,7 @@ function PaymentModal({ propertyId, listingFees, properties, fileInputRef, onClo
             <p className="font-medium">{listingFees?.bank_details?.bank_name}</p>
             <p className="text-sm">Account: {listingFees?.bank_details?.account_number}</p>
             <p className="text-sm">Name: {listingFees?.bank_details?.account_name}</p>
-            <p className="text-lg font-bold mt-2">XAF {Number(property?.listing_fee || 0).toLocaleString()}</p>
+            <p className="text-lg font-bold mt-2">{formatCurrency(Number(property?.listing_fee || 0), property?.currency || 'XAF')}</p>
           </div>
 
           <input

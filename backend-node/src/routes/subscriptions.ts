@@ -228,7 +228,7 @@ router.post('/plans', authMiddleware, adminOnlyMiddleware, [
     const plan = await prisma.plan.create({
       data: {
         name,
-        price: parseFloat(price),
+        price: Number(price),
         duration_days: parseInt(duration_days),
         credits: credits ? parseInt(credits) : 0,
         features: features || {},

@@ -20,7 +20,8 @@ export default function AffiliateNetworks() {
     try {
       setLoading(true);
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const response = await fetch('/api/affiliate/networks', {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/affiliate/networks`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -43,7 +44,8 @@ export default function AffiliateNetworks() {
     try {
       setSyncing(networkId);
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const response = await fetch(`/api/affiliate/sync/${networkId}`, {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/affiliate/sync/${networkId}`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,

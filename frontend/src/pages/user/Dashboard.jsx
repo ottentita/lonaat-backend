@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { walletAPI, productsAPI, adsAPI, commissionsAPI } from '@/services/api';
+import { walletAPI, productsAPI, adsAPI, commissionsAPI, affiliateAPI } from '@/services/api';
+import { formatCurrency, formatNumber } from '@/lib/currency'
 import { isAdmin } from '@/utils/auth';
 import toast from 'react-hot-toast';
 import { 
@@ -24,9 +25,13 @@ const Dashboard = () => {
     totalProducts: 0,
     activeCampaigns: 0,
     balance: 0,
+    // affiliate stats
+    totalEarnings: 0,
+    pendingEarnings: 0,
+    availableBalance: 0,
     totalClicks: 0,
-    totalCommissions: 0,
-    pendingCommissions: 0
+    totalLeads: 0,
+    conversionRate: 0
   });
   const [recentActivity, setRecentActivity] = useState([]);
 
@@ -37,12 +42,22 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [walletRes, productsRes, adsRes, commissionsRes] = await Promise.all([
+      // TEMP DEBUG: log current token
+      console.debug('[Dashboard] access_token:', localStorage.getItem('access_token') || localStorage.getItem('token'));
+      const [walletRes, productsRes, adsRes, commissionsRes, affiliateRes] = await Promise.all([
         walletAPI.getBalance().catch(() => ({ data: { balance: 0 } })),
         productsAPI.getAll().catch(() => ({ data: { products: [] } })),
         adsAPI.getStatus().catch(() => ({ data: { campaigns: [] } })),
-        commissionsAPI.getMy().catch(() => ({ data: { commissions: [] } }))
+        commissionsAPI.getMy().catch(() => ({ data: { commissions: [] } })),
+        affiliateAPI.getStats().catch(() => ({ data: {} }))
       ]);
+
+      // TEMP DEBUG: log responses
+      console.debug('[Dashboard] walletRes:', walletRes?.data);
+      console.debug('[Dashboard] productsRes:', productsRes?.data?.products?.length);
+      console.debug('[Dashboard] adsRes:', adsRes?.data);
+      console.debug('[Dashboard] commissionsRes:', commissionsRes?.data);
+      console.debug('[Dashboard] affiliateRes:', affiliateRes?.data);
 
       const products = productsRes.data.products || [];
       const campaigns = adsRes.data.campaigns || [];
@@ -53,13 +68,18 @@ const Dashboard = () => {
         .filter(c => c.status === 'pending')
         .reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
+      const af = affiliateRes.data || {};
+
       setStats({
         totalProducts: products.length,
         activeCampaigns: campaigns.filter(c => c.status === 'active').length,
         balance: walletRes.data.balance || 0,
-        totalClicks,
-        totalCommissions,
-        pendingCommissions
+        totalEarnings: af.total_earnings || 0,
+        pendingEarnings: af.pending_earnings || 0,
+        availableBalance: af.available_balance || 0,
+        totalClicks: af.total_clicks || totalClicks,
+        totalLeads: af.total_leads || 0,
+        conversionRate: af.conversion_rate || 0
       });
 
       const activity = [
@@ -93,41 +113,12 @@ const Dashboard = () => {
   const userIsAdmin = isAdmin();
   
   const statCards = [
-    {
-      title: 'Total Products',
-      value: stats.totalProducts,
-      icon: Package,
-      color: 'bg-blue-500/10 text-blue-500',
-      link: '/dashboard/products'
-    },
-    {
-      title: 'Total Commissions',
-      value: `$${stats.totalCommissions.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      icon: DollarSign,
-      color: 'bg-green-500/10 text-green-500',
-      link: '/dashboard/commissions'
-    },
-    {
-      title: 'Pending Payout',
-      value: `$${stats.pendingCommissions.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      icon: TrendingUp,
-      color: 'bg-yellow-500/10 text-yellow-500',
-      link: '/dashboard/commissions'
-    },
-    userIsAdmin ? {
-      title: 'Admin Status',
-      value: 'UNLIMITED',
-      icon: Crown,
-      color: 'bg-amber-500/10 text-amber-500',
-      link: '/admin',
-      isAdmin: true
-    } : {
-      title: 'Account Balance',
-      value: `$${stats.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      icon: Wallet,
-      color: 'bg-purple-500/10 text-purple-500',
-      link: '/dashboard/wallet'
-    }
+    { title: 'Total Earnings', value: formatCurrency(stats.totalEarnings || 0, 'USD'), icon: DollarSign, color: 'bg-green-500/10 text-green-500', link: '/dashboard/commissions' },
+    { title: 'Pending', value: formatCurrency(stats.pendingEarnings || 0, 'USD'), icon: TrendingUp, color: 'bg-yellow-500/10 text-yellow-500', link: '/dashboard/commissions' },
+    { title: 'Available Balance', value: formatCurrency(stats.availableBalance || 0, 'USD'), icon: Wallet, color: 'bg-purple-500/10 text-purple-500', link: '/dashboard/wallet' },
+    { title: 'Total Clicks', value: formatNumber(stats.totalClicks || 0), icon: MousePointerClick, color: 'bg-blue-500/10 text-blue-500', link: '/dashboard/ads' },
+    { title: 'Leads', value: formatNumber(stats.totalLeads || 0), icon: Activity, color: 'bg-indigo-500/10 text-indigo-500', link: '/dashboard/offers-leads' },
+    { title: 'Conversion Rate', value: `${formatNumber(stats.conversionRate || 0)}%`, icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-500', link: '/dashboard/real-estate-analytics' }
   ];
 
   const quickActions = [

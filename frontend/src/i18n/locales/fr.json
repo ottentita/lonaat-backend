@@ -1,0 +1,23 @@
+{
+  "auth": {
+    "login": "Connexion",
+    "register": "S'inscrire"
+  },
+  "dashboard": "Tableau de bord",
+  "settings": {
+    "title": "Paramètres",
+    "profile": "Profil",
+    "security": "Sécurité",
+    "payment": "Paiement",
+    "notifications": "Notifications",
+    "save": "Enregistrer les modifications",
+    "change_password": "Changer le mot de passe"
+  },
+  "offers": "Offres",
+  "payments": "Paiements",
+  "buttons": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "change_password": "Changer le mot de passe"
+  }
+}

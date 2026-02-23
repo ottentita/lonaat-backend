@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
 import { Users, Phone, Mail, MessageSquare, Star, Clock, CheckCircle, XCircle, ChevronRight, AlertCircle } from 'lucide-react';
+import { formatCurrency } from '../../lib/currency';
 
 export default function PropertyLeads() {
   const [leads, setLeads] = useState([]);
@@ -195,7 +196,7 @@ export default function PropertyLeads() {
                           <p>{formatDate(lead.created_at)}</p>
                           {lead.offer_amount && (
                             <p className="font-semibold text-green-600">
-                              {lead.currency} {Number(lead.offer_amount).toLocaleString()}
+                              {formatCurrency(Number(lead.offer_amount) || 0, lead.currency || 'USD')} 
                             </p>
                           )}
                         </div>
@@ -250,7 +251,7 @@ export default function PropertyLeads() {
                   <div>
                     <p className="text-sm text-muted-foreground">Offer Amount</p>
                     <p className="font-semibold text-lg text-green-600">
-                      {selectedLead.currency} {Number(selectedLead.offer_amount).toLocaleString()}
+                      {formatCurrency(Number(selectedLead.offer_amount) || 0, selectedLead.currency || 'USD')} 
                     </p>
                   </div>
                 )}

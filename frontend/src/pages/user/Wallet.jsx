@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Wallet as WalletIcon, Plus, Copy, Check, History, Package, CreditCard, Upload, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import api, { walletAPI } from '../../services/api';
+import { formatCurrency, formatNumber, parseNumericInput } from '../../lib/currency';
 
 const Wallet = () => {
   const [wallet, setWallet] = useState(null);
@@ -23,7 +24,7 @@ const Wallet = () => {
   const fetchWalletData = async () => {
     try {
       const [walletRes, transactionsRes, profileRes, packagesRes] = await Promise.all([
-        api.get('/wallet'),
+        walletAPI.getSummary(),
         api.get('/wallet/transactions'),
         api.get('/user/profile'),
         api.get('/wallet/packages')
@@ -45,8 +46,9 @@ const Wallet = () => {
   const handleSelectPackage = async (pkg) => {
     setSelectedPackage(pkg);
     try {
+      const amountNum = parseNumericInput(pkg.price)
       const { data } = await api.post('/wallet/buy_credits', {
-        amount: pkg.price,
+        amount: amountNum,
         package_id: pkg.id
       });
 
@@ -101,7 +103,7 @@ const Wallet = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm opacity-80">Available Credits</p>
-            <p className="text-5xl font-bold mt-2">{wallet?.credits || 0}</p>
+            <p className="text-5xl font-bold mt-2">{formatNumber(wallet?.credits || 0)}</p>
             <p className="text-sm opacity-80 mt-2">1 Credit = $1</p>
           </div>
           <WalletIcon className="w-24 h-24 opacity-20" />
@@ -153,15 +155,15 @@ const Wallet = () => {
             <div className="flex justify-between">
               <span className="text-dark-400">Total Purchased</span>
               <span className="font-semibold">
-                {transactions.filter(t => t.type === 'credit_purchase').length} times
+                {formatNumber(transactions.filter(t => t.type === 'credit_purchase').length)} times
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-dark-400">Total Spent</span>
               <span className="font-semibold">
-                {transactions
+                {formatNumber(transactions
                   .filter(t => t.type === 'ad_boost')
-                  .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0)} credits
+                  .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0))} credits
               </span>
             </div>
             <div className="flex justify-between">
@@ -211,7 +213,7 @@ const Wallet = () => {
                     <td className={`py-3 px-4 text-right font-semibold ${
                       tx.amount > 0 ? 'text-green-400' : 'text-red-400'
                     }`}>
-                      {tx.amount > 0 ? '+' : ''}{tx.amount} credits
+                      {tx.amount > 0 ? '+' : ''}{formatNumber(Math.abs(tx.amount || 0))} credits
                     </td>
                   </tr>
                 ))}
@@ -249,7 +251,7 @@ const Wallet = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-3xl font-bold text-primary-400">${pkg.price}</p>
+                  <p className="text-3xl font-bold text-primary-400">{formatCurrency(pkg.price, pkg.currency || 'USD')}</p>
                   <p className="text-dark-400 text-sm mt-1">
                     {pkg.credits} credits {pkg.bonus_credits > 0 && `+ ${pkg.bonus_credits} bonus`}
                   </p>
@@ -306,7 +308,7 @@ const Wallet = () => {
               )}
               <div className="flex justify-between">
                 <span className="text-dark-400">Amount:</span>
-                <span className="font-bold text-green-400">${selectedPackage?.price}</span>
+                <span className="font-bold text-green-400">{formatCurrency(selectedPackage?.price, selectedPackage?.currency || 'USD')}</span>
               </div>
             </div>
 

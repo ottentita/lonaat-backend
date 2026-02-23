@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { withdrawalAPI, walletAPI } from '@/services/api';
+import { formatCurrency } from '@/lib/currency'
 import toast from 'react-hot-toast';
 import { 
   Wallet, 
@@ -217,7 +218,7 @@ const Withdrawals = () => {
               </div>
               <div>
                 <p className="text-dark-400 text-sm">Withdrawable Balance</p>
-                <p className="text-2xl font-bold text-dark-50">${withdrawableBalance.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-dark-50">{formatCurrency(withdrawableBalance, 'USD')}</p>
               </div>
             </div>
           </div>
@@ -229,7 +230,7 @@ const Withdrawals = () => {
               </div>
               <div>
                 <p className="text-dark-400 text-sm">Total Balance</p>
-                <p className="text-2xl font-bold text-dark-50">${balance.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-dark-50">{formatCurrency(balance, 'USD')}</p>
               </div>
             </div>
           </div>
@@ -325,9 +326,7 @@ const Withdrawals = () => {
                         </div>
                         <div>
                           <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-semibold text-dark-50">
-                              ${withdrawal.amount.toLocaleString()}
-                            </h3>
+                            <h3 className="text-lg font-semibold text-dark-50">{formatCurrency(withdrawal.amount, withdrawal.currency || 'USD')}</h3>
                             <span className={`px-3 py-1 rounded-full text-xs font-medium uppercase ${getStatusColor(withdrawal.status)}`}>
                               {withdrawal.status}
                             </span>
@@ -519,7 +518,7 @@ const Withdrawals = () => {
                   />
                   <div className="flex justify-between text-xs text-dark-500 mt-2">
                     <span>Min: $10</span>
-                    <span>Available: ${withdrawableBalance.toLocaleString()}</span>
+                    <span>Available: {formatCurrency(withdrawableBalance, 'USD')}</span>
                   </div>
                 </div>
 
@@ -528,7 +527,7 @@ const Withdrawals = () => {
                   onClick={() => setQuickWithdrawAmount(withdrawableBalance.toString())}
                   className="w-full py-2 text-sm text-primary-400 hover:text-primary-300 border border-primary-500/30 rounded-lg"
                 >
-                  Withdraw All (${withdrawableBalance.toLocaleString()})
+                  Withdraw All ({formatCurrency(withdrawableBalance, 'USD')})
                 </button>
 
                 <div className="flex gap-3 pt-4">
@@ -572,7 +571,7 @@ const Withdrawals = () => {
                     max={withdrawableBalance}
                   />
                   <p className="text-xs text-dark-500 mt-1">
-                    Available: ${withdrawableBalance.toLocaleString()} | Min: $10
+                    Available: {formatCurrency(withdrawableBalance, 'USD')} | Min: $10
                   </p>
                 </div>
 

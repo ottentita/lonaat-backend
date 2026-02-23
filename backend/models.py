@@ -121,7 +121,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default=UserRole.USER, nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
-    balance = db.Column(db.Float, default=0.0, nullable=False)
+    balance = db.Column(db.Numeric(20,8), default=0, nullable=False)
     verified = db.Column(db.Boolean, default=False, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_blocked = db.Column(db.Boolean, default=False, nullable=False)
@@ -164,7 +164,7 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
         if include_balance:
-            data['balance'] = self.balance
+            data['balance'] = float(self.balance) if self.balance is not None else None
         return data
     
     def __repr__(self):
@@ -178,7 +178,7 @@ class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     type = db.Column(db.String(20), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
+    amount = db.Column(db.Numeric(20,8), nullable=False)
     description = db.Column(db.String(255), nullable=True)
     status = db.Column(db.String(20), default=TransactionStatus.COMPLETED, nullable=False)
     reference = db.Column(db.String(100), nullable=True, index=True)
@@ -191,7 +191,7 @@ class Transaction(db.Model):
             'id': self.id,
             'user_id': self.user_id,
             'type': self.type,
-            'amount': self.amount,
+            'amount': float(self.amount) if self.amount is not None else None,
             'description': self.description,
             'status': self.status,
             'reference': self.reference,
@@ -316,7 +316,7 @@ class WithdrawalRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
-    amount = db.Column(db.Float, nullable=False)
+    amount = db.Column(db.Numeric(20,8), nullable=False)
     status = db.Column(db.String(20), default=WithdrawalStatus.PENDING, nullable=False)
     admin_notes = db.Column(db.Text, nullable=True)
     requested_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False, index=True)
@@ -331,7 +331,7 @@ class WithdrawalRequest(db.Model):
         return {
             'id': self.id,
             'user_id': self.user_id,
-            'amount': self.amount,
+            'amount': float(self.amount) if self.amount is not None else None,
             'status': self.status,
             'bank_account': self.bank_account.to_dict() if self.bank_account else None,
             'admin_notes': self.admin_notes,
@@ -466,7 +466,7 @@ class Plan(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
-    price = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Numeric(20,8), nullable=False)
     duration_days = db.Column(db.Integer, default=30, nullable=False)
     features = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for features list
     max_products = db.Column(db.Integer, nullable=True)
@@ -480,7 +480,7 @@ class Plan(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'price': self.price,
+            'price': float(self.price) if self.price is not None else None,
             'duration_days': self.duration_days,
             'features': self.features,
             'max_products': self.max_products,
@@ -561,7 +561,7 @@ class ReferralPayout(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     referrer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     referred_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
+    amount = db.Column(db.Numeric(20,8), nullable=False)
     commission_type = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(20), default='pending', nullable=False)
     transaction_id = db.Column(db.Integer, db.ForeignKey('transactions.id'), nullable=True)
@@ -576,7 +576,7 @@ class ReferralPayout(db.Model):
             'id': self.id,
             'referrer_id': self.referrer_id,
             'referred_id': self.referred_id,
-            'amount': self.amount,
+            'amount': float(self.amount) if self.amount is not None else None,
             'commission_type': self.commission_type,
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -714,7 +714,7 @@ class Commission(db.Model):
     network = db.Column(db.String(50), nullable=False, index=True)
     product_id = db.Column(db.Integer, nullable=True)
     campaign_id = db.Column(db.Integer, db.ForeignKey('ad_boosts.id'), nullable=True)
-    amount = db.Column(db.Float, nullable=False)
+    amount = db.Column(db.Numeric(20,8), nullable=False)
     status = db.Column(db.String(20), default=CommissionStatus.PENDING, nullable=False)
     external_ref = db.Column(db.String(255), nullable=True, index=True)
     webhook_data = db.Column(JSONB, nullable=True)  # PostgreSQL JSONB for webhook payload
@@ -734,7 +734,7 @@ class Commission(db.Model):
             'network': self.network,
             'product_id': self.product_id,
             'campaign_id': self.campaign_id,
-            'amount': self.amount,
+            'amount': float(self.amount) if self.amount is not None else None,
             'status': self.status,
             'external_ref': self.external_ref,
             'rejection_reason': self.rejection_reason,
@@ -784,7 +784,7 @@ class CreditPackage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     credits = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Numeric(20,8), nullable=False)
     bonus_credits = db.Column(db.Integer, default=0, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     display_order = db.Column(db.Integer, default=0, nullable=False)
@@ -795,10 +795,10 @@ class CreditPackage(db.Model):
             'id': self.id,
             'name': self.name,
             'credits': self.credits,
-            'price': self.price,
+            'price': float(self.price) if self.price is not None else None,
             'bonus_credits': self.bonus_credits,
             'total_credits': self.credits + self.bonus_credits,
-            'price_per_credit': round(self.price / (self.credits + self.bonus_credits), 2) if (self.credits + self.bonus_credits) > 0 else 0,
+            'price_per_credit': round((float(self.price) / (self.credits + self.bonus_credits)), 2) if (self.credits + self.bonus_credits) > 0 and self.price is not None else 0,
             'is_active': self.is_active
         }
     
@@ -813,7 +813,7 @@ class PaymentRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     purpose = db.Column(db.String(50), nullable=False, index=True)
-    amount = db.Column(db.Float, nullable=False)
+    amount = db.Column(db.Numeric(20,8), nullable=False)
     currency = db.Column(db.String(10), default='USD', nullable=False)
     payment_method = db.Column(db.String(50), default='bank_transfer', nullable=False)
     
@@ -857,7 +857,7 @@ class PaymentRequest(db.Model):
             'user_name': self.user.name if self.user else None,
             'user_email': self.user.email if self.user else None,
             'purpose': self.purpose,
-            'amount': self.amount,
+            'amount': float(self.amount) if self.amount is not None else None,
             'currency': self.currency,
             'payment_method': self.payment_method,
             'package_id': self.package_id,
@@ -877,7 +877,7 @@ class PaymentRequest(db.Model):
         }
     
     def __repr__(self):
-        return f'<PaymentRequest {self.purpose} - ${self.amount} ({self.status})>'
+        return f'<PaymentRequest {self.purpose} - {float(self.amount) if self.amount is not None else None} ({self.status})>'
 
 
 # ============= REAL ESTATE MODULE =============
@@ -900,7 +900,7 @@ class Property(db.Model):
     address = db.Column(db.String(255), nullable=True)
     
     # Pricing
-    price = db.Column(db.Float, nullable=True)
+    price = db.Column(db.Numeric(20,8), nullable=True)
     currency = db.Column(db.String(10), default='USD', nullable=False)
     price_type = db.Column(db.String(50), nullable=True)
     
@@ -943,7 +943,7 @@ class Property(db.Model):
             'country': self.country,
             'city': self.city,
             'address': self.address,
-            'price': self.price,
+            'price': float(self.price) if self.price is not None else None,
             'currency': self.currency,
             'price_type': self.price_type,
             'bedrooms': self.bedrooms,
@@ -1003,9 +1003,9 @@ class RentalDetails(db.Model):
     property_id = db.Column(db.Integer, db.ForeignKey('properties.id'), unique=True, nullable=False, index=True)
     
     # Rental rates
-    daily_rate = db.Column(db.Float, nullable=True)
-    weekly_rate = db.Column(db.Float, nullable=True)
-    monthly_rate = db.Column(db.Float, nullable=True)
+    daily_rate = db.Column(db.Numeric(20,8), nullable=True)
+    weekly_rate = db.Column(db.Numeric(20,8), nullable=True)
+    monthly_rate = db.Column(db.Numeric(20,8), nullable=True)
     
     # Rental rules
     min_stay_days = db.Column(db.Integer, default=1, nullable=False)
@@ -1019,16 +1019,16 @@ class RentalDetails(db.Model):
     vehicle_type = db.Column(db.String(50), nullable=True)
     
     # Policies
-    deposit_required = db.Column(db.Float, nullable=True)
+    deposit_required = db.Column(db.Numeric(20,8), nullable=True)
     cancellation_policy = db.Column(db.String(50), default='flexible', nullable=False)
     
     def to_dict(self):
         return {
             'id': self.id,
             'property_id': self.property_id,
-            'daily_rate': self.daily_rate,
-            'weekly_rate': self.weekly_rate,
-            'monthly_rate': self.monthly_rate,
+            'daily_rate': float(self.daily_rate) if self.daily_rate is not None else None,
+            'weekly_rate': float(self.weekly_rate) if self.weekly_rate is not None else None,
+            'monthly_rate': float(self.monthly_rate) if self.monthly_rate is not None else None,
             'min_stay_days': self.min_stay_days,
             'max_stay_days': self.max_stay_days,
             'max_guests': self.max_guests,
@@ -1036,7 +1036,7 @@ class RentalDetails(db.Model):
             'vehicle_model': self.vehicle_model,
             'vehicle_year': self.vehicle_year,
             'vehicle_type': self.vehicle_type,
-            'deposit_required': self.deposit_required,
+            'deposit_required': float(self.deposit_required) if self.deposit_required is not None else None,
             'cancellation_policy': self.cancellation_policy
         }
     
@@ -1060,9 +1060,9 @@ class PropertyBooking(db.Model):
     guests = db.Column(db.Integer, default=1, nullable=False)
     
     # Pricing
-    total_price = db.Column(db.Float, nullable=False)
+    total_price = db.Column(db.Numeric(20,8), nullable=False)
     currency = db.Column(db.String(10), default='USD', nullable=False)
-    deposit_paid = db.Column(db.Float, default=0, nullable=False)
+    deposit_paid = db.Column(db.Numeric(20,8), default=0, nullable=False)
     
     # Status
     status = db.Column(db.String(20), default=BookingStatus.PENDING, nullable=False, index=True)
@@ -1089,9 +1089,9 @@ class PropertyBooking(db.Model):
             'check_in': self.check_in.isoformat() if self.check_in else None,
             'check_out': self.check_out.isoformat() if self.check_out else None,
             'guests': self.guests,
-            'total_price': self.total_price,
+            'total_price': float(self.total_price) if self.total_price is not None else None,
             'currency': self.currency,
-            'deposit_paid': self.deposit_paid,
+            'deposit_paid': float(self.deposit_paid) if self.deposit_paid is not None else None,
             'status': self.status,
             'guest_notes': self.guest_notes,
             'owner_notes': self.owner_notes,

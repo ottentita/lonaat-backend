@@ -3,6 +3,7 @@ import { realEstateAnalyticsAPI } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { BarChart3, TrendingUp, Eye, Users, Building, MapPin, DollarSign, Activity } from 'lucide-react';
+import { formatNumber } from '../../lib/currency';
 
 export default function RealEstateAnalytics() {
   const [overview, setOverview] = useState(null);
@@ -39,12 +40,12 @@ export default function RealEstateAnalytics() {
     }
   };
 
-  const formatNumber = (num) => {
+  const formatNumberShort = (num) => {
     if (!num) return '0';
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toLocaleString();
-  };
+    return formatNumber(num);
+  }; 
 
   if (loading) {
     return (
@@ -113,7 +114,7 @@ export default function RealEstateAnalytics() {
                   <Eye className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{formatNumber(overview.total_views)}</p>
+                  <p className="text-2xl font-bold">{formatNumberShort(overview.total_views)}</p>
                   <p className="text-sm text-muted-foreground">Total Views</p>
                 </div>
               </div>
@@ -126,7 +127,7 @@ export default function RealEstateAnalytics() {
                   <Users className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{formatNumber(overview.total_inquiries)}</p>
+                  <p className="text-2xl font-bold">{formatNumberShort(overview.total_inquiries)}</p>
                   <p className="text-sm text-muted-foreground">Inquiries</p>
                 </div>
               </div>

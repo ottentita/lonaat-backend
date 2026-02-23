@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import toast from 'react-hot-toast';
+import { formatCurrency, formatNumber, parseNumericInput } from '../../lib/currency';
 
 export default function Automobiles() {
   const [automobiles, setAutomobiles] = useState([]);
@@ -28,9 +29,10 @@ export default function Automobiles() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
       const [autosRes, statsRes] = await Promise.all([
-        fetch('/api/automobiles/mine', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/automobiles/stats', { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${BASE}/api/automobiles/mine`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${BASE}/api/automobiles/stats`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       
       const autosData = await autosRes.json();
@@ -48,7 +50,8 @@ export default function Automobiles() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/automobiles', {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/automobiles`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -77,7 +80,8 @@ export default function Automobiles() {
 
   const markAsSold = async (id) => {
     try {
-      const response = await fetch(`/api/automobiles/${id}/status`, {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/automobiles/${id}/status`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -99,7 +103,8 @@ export default function Automobiles() {
     if (!confirm('Are you sure you want to delete this listing?')) return;
     
     try {
-      const response = await fetch(`/api/automobiles/${id}`, {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/automobiles/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -304,7 +309,7 @@ export default function Automobiles() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">${stats.revenue?.toLocaleString() || 0}</p>
+            <p className="text-2xl font-bold">{formatCurrency(stats.revenue || 0, 'USD')}</p>
           </CardContent>
         </Card>
       </div>
@@ -330,10 +335,10 @@ export default function Automobiles() {
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {[auto.brand, auto.model, auto.year].filter(Boolean).join(' ')} 
-                      {auto.mileage && ` | ${auto.mileage.toLocaleString()} km`}
+                      {auto.mileage && ` | ${formatNumber(auto.mileage)} km`} 
                     </p>
                     <p className="text-sm font-medium mt-1">
-                      {auto.price ? `${auto.currency} ${Number(auto.price).toLocaleString()}` : 'Price on request'}
+                      {auto.price ? formatCurrency(auto.price, auto.currency || 'USD') : 'Price on request'}
                     </p>
                   </div>
                   <div className="flex gap-2">

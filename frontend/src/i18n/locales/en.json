@@ -1,0 +1,23 @@
+{
+  "auth": {
+    "login": "Login",
+    "register": "Register"
+  },
+  "dashboard": "Dashboard",
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "security": "Security",
+    "payment": "Payment",
+    "notifications": "Notifications",
+    "save": "Save changes",
+    "change_password": "Change password"
+  },
+  "offers": "Offers",
+  "payments": "Payments",
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "change_password": "Change Password"
+  }
+}

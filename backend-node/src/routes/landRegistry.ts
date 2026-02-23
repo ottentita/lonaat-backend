@@ -206,9 +206,9 @@ router.post('/register', authMiddleware, async (req: AuthRequest, res: Response)
 
 router.get('/search', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const lat = parseFloat(req.query.lat as string);
-    const lng = parseFloat(req.query.lng as string);
-    const radius = parseFloat(req.query.radius as string) || 5;
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    const radius = Number(req.query.radius) || 5;
     const title = req.query.title as string;
     const owner = req.query.owner as string;
 
@@ -252,8 +252,8 @@ router.get('/search', authMiddleware, async (req: AuthRequest, res: Response) =>
 
 router.get('/point', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const lat = parseFloat(req.query.lat as string);
-    const lng = parseFloat(req.query.lng as string);
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
 
     if (isNaN(lat) || isNaN(lng)) {
       return res.status(400).json({ error: 'Valid lat and lng required' });
@@ -331,55 +331,99 @@ router.get('/stats/overview', authMiddleware, async (req: AuthRequest, res: Resp
 
 router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const lands: any[] = await prisma.$queryRaw`
-      SELECT
-        id,
-        title_number,
-        land_name,
-        current_owner AS owner_name,
-        region,
-        city,
-        town,
-        neighborhood,
-        area_sqm,
-        status,
-        verification_status,
-        is_locked,
-        land_hash,
-        ST_AsGeoJSON(geom) AS polygon_geojson,
-        center_lat,
-        center_lng
-      FROM lands
-      WHERE geom IS NOT NULL
-        AND verification_status != 'rejected'
-      ORDER BY created_at DESC
-    `;
+    // Try PostGIS-powered query first (if geom exists)
+    try {
+      const lands: any[] = await prisma.$queryRaw`
+        SELECT
+          id,
+          title_number,
+          land_name,
+          current_owner AS owner_name,
+          region,
+          city,
+          town,
+          neighborhood,
+          area_sqm,
+          status,
+          verification_status,
+          is_locked,
+          land_hash,
+          ST_AsGeoJSON(geom) AS polygon_geojson,
+          center_lat,
+          center_lng
+        FROM lands
+        WHERE geom IS NOT NULL
+          AND verification_status != 'rejected'
+        ORDER BY created_at DESC
+      `;
 
-    const mapData = lands.map(land => ({
-      id: land.id,
-      title_number: land.title_number,
-      land_name: land.land_name,
-      owner_name: land.owner_name,
-      region: land.region,
-      city: land.city,
-      town: land.town,
-      neighborhood: land.neighborhood,
-      area_sqm: land.area_sqm ? Number(land.area_sqm) : null,
-      status: land.is_locked ? 'locked' : land.verification_status,
-      verification_status: land.verification_status,
-      is_locked: land.is_locked,
-      land_hash: land.land_hash,
-      polygon: land.polygon_geojson ? JSON.parse(land.polygon_geojson) : null,
-      center: land.center_lat && land.center_lng 
-        ? { lat: Number(land.center_lat), lng: Number(land.center_lng) }
-        : null
-    }));
+      const mapData = lands.map(land => ({
+        id: land.id,
+        title_number: land.title_number,
+        land_name: land.land_name,
+        owner_name: land.owner_name,
+        region: land.region,
+        city: land.city,
+        town: land.town,
+        neighborhood: land.neighborhood,
+        area_sqm: land.area_sqm ? Number(land.area_sqm) : null,
+        status: land.is_locked ? 'locked' : land.verification_status,
+        verification_status: land.verification_status,
+        is_locked: land.is_locked,
+        land_hash: land.land_hash,
+        polygon: land.polygon_geojson ? JSON.parse(land.polygon_geojson) : null,
+        center: land.center_lat && land.center_lng 
+          ? { lat: Number(land.center_lat), lng: Number(land.center_lng) }
+          : null
+      }));
 
-    res.json({
-      success: true,
-      count: mapData.length,
-      lands: mapData
-    });
+      return res.json({ success: true, count: mapData.length, lands: mapData });
+    } catch (pgErr) {
+      // Fallback for SQLite/no PostGIS: select from fields we have (center_lat/center_lng)
+      console.debug('Map query fallback (no geom):', pgErr?.meta || pgErr?.message || pgErr);
+      const lands = await prisma.land.findMany({
+        where: { verification_status: { not: 'rejected' } },
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          title_number: true,
+          land_name: true,
+          current_owner: true,
+          region: true,
+          city: true,
+          town: true,
+          neighborhood: true,
+          area_sqm: true,
+          status: true,
+          verification_status: true,
+          is_locked: true,
+          land_hash: true,
+          polygon_wkt: true,
+          center_lat: true,
+          center_lng: true
+        }
+      });
+
+      const mapData = lands.map(land => ({
+        id: land.id,
+        title_number: land.title_number,
+        land_name: land.land_name,
+        owner_name: land.current_owner,
+        region: land.region,
+        city: land.city,
+        town: land.town,
+        neighborhood: land.neighborhood,
+        area_sqm: land.area_sqm ? Number(land.area_sqm) : null,
+        status: land.is_locked ? 'locked' : land.verification_status,
+        verification_status: land.verification_status,
+        is_locked: land.is_locked,
+        land_hash: land.land_hash,
+        polygon: land.polygon_wkt ? null : null,
+        center: land.center_lat && land.center_lng ? { lat: Number(land.center_lat), lng: Number(land.center_lng) } : null
+      }));
+
+      return res.json({ success: true, count: mapData.length, lands: mapData });
+    }
   } catch (error) {
     console.error('Map data error:', error);
     res.status(500).json({ error: 'Failed to get map data' });
@@ -388,9 +432,9 @@ router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
 
 router.get('/nearby', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const lat = parseFloat(req.query.lat as string);
-    const lng = parseFloat(req.query.lng as string);
-    const radius = parseFloat(req.query.radius as string) || 5;
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    const radius = Number(req.query.radius) || 5;
 
     if (isNaN(lat) || isNaN(lng)) {
       return res.status(400).json({ error: 'Valid lat and lng required' });
@@ -616,7 +660,7 @@ router.get('/:id/history', authMiddleware, async (req: AuthRequest, res: Respons
 router.get('/:id/neighbors', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const landId = parseInt(req.params.id);
-    const radius = parseFloat(req.query.radius as string) || 1;
+    const radius = Number(req.query.radius) || 1;
 
     const neighbors = await getNeighboringLands(landId, radius);
 
@@ -675,7 +719,7 @@ router.post('/:id/verify-authority', authMiddleware, authorityMiddleware, async 
       const landData = {
         title_number: land.title_number,
         current_owner: land.current_owner,
-        area_sqm: land.area_sqm ? parseFloat(land.area_sqm.toString()) : null,
+        area_sqm: land.area_sqm ? Number(land.area_sqm.toString()) : null,
         polygon_wkt: land.polygon_wkt,
         region: land.region,
         town: land.town
@@ -745,7 +789,7 @@ router.get('/:id/verify-integrity', authMiddleware, async (req: AuthRequest, res
     const landData = {
       title_number: land.title_number,
       current_owner: land.current_owner,
-      area_sqm: land.area_sqm ? parseFloat(land.area_sqm.toString()) : null,
+      area_sqm: land.area_sqm ? Number(land.area_sqm.toString()) : null,
       polygon_wkt: land.polygon_wkt,
       region: land.region,
       town: land.town
@@ -844,7 +888,7 @@ router.post('/:id/sections', authMiddleware, adminOnlyMiddleware, async (req: Au
         land_id: landId,
         section_name,
         section_type,
-        area_sqm: area_sqm ? parseFloat(area_sqm) : null,
+        area_sqm: area_sqm ? Number(area_sqm) : null,
         polygon_coords: polygon_coords || null,
         polygon_wkt: polygonWkt,
         center_lat: centerLat,
@@ -890,7 +934,7 @@ router.put('/:id/sections/:sectionId', authMiddleware, adminOnlyMiddleware, asyn
     const updateData: any = {};
     if (section_name) updateData.section_name = section_name;
     if (section_type && SECTION_TYPES.includes(section_type)) updateData.section_type = section_type;
-    if (area_sqm !== undefined) updateData.area_sqm = area_sqm ? parseFloat(area_sqm) : null;
+    if (area_sqm !== undefined) updateData.area_sqm = area_sqm ? Number(area_sqm) : null;
     if (description !== undefined) updateData.description = description;
     if (capacity !== undefined) updateData.capacity = capacity ? parseInt(capacity) : null;
     if (status) updateData.status = status;

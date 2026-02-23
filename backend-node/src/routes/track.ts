@@ -20,7 +20,16 @@ router.post('/click', async (req, res) => {
 
 router.post('/conversion', async (req, res) => {
   try {
-    const { offerId, clickId, amount, status } = req.body
+    let { offerId, clickId, clickToken, amount, status } = req.body
+
+    // If clickToken provided, resolve it to clickId and offerId
+    if (!offerId && clickToken) {
+      const click = await prisma.click.findUnique({ where: { clickToken } })
+      if (!click) return res.status(404).json({ error: 'click not found for token' })
+      clickId = click.clickId
+      offerId = click.offerId
+    }
+
     if (!offerId) return res.status(400).json({ error: 'offerId required' })
 
     const conv = await prisma.conversion.create({ data: { offerId, clickId, amount, status } })

@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify, session, Response, s
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timedelta
 import firebase_admin
@@ -33,6 +35,7 @@ from products_routes import products_bp
 from wallet_routes import wallet_bp
 from ads_routes import ads_bp
 from affiliate_routes import affiliate_bp
+from marketplace_routes import marketplace_bp
 from leads_routes import leads_bp
 from commission_routes import commission_bp
 from payments_routes import payments_bp
@@ -64,6 +67,12 @@ logger.info(f"🔍 Environment: {'PRODUCTION' if IS_PRODUCTION else 'DEVELOPMENT
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Enforce JWT secret in production to avoid default dev secrets
+if IS_PRODUCTION:
+    if not os.getenv('JWT_SECRET_KEY'):
+        logger.error('❌ FATAL: JWT_SECRET_KEY environment variable is required in production')
+        raise RuntimeError('JWT_SECRET_KEY is required in production')
+
 # Apply ProxyFix for HTTPS in production (behind reverse proxy)
 if IS_PRODUCTION:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -81,6 +90,9 @@ migrate = Migrate(app, sqlalchemy_db)
 # Initialize JWT Manager
 jwt = JWTManager(app)
 
+# Rate limiting (global defaults) to protect endpoints
+limiter = Limiter(app, key_func=get_remote_address, default_limits=["1000 per day", "200 per hour"]) 
+
 # JWT Error Handlers
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
@@ -97,6 +109,18 @@ def unauthorized_callback(error):
     logger.warning(f"⚠️ NO JWT PROVIDED: {error}")
     return jsonify({'error': 'Missing authorization token', 'code': 'no_token'}), 422
 
+
+# Basic security headers for production and development
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    # Minimal CSP - adjust for frontend needs
+    response.headers['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' data:;"
+    return response
+
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(api_bp)
@@ -104,6 +128,7 @@ app.register_blueprint(products_bp)
 app.register_blueprint(wallet_bp)
 app.register_blueprint(ads_bp)
 app.register_blueprint(affiliate_bp)
+app.register_blueprint(marketplace_bp)
 app.register_blueprint(leads_bp)
 app.register_blueprint(commission_bp)
 app.register_blueprint(payments_bp)

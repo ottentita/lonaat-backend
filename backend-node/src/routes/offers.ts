@@ -6,7 +6,12 @@ const router = express.Router()
 router.get('/', async (req, res) => {
   try {
     const offers = await prisma.offer.findMany({ where: { isActive: true } })
-    res.json(offers)
+    // ensure an array is always returned
+    if (Array.isArray(offers)) {
+      return res.json(offers)
+    }
+    // fall back to empty array if unexpected shape
+    return res.json([])
   } catch (err) {
     console.error('Get offers error:', err)
     res.status(500).json({ error: 'Failed to fetch offers' })
@@ -38,6 +43,82 @@ router.post('/', async (req, res) => {
     console.error('Create offer error:', err)
     if (err.code === 'P2002') return res.status(409).json({ error: 'externalOfferId must be unique' })
     res.status(500).json({ error: 'Failed to create offer' })
+  }
+})
+
+// Import/upsert offers from external CPA feeds
+router.post('/import', async (req, res) => {
+  try {
+    const payload = req.body
+    const items = Array.isArray(payload) ? payload : [payload]
+    const results: any[] = []
+
+    for (const it of items) {
+      const {
+        externalOfferId,
+        title,
+        description,
+        url,
+        payout,
+        network,
+        networkName,
+        trackingUrl,
+        isActive,
+      } = it
+
+      if (externalOfferId) {
+        const upserted = await prisma.offer.upsert({
+          where: { externalOfferId },
+          create: {
+            externalOfferId,
+            title,
+            description,
+            url,
+            payout,
+            network,
+            networkName,
+            trackingUrl,
+            isActive: isActive ?? true,
+          },
+          update: {
+            title,
+            description,
+            url,
+            payout,
+            network,
+            networkName,
+            trackingUrl,
+            isActive: isActive ?? true,
+          },
+        })
+        results.push(upserted)
+      } else {
+        // fallback: create new offer if no externalOfferId provided
+        if (!title || !url) {
+          results.push({ error: 'title and url required when externalOfferId missing', item: it })
+          continue
+        }
+
+        const created = await prisma.offer.create({
+          data: {
+            title,
+            description,
+            url,
+            payout,
+            network,
+            networkName,
+            trackingUrl,
+            isActive: isActive ?? true,
+          },
+        })
+        results.push(created)
+      }
+    }
+
+    res.json({ ok: true, results })
+  } catch (err: any) {
+    console.error('Import offers error:', err)
+    res.status(500).json({ error: 'Failed to import offers' })
   }
 })
 

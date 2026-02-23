@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { productsAPI, offersAPI } from '../../services/api';
 import toast from 'react-hot-toast';
+import { parseNumericInput } from '../../lib/currency';
 import { 
   Package, 
   Plus, 
@@ -20,6 +21,7 @@ import {
 const Products = () => {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
+  const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -46,9 +48,12 @@ const Products = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await productsAPI.getAll();
       setProducts(response.data.products || []);
     } catch (error) {
+      console.error('Failed to load products', error);
+      setError(error);
       toast.error('Failed to load products');
     } finally {
       setLoading(false);
@@ -128,7 +133,7 @@ const Products = () => {
       const importPayload = {
         external_id: offer.id || offer.offer_id,
         title: offer.name || offer.title || offer.description?.slice(0, 50),
-        price: offer.price,
+        price: parseNumericInput(offer.price),
         currency: offer.currency || 'USD',
         image: offer.image_url || offer.image,
         affiliate_url: offer.affiliate_link || offer.url || offer.extra_data?.raw?.clickThroughUrl,
@@ -183,56 +188,54 @@ const Products = () => {
           </div>
         </div>
 
-        {products.length > 0 ? (
+        {error ? (
+          <div className="card text-center py-12">
+            <p className="text-red-600">Failed to load products. Please try again.</p>
+          </div>
+        ) : products.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => (
-              <div key={product.id} className="card-hover">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold">{product.name}</h3>
-                    <p className="text-primary-500 text-sm mt-1 capitalize">{product.network}</p>
-                  </div>
-                  <div className="p-2 bg-primary-500/10 rounded-lg">
-                    <Package className="w-5 h-5 text-primary-500" />
-                  </div>
+              <div key={product.id} className="card-hover bg-white rounded-xl shadow-md overflow-hidden h-full flex flex-col">
+                <div className="h-40 w-full bg-gray-200">
+                  <img src={product.image || product.image_url || product.thumbnail || '/placeholder-400x300.png'} alt={product.title || product.name} className="w-full h-full object-cover" />
                 </div>
-
-                <p className="text-dark-400 text-sm mb-4 line-clamp-2">
-                  {product.description || 'No description'}
-                </p>
-
-                <div className="flex items-center gap-4 mb-4 text-sm">
-                  <div className="flex items-center gap-1 text-green-500">
-                    <MousePointerClick className="w-4 h-4" />
-                    <span>{product.clicks || 0} clicks</span>
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">{product.title || product.name}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{product.category || product.network || ''}</p>
+                    <p className="text-dark-400 text-sm mt-2 line-clamp-2">{product.description || 'No description'}</p>
                   </div>
-                  <div className="text-dark-400">
-                    {product.commission_rate}% commission
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <a
-                    href={product.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary flex-1 flex items-center justify-center gap-2 text-sm"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    View
-                  </a>
-                  <button
-                    onClick={() => handleEdit(product)}
-                    className="btn-secondary flex items-center justify-center p-2"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(product.id)}
-                    className="btn-danger flex items-center justify-center p-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-lg font-bold">{product.price !== undefined && product.price !== null ? (typeof product.price === 'number' ? `$${product.price}` : product.price) : '—'}</div>
+                      <div className="text-sm text-gray-500">Status: {product.is_active === false ? 'Inactive' : 'Active'}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={product.affiliate_link || product.url || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary flex items-center justify-center gap-2 text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View
+                      </a>
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="btn-secondary flex items-center justify-center p-2"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className="btn-danger flex items-center justify-center p-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

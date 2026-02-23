@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { walletAPI } from '@/services/api';
+import { formatCurrency } from '@/lib/currency'
 import toast from 'react-hot-toast';
 import { 
   DollarSign, 
@@ -207,8 +208,7 @@ const Transactions = () => {
                                 ? 'text-green-500' 
                                 : 'text-red-500'
                             }`}>
-                              {transaction.type === 'credit' || transaction.type === 'deposit' ? '+' : '-'}
-                              ${transaction.amount.toLocaleString()}
+                              {transaction.type === 'credit' || transaction.type === 'deposit' ? '+' : '-'}{formatCurrency(transaction.amount, transaction.currency || 'USD')}
                             </span>
                           </td>
                           <td className="py-4 px-4 text-center">

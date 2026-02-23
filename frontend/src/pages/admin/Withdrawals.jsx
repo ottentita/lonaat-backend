@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { withdrawalAPI } from '@/services/api';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/lib/currency' 
 import { 
   Wallet, 
   Filter,
@@ -135,7 +136,7 @@ const AdminWithdrawals = () => {
             </div>
             <div className="card px-4 py-2">
               <p className="text-dark-400 text-xs">Total Amount</p>
-              <p className="text-xl font-bold text-primary-500">${totalAmount.toLocaleString()}</p>
+              <p className="text-xl font-bold text-primary-500">{formatCurrency(totalAmount, 'USD')}</p>
             </div>
           </div>
         </div>
@@ -207,7 +208,7 @@ const AdminWithdrawals = () => {
                         </td>
                         <td className="py-4 px-4 text-right">
                           <span className="text-dark-50 font-semibold text-lg">
-                            ${withdrawal.amount.toLocaleString()}
+                            {formatCurrency(withdrawal.amount, withdrawal.currency || 'USD')}
                           </span>
                         </td>
                         <td className="py-4 px-4">
@@ -285,7 +286,7 @@ const AdminWithdrawals = () => {
                 </div>
                 <div className="flex justify-between mb-2">
                   <span className="text-dark-400">Amount:</span>
-                  <span className="text-dark-50 font-bold text-lg">${selectedWithdrawal.amount.toLocaleString()}</span>
+                  <span className="text-dark-50 font-bold text-lg">{formatCurrency(selectedWithdrawal.amount, selectedWithdrawal.currency || 'USD')}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-dark-400">Method:</span>

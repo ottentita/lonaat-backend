@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { realEstateAPI } from '../../services/api';
 import { Button } from '../../components/ui/button';
+import { formatCurrency } from '../../lib/currency' 
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
 
@@ -140,7 +141,7 @@ export default function AdminRealEstate() {
 
   const formatPrice = (price, currency = 'XAF') => {
     if (!price) return 'N/A';
-    return `${currency} ${Number(price).toLocaleString()}`;
+    return formatCurrency(price, currency);
   };
 
   if (loading) {

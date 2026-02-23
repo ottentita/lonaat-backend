@@ -79,7 +79,7 @@ router.get('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
       credits: wallet?.credits || 0,
       stats: {
         total_transactions: stats._count,
-        total_amount: stats._sum.amount || 0
+        total_amount: stats._sum.amount ? Number(stats._sum.amount) : 0
       }
     });
   } catch (error) {
@@ -155,7 +155,7 @@ router.get('/commissions', authMiddleware, async (req: AuthRequest, res: Respons
 
     res.json({
       commissions,
-      total_earned: stats._sum.amount || 0
+      total_earned: stats._sum.amount ? Number(stats._sum.amount) : 0
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get commissions' });
@@ -175,6 +175,83 @@ router.get('/notifications', authMiddleware, async (req: AuthRequest, res: Respo
     res.status(500).json({ error: 'Failed to get notifications' });
   }
 });
+
+// GET /api/user/settings
+router.get('/settings', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        referral_code: true,
+        country: true,
+        phone: true,
+        paymentMethod: true,
+        paymentAccount: true,
+        preferredLanguage: true,
+        profilePicture: true
+      }
+    })
+
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    res.json({ settings: user })
+  } catch (err) {
+    console.error('Get settings error:', err)
+    res.status(500).json({ error: 'Failed to get settings' })
+  }
+})
+
+// PUT /api/user/settings
+router.put('/settings', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, country, phone, paymentMethod, paymentAccount, preferredLanguage, profilePicture } = req.body
+
+    const updated = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        name: name ?? undefined,
+        country: country ?? undefined,
+        phone: phone ?? undefined,
+        paymentMethod: paymentMethod ?? undefined,
+        paymentAccount: paymentAccount ?? undefined,
+        preferredLanguage: preferredLanguage ?? undefined,
+        profilePicture: profilePicture ?? undefined
+      }
+    })
+
+    res.json({ message: 'Settings updated', settings: updated })
+  } catch (err) {
+    console.error('Update settings error:', err)
+    res.status(500).json({ error: 'Failed to update settings' })
+  }
+})
+
+// PUT /api/user/password
+router.put('/password', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Missing password fields' })
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    // simple bcrypt comparison (bcryptjs used elsewhere)
+    const bcrypt = require('bcryptjs')
+    const match = await bcrypt.compare(currentPassword, user.password)
+    if (!match) return res.status(403).json({ error: 'Current password incorrect' })
+
+    const hashed = await bcrypt.hash(newPassword, 10)
+    await prisma.user.update({ where: { id: req.user!.id }, data: { password: hashed } })
+
+    res.json({ message: 'Password changed' })
+  } catch (err) {
+    console.error('Change password error:', err)
+    res.status(500).json({ error: 'Failed to change password' })
+  }
+})
 
 router.put('/notifications/:id/read', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

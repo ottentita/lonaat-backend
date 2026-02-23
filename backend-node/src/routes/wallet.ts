@@ -54,6 +54,30 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Alias endpoint requested by frontend: /api/wallet/summary
+router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    let wallet = await prisma.creditWallet.findUnique({ where: { user_id: req.user!.id } });
+    if (!wallet) {
+      wallet = await prisma.creditWallet.create({ data: { user_id: req.user!.id, credits: 0, total_purchased: 0, total_spent: 0 } });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { balance: true } });
+
+    res.json({
+      wallet: {
+        credits: wallet.credits,
+        balance: user?.balance || 0,
+        total_purchased: wallet.total_purchased,
+        total_spent: wallet.total_spent
+      }
+    });
+  } catch (error) {
+    console.error('Wallet summary error:', error);
+    res.status(500).json({ error: 'Failed to get wallet summary' });
+  }
+});
+
 router.get('/transactions', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const transactions = await prisma.transaction.findMany({
@@ -456,8 +480,8 @@ router.get('/withdrawals', authMiddleware, async (req: AuthRequest, res: Respons
 
     res.json({ 
       withdrawals,
-      withdrawable_balance: user?.withdrawable_balance || 0,
-      total_balance: user?.balance || 0
+      withdrawable_balance: user?.withdrawable_balance != null ? Number(user.withdrawable_balance) : 0,
+      total_balance: user?.balance != null ? Number(user.balance) : 0
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get withdrawals' });
@@ -482,9 +506,9 @@ router.get('/balance', authMiddleware, async (req: AuthRequest, res: Response) =
     });
 
     res.json({
-      total_earnings: totalEarnings._sum.amount || 0,
-      pending_commissions: pendingCommissions._sum.amount || 0,
-      paid_by_network: paidByNetwork._sum.amount || 0,
+      total_earnings: totalEarnings._sum.amount ? Number(totalEarnings._sum.amount) : 0,
+      pending_commissions: pendingCommissions._sum.amount ? Number(pendingCommissions._sum.amount) : 0,
+      paid_by_network: paidByNetwork._sum.amount ? Number(paidByNetwork._sum.amount) : 0,
       payout_method: 'AFFILIATE_NETWORK',
       payout_message: 'Earnings are paid directly by affiliate networks.',
       withdrawal_enabled: false
@@ -629,7 +653,7 @@ router.post('/payout', [
     const result = await createPayout({
       userId: req.user!.id,
       payoutMethodId: payout_method_id,
-      amount: parseFloat(amount),
+      amount: Number(amount),
       currency: currency as SupportedCurrency,
       notes
     });

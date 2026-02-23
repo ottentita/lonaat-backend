@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adminAPI } from '@/services/api';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/lib/currency' 
 import { 
   Users, 
   DollarSign,
@@ -101,7 +102,7 @@ const AdminDashboard = () => {
     },
     {
       title: 'Total Revenue',
-      value: `$${(stats.total_revenue || 0).toLocaleString()}`,
+      value: formatCurrency(stats.total_revenue || 0, 'USD'),
       icon: DollarSign,
       color: 'bg-purple-500/10 text-purple-500',
       trend: '+23%'
@@ -156,7 +157,7 @@ const AdminDashboard = () => {
     ...recentData.transactions.slice(0, 3).map(tx => ({
       type: 'transaction',
       title: tx.type === 'withdrawal' ? 'Withdrawal request' : 'Commission earned',
-      description: `$${parseFloat(tx.amount || 0).toLocaleString()} - ${tx.status || 'pending'}`,
+      description: formatCurrency(parseFloat(tx.amount || 0) || 0, 'USD') + ` - ${tx.status || 'pending'}`,
       time: formatDate(tx.created_at),
       icon: tx.type === 'withdrawal' ? Wallet : DollarSign,
       color: tx.type === 'withdrawal' ? 'text-yellow-500' : 'text-green-500'
@@ -164,7 +165,7 @@ const AdminDashboard = () => {
     ...recentData.commissions.slice(0, 2).map(comm => ({
       type: 'commission',
       title: 'Commission generated',
-      description: `$${parseFloat(comm.amount || 0).toLocaleString()} from affiliate sales`,
+      description: formatCurrency(parseFloat(comm.amount || 0) || 0, 'USD') + ' from affiliate sales',
       time: formatDate(comm.created_at),
       icon: TrendingUp,
       color: 'text-purple-500'

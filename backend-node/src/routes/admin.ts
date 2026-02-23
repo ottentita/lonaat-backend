@@ -54,9 +54,9 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
         active_users: activeUserCount,
         total_products: productCount,
         active_campaigns: campaignCount,
-        total_volume: totalTransactions._sum.amount || 0,
+        total_volume: totalTransactions._sum.amount ? Number(totalTransactions._sum.amount) : 0,
         pending_withdrawals: pendingWithdrawals,
-        total_commissions: totalCommissions._sum.amount || 0
+        total_commissions: totalCommissions._sum.amount ? Number(totalCommissions._sum.amount) : 0
       },
       recent_users: recentUsers,
       recent_commissions: recentCommissions
@@ -66,6 +66,50 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to get dashboard data' });
   }
 });
+
+// Aggregated global admin stats
+router.get('/stats', async (req: AuthRequest, res: Response) => {
+  try {
+    // Double-check admin role
+    if (!req.user || (req.user.role || '').toUpperCase() !== 'ADMIN') {
+      return res.status(403).json({ error: 'Admin access required' })
+    }
+
+    const [
+      totalUsers,
+      totalOffers,
+      totalClicks,
+      totalConversions,
+      totalCommissions,
+      payoutsAgg,
+      revenueAgg
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.offer.count(),
+      prisma.click.count(),
+      prisma.conversion.count(),
+      prisma.commission.count(),
+      prisma.payment.aggregate({ _sum: { amount: true } }),
+      prisma.conversion.aggregate({ _sum: { amount: true } })
+    ])
+
+    const totalPayouts = payoutsAgg._sum.amount ? Number(payoutsAgg._sum.amount) : 0
+    const totalRevenue = revenueAgg._sum.amount ? Number(revenueAgg._sum.amount) : 0
+
+    res.json({
+      totalUsers,
+      totalOffers,
+      totalClicks,
+      totalConversions,
+      totalCommissions,
+      totalPayouts,
+      totalRevenue
+    })
+  } catch (err) {
+    console.error('Admin stats error:', err)
+    res.status(500).json({ error: 'Failed to compute admin stats' })
+  }
+})
 
 router.get('/users', async (req: AuthRequest, res: Response) => {
   try {
@@ -287,13 +331,13 @@ router.get('/commissions', async (req: AuthRequest, res: Response) => {
     res.json({
       commissions,
       summary: {
-        total_amount: totalStats._sum.amount || 0,
+        total_amount: totalStats._sum.amount ? Number(totalStats._sum.amount) : 0,
         total_count: totalStats._count,
-        pending_amount: pendingStats._sum.amount || 0,
+        pending_amount: pendingStats._sum.amount ? Number(pendingStats._sum.amount) : 0,
         pending_count: pendingStats._count,
-        approved_amount: approvedStats._sum.amount || 0,
-        paid_amount: paidStats._sum.amount || 0,
-        rejected_amount: rejectedStats._sum.amount || 0
+        approved_amount: approvedStats._sum.amount ? Number(approvedStats._sum.amount) : 0,
+        paid_amount: paidStats._sum.amount ? Number(paidStats._sum.amount) : 0,
+        rejected_amount: rejectedStats._sum.amount ? Number(rejectedStats._sum.amount) : 0
       },
       pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     });
@@ -1053,7 +1097,7 @@ router.post('/products', async (req: AuthRequest, res: Response) => {
       data: {
         name,
         description: description || '',
-        price: price ? String(price) : null,
+        price: price !== undefined && price !== null ? Number(price) : null,
         network: network || 'manual',
         category: category || 'general',
         image_url: image_url || null,
@@ -1157,7 +1201,7 @@ router.post('/properties', async (req: AuthRequest, res: Response) => {
         description,
         property_type,
         location,
-        price: price ? parseFloat(price) : null,
+        price: price ? Number(price) : null,
         bedrooms: bedrooms ? parseInt(bedrooms) : null,
         bathrooms: bathrooms ? parseInt(bathrooms) : null,
         area_sqft: area_sqft ? parseInt(area_sqft) : null,

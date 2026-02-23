@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/lib/currency' 
 
 export default function AdminAutomobiles() {
   const [automobiles, setAutomobiles] = useState([]);
@@ -19,9 +20,10 @@ export default function AdminAutomobiles() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
       const [autosRes, statsRes] = await Promise.all([
-        fetch(`/api/automobiles?status=${filter}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/automobiles/stats', { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${BASE}/api/automobiles?status=${filter}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${BASE}/api/automobiles/stats`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       
       const autosData = await autosRes.json();
@@ -38,7 +40,8 @@ export default function AdminAutomobiles() {
 
   const updateStatus = async (id, status) => {
     try {
-      const response = await fetch(`/api/automobiles/${id}/status`, {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/automobiles/${id}/status`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -60,7 +63,8 @@ export default function AdminAutomobiles() {
     if (!confirm('Are you sure you want to delete this listing?')) return;
     
     try {
-      const response = await fetch(`/api/automobiles/${id}`, {
+      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      const response = await fetch(`${BASE}/api/automobiles/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });

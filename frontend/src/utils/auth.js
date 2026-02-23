@@ -12,7 +12,9 @@ export const getAccessToken = () => {
 };
 
 export const setTokens = (accessToken, refreshToken) => {
+  // Store both `access_token` and legacy `token` for compatibility
   localStorage.setItem('access_token', accessToken);
+  if (accessToken) localStorage.setItem('token', accessToken);
   if (refreshToken) {
     localStorage.setItem('refresh_token', refreshToken);
   }
@@ -31,5 +33,5 @@ export const isAuthenticated = () => {
 export const isAdmin = () => {
   const user = getUser();
   // Check both is_admin flag (primary) and role field (fallback)
-  return user?.is_admin === true || user?.role === 'admin';
+  return user?.is_admin === true || (typeof user?.role === 'string' && user.role.toUpperCase() === 'ADMIN');
 };

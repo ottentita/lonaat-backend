@@ -138,17 +138,17 @@ router.get('/revenue', authMiddleware, async (req: AuthRequest, res: Response) =
 
     res.json({
       period,
-      total_listing_fees: totalListingFees._sum.amount || 0,
+      total_listing_fees: totalListingFees._sum.amount ? Number(totalListingFees._sum.amount) : 0,
       by_property_type: byPropertyType.map(t => ({
         type: t.property_type || 'other',
-        revenue: t._sum.listing_fee || 0,
+        revenue: t._sum.listing_fee ? Number(t._sum.listing_fee) : 0,
         count: t._count
       })),
       by_transaction_type: byTransactionType.map(t => ({
         type: t.transaction_type,
         count: t._count
       })),
-      recent_payments: payments
+      recent_payments: payments.map(p => ({ ...p, amount: p.amount != null ? Number(p.amount) : 0 }))
     });
   } catch (error) {
     console.error('Revenue analytics error:', error);
@@ -198,7 +198,7 @@ router.get('/performance', authMiddleware, async (req: AuthRequest, res: Respons
       title: p.title,
       views: p.views_count,
       inquiries: p.inquiries_count,
-      rate: p.views_count > 0 ? ((p.inquiries_count / p.views_count) * 100).toFixed(2) : 0
+      rate: p.views_count > 0 ? Number(((p.inquiries_count / p.views_count) * 100).toFixed(2)) : 0
     }));
 
     res.json({
@@ -341,8 +341,8 @@ router.get('/leads', authMiddleware, async (req: AuthRequest, res: Response) => 
       avgResponse = Math.round(totalHours / avgResponseTime.length);
     }
 
-    const conversionRate = totalLeads > 0 
-      ? ((convertedLeads / totalLeads) * 100).toFixed(2) 
+    const conversionRate = totalLeads > 0
+      ? Number(((convertedLeads / totalLeads) * 100).toFixed(2))
       : 0;
 
     res.json({

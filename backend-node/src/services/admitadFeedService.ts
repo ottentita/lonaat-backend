@@ -54,7 +54,7 @@ export async function importAdmitadFeed(feedUrl?: string): Promise<{ imported: n
     let errors = 0;
 
     const adminUser = await prisma.user.findFirst({
-      where: { is_admin: true }
+      where: { role: 'admin' }
     });
 
     if (!adminUser) {
@@ -72,11 +72,7 @@ export async function importAdmitadFeed(feedUrl?: string): Promise<{ imported: n
 
         const existingProduct = await prisma.product.findFirst({
           where: {
-            OR: [
-              { affiliate_link: productData.url },
-              { extra_data: { path: ['gtin'], equals: productData.gtin } },
-              { extra_data: { path: ['feed_id'], equals: productData.id } }
-            ]
+            affiliate_link: productData.url
           }
         });
 
@@ -89,15 +85,15 @@ export async function importAdmitadFeed(feedUrl?: string): Promise<{ imported: n
               price: `${productData.price} ${productData.currency}`,
               image_url: productData.image,
               category: productData.category,
-              extra_data: {
-                ...(existingProduct.extra_data as object || {}),
+              extra_data: JSON.stringify({
+                ...(typeof existingProduct.extra_data === 'string' ? {} : (existingProduct.extra_data as any) || {}),
                 feed_id: productData.id,
                 gtin: productData.gtin,
                 merchant: productData.merchant,
                 availability: productData.availability,
                 source: 'admitad_feed',
                 last_sync: new Date().toISOString()
-              }
+              })
             }
           });
           updated++;
@@ -113,14 +109,14 @@ export async function importAdmitadFeed(feedUrl?: string): Promise<{ imported: n
               network: 'admitad',
               category: productData.category,
               is_active: true,
-              extra_data: {
+              extra_data: JSON.stringify({
                 feed_id: productData.id,
                 gtin: productData.gtin,
                 merchant: productData.merchant,
                 availability: productData.availability,
                 source: 'admitad_feed',
                 imported_at: new Date().toISOString()
-              }
+              })
             }
           });
           imported++;
@@ -143,7 +139,7 @@ function mapFeedProduct(item: any): FeedProduct {
   return {
     id: item['@_id'] || item.id || item.guid || String(Math.random()),
     name: item.name || item.title || item['@_name'] || '',
-    price: parseFloat(item.price || item.priceAmount || '0'),
+    price: Number(item.price || item.priceAmount || '0'),
     currency: item.currencyId || item.currency || item.priceCurrency || 'USD',
     image: item.picture || item.image || item.enclosure?.['@_url'] || '',
     url: item.url || item.link || '',

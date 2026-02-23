@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adminAPI } from '@/services/api';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/lib/currency' 
 import { 
   Users as UsersIcon, 
   Search,
@@ -165,7 +166,7 @@ const Users = () => {
                         <div className="flex items-center justify-end gap-2">
                           <Wallet className="w-4 h-4 text-green-500" />
                           <span className="text-dark-50 font-semibold">
-                            ${(user.balance || 0).toLocaleString()}
+                            {formatCurrency(user.balance || 0, 'USD')}
                           </span>
                         </div>
                       </td>
@@ -226,7 +227,7 @@ const Users = () => {
                   <div className="card bg-dark-800">
                     <p className="text-dark-400 text-sm mb-1">Account Balance</p>
                     <p className="text-2xl font-bold text-green-500">
-                      ${(selectedUser.balance || 0).toLocaleString()}
+                      {formatCurrency(selectedUser.balance || 0, 'USD')}
                     </p>
                   </div>
                   <div className="card bg-dark-800">

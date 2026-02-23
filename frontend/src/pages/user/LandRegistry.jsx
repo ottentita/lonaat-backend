@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { landRegistryAPI } from '../../services/api';
+import { formatCurrency, formatNumber } from '../../lib/currency';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
@@ -45,6 +46,7 @@ export default function LandRegistry() {
   const [mapLands, setMapLands] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState('title');
   const [searchResults, setSearchResults] = useState(null);
@@ -67,6 +69,7 @@ export default function LandRegistry() {
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const [landsRes, statsRes] = await Promise.all([
         landRegistryAPI.getLands({ limit: 100 }),
         landRegistryAPI.getStats()
@@ -76,6 +79,7 @@ export default function LandRegistry() {
       setBlockedCount(landsRes.data.lands?.filter(l => l.status === 'blocked' || l.status === 'disputed').length || 0);
     } catch (error) {
       console.error('Error loading land data:', error);
+      setError(error);
     } finally {
       setLoading(false);
     }
@@ -83,10 +87,12 @@ export default function LandRegistry() {
 
   const loadMapData = async () => {
     try {
+      setError(null);
       const res = await landRegistryAPI.getMapData();
       setMapLands(res.data.lands || []);
     } catch (error) {
       console.error('Error loading map data:', error);
+      setError(error);
     }
   };
 
@@ -173,8 +179,8 @@ export default function LandRegistry() {
 
   const formatPrice = (price, currency = 'XAF') => {
     if (!price) return 'N/A';
-    return `${currency} ${Number(price).toLocaleString()}`;
-  };
+    return formatCurrency(price, currency);
+  }; 
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -198,6 +204,19 @@ export default function LandRegistry() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="card p-6 text-center">
+          <p className="text-red-600">Failed to load land registry data. Please try again later.</p>
+          <div className="mt-4">
+            <Button onClick={() => { loadData(); loadMapData(); }}>Retry</Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -354,7 +373,10 @@ export default function LandRegistry() {
             ) : (
               <div>
                 <p className="text-sm font-medium mb-2 px-1">All Lands ({lands.length})</p>
-                {lands.map(land => (
+                {lands.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">No land records found.</p>
+                ) : (
+                  lands.map(land => (
                   <LandListItem 
                     key={land.id} 
                     land={land} 
@@ -362,7 +384,8 @@ export default function LandRegistry() {
                     isSelected={selectedLand?.id === land.id}
                     getStatusBadge={getStatusBadge}
                   />
-                ))}
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -384,32 +407,59 @@ export default function LandRegistry() {
             <MapClickHandler onMapClick={handleMapClick} />
 
             {mapLands.map(land => {
-              if (!land.polygon?.coordinates?.[0]) return null;
-              const positions = land.polygon.coordinates[0].map(coord => [coord[1], coord[0]]);
+              // show polygon if available
+              const polygon = land.polygon;
+              if (polygon?.coordinates?.[0]) {
+                const positions = polygon.coordinates[0].map(coord => [coord[1], coord[0]]);
+                return (
+                  <Polygon
+                    key={`poly-${land.id}`}
+                    positions={positions}
+                    pathOptions={{
+                      color: getPolygonColor(land.status),
+                      fillColor: getPolygonColor(land.status),
+                      fillOpacity: selectedLand?.id === land.id ? 0.6 : 0.3,
+                      weight: selectedLand?.id === land.id ? 3 : 2
+                    }}
+                    eventHandlers={{ click: () => viewLandDetails(land.id) }}
+                  >
+                    <Popup>
+                      <div className="text-sm">
+                        <p className="font-bold">{land.title_number}</p>
+                        <p>Owner: {land.owner_name}</p>
+                        <p>Status: {land.status}</p>
+                        {land.area_sqm && <p>Area: {formatNumber(land.area_sqm)} sqm</p>} 
+                      </div>
+                    </Popup>
+                  </Polygon>
+                )
+              }
+
+              // fallback: no polygon - still render nothing here
+              return null;
+            })}
+
+            {/* Render center markers for each land using real lat/lng */}
+            {mapLands.map(land => {
+              const lat = land.center?.lat ?? land.center_lat ?? null;
+              const lng = land.center?.lng ?? land.center_lng ?? null;
+              if (lat == null || lng == null) return null;
+              const latNum = Number(lat);
+              const lngNum = Number(lng);
+              if (isNaN(latNum) || isNaN(lngNum)) return null;
               return (
-                <Polygon
-                  key={land.id}
-                  positions={positions}
-                  pathOptions={{
-                    color: getPolygonColor(land.status),
-                    fillColor: getPolygonColor(land.status),
-                    fillOpacity: selectedLand?.id === land.id ? 0.6 : 0.3,
-                    weight: selectedLand?.id === land.id ? 3 : 2
-                  }}
-                  eventHandlers={{
-                    click: () => viewLandDetails(land.id)
-                  }}
-                >
+                <Marker key={`marker-${land.id}`} position={[latNum, lngNum]}>
                   <Popup>
                     <div className="text-sm">
                       <p className="font-bold">{land.title_number}</p>
                       <p>Owner: {land.owner_name}</p>
-                      <p>Status: {land.status}</p>
-                      {land.area_sqm && <p>Area: {land.area_sqm.toLocaleString()} sqm</p>}
+                      <p>Region: {land.region}</p>
+                      {land.area_sqm && <p>Area: {formatNumber(land.area_sqm)} sqm</p>}
+                      <p className="text-xs text-muted-foreground">Status: {land.status}</p>
                     </div>
                   </Popup>
-                </Polygon>
-              );
+                </Marker>
+              )
             })}
 
             {isAddingCoords && newCoords.map((coord, i) => (
@@ -502,7 +552,7 @@ export default function LandRegistry() {
                     </div>
                     <div>
                       <p className="text-muted-foreground">Area</p>
-                      <p className="font-medium">{selectedLand.area_sqm ? `${Number(selectedLand.area_sqm).toLocaleString()} sqm` : 'N/A'}</p>
+                      <p className="font-medium">{selectedLand.area_sqm ? `${formatNumber(Number(selectedLand.area_sqm))} sqm` : 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Land Use</p>

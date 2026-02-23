@@ -23,6 +23,7 @@ import {
   getCPANetworks,
 } from "../config/affiliateNetworks";
 import { searchAffiliateOffers } from "../services/affiliateSearch";
+import { getAffiliateStats } from '../services/affiliateStats'
 const router = Router();
 const prisma = new PrismaClient();
 router.get("/", async (req: Request, res: Response) => {
@@ -70,8 +71,8 @@ router.get("/", async (req: Request, res: Response) => {
     res.json({
       products: products.map((p) => ({
         ...p,
-        commission: "10-30%",
-        price: p.price || "Contact for price",
+        commission: p.extra_data?.commission_rate ? Number(p.extra_data.commission_rate) : null,
+        price: p.price ?? null,
       })),
       offers: products,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
@@ -139,7 +140,7 @@ router.get(
           id: p.id,
           external_id: (p.extra_data as any)?.external_id || `prod_${p.id}`,
           title: p.name,
-          price: parseFloat(p.price?.replace(/[^\d.]/g, "") || "0"),
+          price: Number(p.price?.replace(/[^\d.]/g, "") || "0"),
           currency: "USD",
           image: p.image_url,
           affiliate_url: p.affiliate_link,
@@ -153,6 +154,25 @@ router.get(
     }
   },
 );
+
+// GET /api/affiliate/stats - aggregated affiliate metrics for current user
+router.get('/stats', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const stats = await getAffiliateStats(req.user!.id)
+    res.json(stats)
+  } catch (err) {
+    console.error('Affiliate stats error:', err)
+    // Return safe defaults to avoid dashboard errors (temporary stub)
+    res.status(200).json({
+      total_earnings: 0,
+      pending_earnings: 0,
+      available_balance: 0,
+      total_clicks: 0,
+      total_leads: 0,
+      conversion_rate: 0
+    })
+  }
+})
 
 router.post(
   "/import",
@@ -186,7 +206,7 @@ router.post(
       const product = await prisma.product.create({
         data: {
           name: title,
-          price: price ? String(price) : null,
+          price: price !== undefined && price !== null ? Number(price) : null,
           image_url: image || null,
           affiliate_link: affiliate_url,
           network: network || "unknown",
@@ -252,7 +272,7 @@ router.post(
           await prisma.product.create({
             data: {
               name: p.title || p.name,
-              price: p.price ? String(p.price) : null,
+              price: p.price !== undefined && p.price !== null ? Number(p.price) : null,
               image_url: p.image || p.image_url || null,
               affiliate_link: p.affiliate_url || p.affiliate_link,
               network: p.network || "unknown",
@@ -515,7 +535,7 @@ router.post(
         for (const item of items) {
           const externalId = item["@_id"] || item.id || String(Math.random());
           const name = item.name || item.title || item["@_name"];
-          const price = parseFloat(item.price || item.priceAmount || "0");
+          const price = Number(item.price || item.priceAmount || "0");
           const image = item.picture || item.image || "";
           const url = item.url || item.link || "";
           const category = item.categoryId || item.category || "General";
@@ -538,10 +558,10 @@ router.post(
             continue;
           }
 
-          await prisma.product.create({
+            await prisma.product.create({
             data: {
               name,
-              price: price > 0 ? `$${price.toFixed(2)} USD` : null,
+                price: price > 0 ? Number(price.toFixed(2)) : null,
               image_url: image || null,
               description: description.substring(0, 500),
               affiliate_link: url,
@@ -579,7 +599,7 @@ router.post(
             await prisma.product.create({
               data: {
                 name: prod.name || prod.title || "Unknown",
-                price: prod.price ? String(prod.price) : null,
+                price: prod.price ? Number(prod.price) : null,
                 image_url: prod.image || prod.image_url || null,
                 description: prod.description || "",
                 affiliate_link: prod.affiliate_link || prod.url || "",
@@ -659,7 +679,7 @@ router.post(
             await prisma.product.create({
               data: {
                 name: p.name,
-                price: `$${p.price.toFixed(2)} USD`,
+                price: Number(p.price.toFixed(2)),
                 image_url: p.image,
                 description: `High-converting ${p.category.toLowerCase()} digital product`,
                 affiliate_link: `https://digistore24.com/redir/${imported}?ref=lonaat`,
@@ -730,7 +750,7 @@ router.post(
             await prisma.product.create({
               data: {
                 name: p.name,
-                price: `$${p.price.toFixed(2)} USD`,
+                price: Number(p.price.toFixed(2)),
                 image_url: p.image,
                 description: `Premium ${p.category.toLowerCase()} product from top brands`,
                 affiliate_link: `https://awin1.com/cread.php?awinmid=${imported}&ref=lonaat`,
@@ -801,7 +821,7 @@ router.post(
             await prisma.product.create({
               data: {
                 name: p.name,
-                price: `$${p.price.toFixed(2)} USD`,
+                price: Number(p.price.toFixed(2)),
                 image_url: p.image,
                 description: `Top-rated ${p.category.toLowerCase()} solution`,
                 affiliate_link: `https://mylead.global/offer/${imported}?ref=lonaat`,
@@ -917,7 +937,7 @@ router.get("/admitad/search", async (req: Request, res: Response) => {
         data: dbProducts.map((p) => ({
           id: p.id,
           name: p.name,
-          price: parseFloat(p.price?.replace(/[^\d.]/g, "") || "0"),
+          price: Number(p.price?.replace(/[^\d.]/g, "") || "0"),
           currency: p.price?.includes("USD") ? "USD" : "USD",
           image: p.image_url,
           url: p.affiliate_link,
@@ -965,7 +985,7 @@ router.get("/admitad/search", async (req: Request, res: Response) => {
     const mappedProducts = filteredProducts.slice(0, 50).map((item: any) => ({
       id: item["@_id"] || item.id || item.guid || String(Math.random()),
       name: item.name || item.title || item["@_name"] || "",
-      price: parseFloat(item.price || item.priceAmount || "0"),
+      price: Number(item.price || item.priceAmount || "0"),
       currency: item.currencyId || item.currency || item.priceCurrency || "USD",
       image: item.picture || item.image || item.enclosure?.["@_url"] || "",
       url: item.url || item.link || "",
@@ -1106,8 +1126,8 @@ router.get("/offers", async (req: Request, res: Response) => {
     res.json({
       products: products.map((p) => ({
         ...p,
-        commission: "10-30%",
-        price: p.price || "Contact for price",
+        commission: p.extra_data?.commission_rate ? Number(p.extra_data.commission_rate) : null,
+        price: p.price ?? null,
       })),
       offers: products,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
@@ -1246,7 +1266,7 @@ router.get(
           total_clicks: total,
           conversions: conversions.length,
           conversion_rate:
-            total > 0 ? ((conversions.length / total) * 100).toFixed(2) : "0",
+            total > 0 ? Number(((conversions.length / total) * 100).toFixed(2)) : 0,
         },
         pagination: { page, limit, total, pages: Math.ceil(total / limit) },
       });

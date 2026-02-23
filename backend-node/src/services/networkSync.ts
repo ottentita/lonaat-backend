@@ -51,7 +51,7 @@ export async function syncDigistore24Products(userId?: number): Promise<SyncResu
       const existing = await prisma.product.findFirst({
         where: {
           network: 'digistore24',
-          extra_data: { path: ['digistore_id'], equals: product.id }
+          affiliate_link: product.salespage_url || undefined
         }
       });
 
@@ -66,12 +66,12 @@ export async function syncDigistore24Products(userId?: number): Promise<SyncResu
             network: 'digistore24',
             category: product.category || null,
             image_url: product.image_url || null,
-            extra_data: {
+            extra_data: JSON.stringify({
               digistore_id: product.id,
               commission_rate: product.commission_rate,
               vendor: product.vendor_name,
               raw: product
-            },
+            }),
             is_active: true
           }
         });
@@ -123,7 +123,7 @@ export async function syncAwinProducts(userId?: number): Promise<SyncResult> {
       const existing = await prisma.product.findFirst({
         where: {
           network: 'awin',
-          extra_data: { path: ['awin_programme_id'], equals: programmeId }
+          affiliate_link: programme.programme?.clickThroughUrl || programme.clickThroughUrl || undefined
         }
       });
 
@@ -138,13 +138,13 @@ export async function syncAwinProducts(userId?: number): Promise<SyncResult> {
             network: 'awin',
             category: programme.programme?.primarySector || programme.primarySector || null,
             image_url: programme.programme?.logoUrl || programme.logoUrl || null,
-            extra_data: {
+            extra_data: JSON.stringify({
               awin_programme_id: programmeId,
               advertiser_id: programme.programme?.advertiserId || programme.advertiserId,
               commission_type: programme.commissionType,
               status: programme.status || 'active',
               raw: programme
-            },
+            }),
             is_active: true
           }
         });
@@ -192,25 +192,25 @@ export async function syncAliExpressProducts(userId?: number): Promise<SyncResul
       const existingProduct = await prisma.product.findFirst({
         where: {
           network: 'aliexpress',
-          extra_data: { path: ['external_id'], equals: product.id }
+          affiliate_link: product.url || undefined
         }
       });
 
       if (existingProduct) {
-        await prisma.product.update({
+            await prisma.product.update({
           where: { id: existingProduct.id },
           data: {
             name: product.name,
             description: product.description,
-            price: `$${product.price}`,
+                price: product.price ? Number(product.price) : null,
             affiliate_link: product.url,
             category: product.category,
             image_url: product.image_url,
-            extra_data: { 
+            extra_data: JSON.stringify({ 
               external_id: product.id,
               commission_rate: product.commission_rate,
               merchant: product.merchant
-            }
+            })
           }
         });
       } else {
@@ -218,17 +218,17 @@ export async function syncAliExpressProducts(userId?: number): Promise<SyncResul
           data: {
             name: product.name,
             description: product.description,
-            price: `$${product.price}`,
+            price: product.price ? Number(product.price) : null,
             affiliate_link: product.url,
             network: 'aliexpress',
             category: product.category,
             image_url: product.image_url,
             user_id: userId,
-            extra_data: { 
+            extra_data: JSON.stringify({ 
               external_id: product.id,
               commission_rate: product.commission_rate,
               merchant: product.merchant
-            }
+            })
           }
         });
       }

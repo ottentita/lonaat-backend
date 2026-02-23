@@ -1,0 +1,28 @@
+-- CreateTable
+CREATE TABLE "real_estate_properties" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "property_type" TEXT,
+    "transaction_type" TEXT,
+    "price" DECIMAL,
+    "currency" TEXT DEFAULT 'USD',
+    "location" TEXT,
+    "region" TEXT,
+    "city" TEXT,
+    "address" TEXT,
+    "bedrooms" INTEGER DEFAULT 0,
+    "bathrooms" INTEGER DEFAULT 0,
+    "area_sqft" INTEGER,
+    "images" TEXT,
+    "image_url" TEXT,
+    "is_featured" BOOLEAN NOT NULL DEFAULT false,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "views" INTEGER DEFAULT 0,
+    "inquiries" INTEGER DEFAULT 0,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" DATETIME NOT NULL,
+    "user_id" INTEGER,
+    CONSTRAINT "real_estate_properties_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);

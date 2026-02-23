@@ -7,6 +7,7 @@ Product management routes
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, Product, User
+import re
 from affiliate_manager import get_affiliate_manager
 from auth import check_user_blocked
 import logging
@@ -95,11 +96,20 @@ def create_product():
                 'upgrade_required': True
             }), 403
         
+        raw_price = data.get('price')
+        clean_price = None
+        if raw_price is not None:
+            if isinstance(raw_price, str):
+                cleaned = re.sub(r"[^\d\.]+", "", raw_price).strip()
+                clean_price = cleaned if cleaned != "" else None
+            else:
+                clean_price = str(raw_price)
+
         product = Product(
             user_id=user_id,
             name=data['name'],
             description=data.get('description'),
-            price=data.get('price'),
+            price=clean_price,
             affiliate_link=data['affiliate_link'],
             network=data.get('network'),
             category=data.get('category'),
@@ -140,8 +150,16 @@ def update_product(product_id):
             product.name = data['name']
         if data.get('description'):
             product.description = data['description']
-        if data.get('price'):
-            product.price = data['price']
+        if 'price' in data:
+            raw_price = data.get('price')
+            if raw_price is None:
+                product.price = None
+            else:
+                if isinstance(raw_price, str):
+                    cleaned = re.sub(r"[^\d\.]+", "", raw_price).strip()
+                    product.price = cleaned if cleaned != "" else None
+                else:
+                    product.price = str(raw_price)
         if data.get('affiliate_link'):
             product.affiliate_link = data['affiliate_link']
         if data.get('network'):

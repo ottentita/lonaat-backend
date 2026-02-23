@@ -20,15 +20,16 @@ const Login = () => {
     try {
       const { data } = await authAPI.login(formData);
       
-      setTokens(data.access_token, data.refresh_token);
-      setUser(data.user);
+      // backend returns `token` in response body
+      setTokens(data.token || data.access_token, data.refresh_token);
+      setUser(data.user || data.user);
       
       toast.success('Login successful!');
       
-      if (data.user.is_admin === true || data.user.role === 'admin') {
-        navigate('/admin');
+      if (data.user.is_admin === true || (typeof data.user.role === 'string' && data.user.role.toUpperCase() === 'ADMIN')) {
+        window.location.href = '/admin/dashboard';
       } else {
-        navigate('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (error) {
       toast.error(error.response?.data?.error || 'Login failed');

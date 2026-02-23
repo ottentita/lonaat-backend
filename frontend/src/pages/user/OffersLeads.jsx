@@ -20,6 +20,7 @@ import {
   Search,
 } from "lucide-react";
 import api from "../../services/api";
+import { formatCurrency } from '../../lib/currency';
 
 export default function OffersLeads() {
   const [offers, setOffers] = useState([]);
@@ -73,7 +74,8 @@ export default function OffersLeads() {
 
   const handleClick = (productId) => {
     try {
-      window.open(`http://localhost:3000/click/${productId}`, "_blank");
+      const base = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+      window.open(`${base}/api/click/${productId}`, "_blank");
     } catch (error) {
       console.error(error);
       toast.error("Failed to track click");
@@ -125,15 +127,20 @@ export default function OffersLeads() {
     "digistore24",
     "mylead",
   ];
-  const categories = [
-    "all",
-    "Electronics",
-    "Fashion",
-    "Health",
-    "Finance",
-    "Software",
-    "Courses",
-  ];
+
+  const [categories, setCategories] = useState(['all'])
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get('/categories')
+        const cats = (res.data.categories || []).map(c => c.name || c.slug || c)
+        setCategories(['all', ...cats])
+      } catch (err) {
+        console.error('Failed to load categories for OffersLeads', err)
+      }
+    })()
+  }, [])
 
   return (
     <DashboardLayout>
@@ -323,7 +330,7 @@ export default function OffersLeads() {
                           </p>
                           <div className="flex items-center justify-between mb-4">
                             <span className="text-xl font-bold text-primary-400">
-                              {product.price} {product.currency}
+                              {formatCurrency(product.price, product.currency || 'USD')}
                             </span>
                             <span className="text-xs text-dark-500">
                               {product.category}
@@ -435,7 +442,7 @@ export default function OffersLeads() {
 
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-xl font-bold text-primary-400">
-                          {offer.price}
+                          {formatCurrency(offer.price, offer.currency || 'USD')}
                         </span>
                         {offer.category && (
                           <span className="text-xs text-dark-500">

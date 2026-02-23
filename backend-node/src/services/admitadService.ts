@@ -106,7 +106,7 @@ export async function searchAdmitadProducts(
       id: String(item.id),
       name: item.name || item.campaign?.name || 'Unknown Product',
       description: item.description || item.short_name || '',
-      price: parseFloat(item.discount) || 0,
+      price: Number(item.discount) || 0,
       currency: 'USD',
       image_url: item.image || item.campaign?.image || '',
       url: item.goto_link || item.frameset_link || '',
@@ -175,12 +175,12 @@ export async function searchAliExpressProducts(
       id: String(p.id),
       name: p.name || p.title,
       description: p.description || '',
-      price: parseFloat(p.price) || 0,
+      price: Number(p.price) || 0,
       currency: p.currency || 'USD',
       image_url: p.image || p.picture,
       url: p.url || p.deeplink,
       category: p.category || 'General',
-      commission_rate: parseFloat(p.commission) || 3,
+      commission_rate: Number(p.commission) || 3,
       merchant: 'AliExpress'
     }));
   } catch (error: any) {
@@ -284,7 +284,7 @@ export async function handleAdmitadPostback(payload: any): Promise<{ success: bo
       return { success: true, message: 'Commission updated' };
     }
 
-    const amount = parseFloat(payment) || 0;
+    const amount = Number(payment) || 0;
     const commissionStatus = status === 'approved' ? 'paid_by_network' : 'pending';
 
     await prisma.commission.create({
@@ -294,29 +294,12 @@ export async function handleAdmitadPostback(payload: any): Promise<{ success: bo
         amount,
         status: commissionStatus,
         external_ref: externalRef,
-        webhook_data: payload,
+        webhook_data: JSON.stringify(payload),
         paid_at: commissionStatus === 'paid_by_network' ? new Date() : null
       }
     });
 
-    const click = await prisma.affiliateClick.findFirst({
-      where: { 
-        user_id: userId,
-        network: 'admitad',
-        converted: false
-      },
-      orderBy: { created_at: 'desc' }
-    });
-
-    if (click) {
-      await prisma.affiliateClick.update({
-        where: { id: click.id },
-        data: { 
-          converted: true,
-          conversion_id: externalRef
-        }
-      });
-    }
+    // Affiliate click tracking model not present in current schema - skip updating clicks
 
     return { success: true, message: 'Commission recorded' };
   } catch (error: any) {
@@ -327,38 +310,8 @@ export async function handleAdmitadPostback(payload: any): Promise<{ success: bo
 
 export async function initializeAdmitadNetworks(): Promise<void> {
   try {
-    const admitad = await prisma.affiliateNetwork.findUnique({
-      where: { slug: 'admitad' }
-    });
-
-    if (!admitad) {
-      await prisma.affiliateNetwork.create({
-        data: {
-          name: 'Admitad',
-          slug: 'admitad',
-          api_base: ADMITAD_API_BASE,
-          status: 'active'
-        }
-      });
-    }
-
-    const aliexpress = await prisma.affiliateNetwork.findUnique({
-      where: { slug: 'aliexpress' }
-    });
-
-    if (!aliexpress) {
-      await prisma.affiliateNetwork.create({
-        data: {
-          name: 'AliExpress',
-          slug: 'aliexpress',
-          parent_slug: 'admitad',
-          api_base: 'https://aliexpress.com',
-          status: 'active'
-        }
-      });
-    }
-
-    console.log('Admitad networks initialized');
+    // affiliateNetwork model is not included in the local Prisma schema; nothing to initialize here
+    console.log('Admitad networks initialization skipped (no affiliateNetwork model)');
   } catch (error) {
     console.error('Failed to initialize Admitad networks:', error);
   }

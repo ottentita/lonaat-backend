@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET: string = process.env.JWT_SECRETE_KEY || process.env.JWT_SECRET_KEY || '';
+// Support multiple environment variable names for compatibility
+const JWT_SECRET: string = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY || process.env.JWT_SECRETE_KEY || '';
 const JWT_EXPIRY = '12h';
 const REFRESH_EXPIRY = '7d';
 

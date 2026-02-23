@@ -25,7 +25,7 @@ router.get("/search", async (req: Request, res: Response) => {
         data: offers.map((o: any) => ({
           name: o.name,
           description: o.description || "",
-          price: o.price?.toString() || null,
+          price: o.price !== undefined && o.price !== null ? Number(o.price) : null,
           network: o.network || "unknown",
           affiliate_link: o.affiliate_link || null,
           image_url: o.image_url || null,
@@ -54,7 +54,7 @@ router.post("/import", authMiddleware, async (req: AuthRequest, res: Response) =
     data: products.map((p: any) => ({
       name: p.name,
       description: p.description,
-      price: p.price?.toString() || null,
+      price: p.price !== undefined && p.price !== null ? Number(p.price) : null,
       network: p.network,
       user_id: req.user?.id || null,
       is_active: true

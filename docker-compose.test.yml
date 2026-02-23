@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  smoke-test:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: lonaat_smoke_test
+    environment:
+      - DATABASE_URL=sqlite:///test.db
+      - FLASK_SECRET=dev_secret
+      - JWT_SECRET_KEY=dev_jwt_secret
+    volumes:
+      - ./:/app:cached
+    restart: 'no'

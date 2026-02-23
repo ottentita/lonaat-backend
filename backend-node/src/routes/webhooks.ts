@@ -32,7 +32,7 @@ router.post('/digistore24', async (req: Request, res: Response) => {
         });
 
         const isPaid = commission_status === 'approved' || event === 'on_affiliation_payment';
-        const commissionAmount = parseFloat(commission_value) || 0;
+        const commissionAmount = Number(commission_value) || 0;
 
         if (existing) {
           if (!existing.paid_at && isPaid) {
@@ -54,14 +54,14 @@ router.post('/digistore24', async (req: Request, res: Response) => {
               status: isPaid ? 'paid_by_network' : 'pending',
               external_ref: order_id,
               paid_at: isPaid ? new Date() : null,
-              webhook_data: {
+              webhook_data: JSON.stringify({
                 product_id,
                 product_name,
                 currency,
                 order_id,
                 payout_method: 'AFFILIATE_NETWORK',
                 raw: data
-              }
+              })
             }
           });
           console.log(`[Digistore24] Commission tracked: $${commissionAmount} for user ${user.id} (PAID_BY_NETWORK)`);
@@ -105,7 +105,7 @@ router.post('/awin', async (req: Request, res: Response) => {
         });
 
         const isPaid = status === 'approved';
-        const amount = parseFloat(commissionAmount?.amount || commissionAmount) || 0;
+        const amount = Number(commissionAmount?.amount || commissionAmount) || 0;
 
         if (existing) {
           if (!existing.paid_at && isPaid) {
@@ -127,13 +127,13 @@ router.post('/awin', async (req: Request, res: Response) => {
               status: isPaid ? 'paid_by_network' : 'pending',
               external_ref: String(id),
               paid_at: isPaid ? new Date() : null,
-              webhook_data: {
+              webhook_data: JSON.stringify({
                 advertiser_id: advertiserId,
                 advertiser_name: advertiserName,
                 transaction_date: transactionDate,
                 payout_method: 'AFFILIATE_NETWORK',
                 raw: tx
-              }
+              })
             }
           });
           console.log(`[Awin] Commission tracked: $${amount} for user ${user.id} (PAID_BY_NETWORK)`);
@@ -204,7 +204,7 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
     const isPaid = status === 'approved' || status === 'confirmed';
     const isRejected = status === 'rejected' || status === 'declined';
     const commissionStatus = isPaid ? 'paid_by_network' : isRejected ? 'rejected' : 'pending';
-    const commissionAmount = parseFloat(payout) || 0;
+    const commissionAmount = Number(payout) || 0;
 
     await prisma.commission.create({
       data: {
@@ -214,7 +214,7 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
         status: commissionStatus,
         external_ref: String(transaction_id),
         paid_at: isPaid ? new Date() : null,
-        webhook_data: {
+        webhook_data: JSON.stringify({
           transaction_id,
           program_id,
           program_name,
@@ -227,7 +227,7 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
           ml_sub2,
           payout_method: 'AFFILIATE_NETWORK',
           received_at: new Date().toISOString()
-        }
+        })
       }
     });
 

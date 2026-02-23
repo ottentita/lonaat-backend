@@ -508,7 +508,7 @@ export default function AdminLandRegistry() {
                             <h3 className="font-bold">{land.title_number}</h3>
                             <p className="text-sm">{land.owner_name}</p>
                             <p className="text-xs text-gray-500">{land.region}, {land.town}</p>
-                            <p className="text-xs">Area: {land.area_sqm?.toLocaleString()} m²</p>
+                            <p className="text-xs">Area: {formatNumber(land.area_sqm)} m²</p>
                             <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded ${
                               getStatus(land) === 'approved' ? 'bg-green-100 text-green-800' :
                               getStatus(land) === 'verified' ? 'bg-blue-100 text-blue-800' :
@@ -582,7 +582,7 @@ export default function AdminLandRegistry() {
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Area</label>
-                        <p>{selectedLand.area_sqm?.toLocaleString()} m²</p>
+                        <p>{formatNumber(selectedLand.area_sqm)} m²</p>
                       </div>
                       <div>
                     <label className="text-sm font-medium text-gray-500">Status</label>
@@ -746,7 +746,7 @@ export default function AdminLandRegistry() {
                                 </button>
                               </div>
                               {section.area_sqm && (
-                                <p className="text-xs text-gray-500 mt-1">Area: {parseFloat(section.area_sqm).toLocaleString()} m²</p>
+                                <p className="text-xs text-gray-500 mt-1">Area: {formatNumber(parseFloat(section.area_sqm))} m²</p>
                               )}
                               {section.capacity && (
                                 <p className="text-xs text-gray-500">Capacity: {section.capacity} people</p>
@@ -851,7 +851,7 @@ export default function AdminLandRegistry() {
                       <td className="p-3">{land.current_owner}</td>
                       <td className="p-3">{land.region}</td>
                       <td className="p-3">{land.town || land.city || '-'}</td>
-                      <td className="p-3">{land.area_sqm?.toLocaleString() || '-'}</td>
+                      <td className="p-3">{formatNumber(land.area_sqm) || '-'}</td>
                       <td className="p-3">
                         <span className={`px-2 py-1 text-xs rounded ${
                           land.verification_status === 'approved' || land.status === 'approved' ? 'bg-green-100 text-green-800' :

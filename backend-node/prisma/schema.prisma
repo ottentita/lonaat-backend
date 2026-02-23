@@ -9,46 +9,131 @@ datasource db {
 
 // Minimal schema for local development with SQLite
 model User {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String?
-  email     String   @unique
+  email     String    @unique
   password  String
-  role      String   @default("user")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  role      String    @default("user")
+  isActive  Boolean   @default(true)
+  balance   Decimal  @default(0)
+  withdrawable_balance Decimal @default(0)
+  pending_earnings Decimal @default(0)
+  country   String?
+  phone     String?
+  paymentMethod String?
+  paymentAccount String?
+  preferredLanguage String? @default("en")
+  profilePicture String?
+  createdAt DateTime  @default(now())
+  payments  Payment[]
+  offers    Offer[]
+  clicks    Click[]
+  products  Product[]
+  commissions Commission[]
+  creditWallet CreditWallet?
+  realEstateProperties RealEstateProperty[]
 
   @@map("users")
 }
 
 model Offer {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  url         String
-  payout      Float?
-  network     String?
-  externalOfferId String? @unique
-  networkName  String?
-  trackingUrl  String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  title           String
+  description     String?
+  url             String
+  network         String?
+  externalOfferId String?  @unique
+  networkName     String?
+  trackingUrl     String?
+  isActive        Boolean  @default(true)
+  sellerId        Int?
+  payout          Decimal?
+  categoryId      Int?
+  images          String?
+  location        String?
+  status          String   @default("active")
+  createdAt       DateTime @default(now())
 
   clicks      Click[]
   conversions Conversion[]
+  category    Category? @relation(fields: [categoryId], references: [id])
+  seller      User?     @relation(fields: [sellerId], references: [id])
 
   @@map("offers")
 }
 
-model Click {
+model Category {
   id        Int      @id @default(autoincrement())
-  offerId   Int
-  clickId   String   @unique
-  clickToken String   @unique
-  ip        String?
-  userAgent String?
+  name      String
+  slug      String   @unique
+  icon      String?
   createdAt DateTime @default(now())
 
+  offers Offer[]
+
+  @@map("categories")
+}
+
+model Product {
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?
+  price          Decimal?
+  image_url      String?
+  affiliate_link String?
+  network        String?
+  category       String?
+  ai_generated_ad String?
+  extra_data     String?
+  user_id        Int?
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+
+  user User? @relation(fields: [user_id], references: [id])
+
+  @@map("products")
+}
+
+model CreditWallet {
+  id             Int      @id @default(autoincrement())
+  user_id        Int      @unique
+  credits        Int      @default(0)
+  total_purchased Int     @default(0)
+  total_spent    Int      @default(0)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("credit_wallets")
+}
+
+model CreditPackage {
+  id            Int      @id @default(autoincrement())
+  name          String
+  credits       Int
+  price         Decimal
+  bonus_credits Int      @default(0)
+  is_active     Boolean  @default(true)
+  display_order Int?
+  created_at    DateTime @default(now())
+
+  @@map("credit_packages")
+}
+
+model Click {
+  id         Int      @id @default(autoincrement())
+  offerId    Int
+  clickId    String   @unique
+  clickToken String   @unique
+  ip         String?
+  userAgent  String?
+  user_id    Int?    
+  createdAt  DateTime @default(now())
+
   offer Offer @relation(fields: [offerId], references: [id])
+  user  User?  @relation(fields: [user_id], references: [id])
+  commission Commission?
 
   @@index([offerId])
   @@map("clicks")
@@ -58,7 +143,7 @@ model Conversion {
   id        Int      @id @default(autoincrement())
   offerId   Int
   clickId   String?
-  amount    Float?
+  amount    Decimal  @default(0)
   status    String   @default("pending")
   createdAt DateTime @default(now())
 
@@ -66,4 +151,150 @@ model Conversion {
 
   @@index([offerId])
   @@map("conversions")
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  userId        Int?
+  amount        Decimal  @default(0)
+  currency      String   @default("USD")
+  status        String   @default("pending")
+  provider      String   @default("skrill")
+  transactionId String   @unique
+  createdAt     DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+model Commission {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  click_id      Int?     @unique
+  network       String?
+  product_id    Int?
+  amount        Decimal  @default(0)
+  status        String   @default("pending")
+  external_ref  String?
+  webhook_data  String?
+  created_at    DateTime @default(now())
+  paid_at       DateTime?
+  campaign_id   Int?
+  rejection_reason String?
+  approved_at   DateTime?
+  approved_by   Int?
+
+  user User @relation(fields: [user_id], references: [id])
+  click Click? @relation(fields: [click_id], references: [id])
+
+  @@map("commissions")
+}
+
+model RealEstateProperty {
+  id              Int      @id @default(autoincrement())
+  title           String
+  description     String?
+  property_type   String?
+  transaction_type String?
+  price           Decimal?
+  currency        String?  @default("USD")
+  location        String?
+  region          String?
+  city            String?
+  address         String?
+  bedrooms        Int?     @default(0)
+  bathrooms       Int?     @default(0)
+  area_sqft       Int?
+  images          String?
+  image_url       String?
+  is_featured     Boolean  @default(false)
+  is_active       Boolean  @default(true)
+  status          String   @default("pending")
+  views           Int?     @default(0)
+  inquiries       Int?     @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  user_id         Int?
+
+  user User? @relation(fields: [user_id], references: [id])
+
+  @@map("real_estate_properties")
+}
+
+model Land {
+  id                Int       @id @default(autoincrement())
+  title_number      String    @unique
+  land_name         String?
+  current_owner     String
+  owner_id          Int?
+  owner_id_type     String?
+  owner_id_number   String?
+  region            String?
+  city              String?
+  town              String?
+  neighborhood      String?
+  area_sqm          Decimal?
+  polygon_coords    String?
+  polygon_wkt       String?
+  center_lat        Decimal?
+  center_lng        Decimal?
+  land_use          String?
+  status            String?   @default("active")
+  verification_status String? @default("submitted")
+  is_locked         Boolean   @default(false)
+  land_hash         String?
+  purchase_date     DateTime?
+  purchase_price    Decimal?
+  currency          String?
+  seller_name       String?
+  documents         String?
+  notes             String?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  ownership_history LandOwnership[]
+  audit_logs        LandAuditLog[]
+
+  @@map("lands")
+}
+
+model LandOwnership {
+  id               Int      @id @default(autoincrement())
+  land_id          Int
+  owner_name       String
+  owner_id_type    String?
+  owner_id_number  String?
+  user_id          Int?
+  ownership_type   String?  @default("full")
+  status           String?  @default("active")
+  acquired_date    DateTime @default(now())
+  acquired_price   Decimal?
+  currency         String?
+  seller_name      String?
+  seller_id        String?
+  documents        String?
+  verification     String?  @default("pending")
+  created_at       DateTime @default(now())
+
+  land Land @relation(fields: [land_id], references: [id])
+
+  @@map("land_ownerships")
+}
+
+model LandAuditLog {
+  id         Int      @id @default(autoincrement())
+  land_id    Int
+  action     String
+  actor_id   Int?
+  actor_name String?
+  actor_role String?
+  old_data   String?
+  new_data   String?
+  description String?
+  created_at DateTime @default(now())
+
+  land Land @relation(fields: [land_id], references: [id])
+
+  @@map("land_audit_logs")
 }

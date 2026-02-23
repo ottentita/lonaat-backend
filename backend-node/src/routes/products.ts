@@ -47,7 +47,7 @@ router.get('/affiliate', async (req: Request, res: Response) => {
         id: p.id,
         title: p.name,
         description: p.description,
-        price: parseFloat(p.price?.replace(/[^\d.]/g, '') || '0'),
+        price: Number(p.price?.replace(/[^\d.]/g, '') || '0'),
         currency: (p.extra_data as any)?.currency || 'USD',
         image: p.image_url,
         affiliate_url: p.affiliate_link,
@@ -166,7 +166,7 @@ router.post('/', [
       data: {
         name,
         description,
-        price: price || null,
+        price: price !== undefined ? Number(price) : null,
         affiliate_link: affiliate_link || `https://lonaat.com/product/${Date.now()}`,
         network: network || 'internal',
         category,
@@ -207,7 +207,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
       data: {
         name: name ?? product.name,
         description: description ?? product.description,
-        price: price !== undefined ? String(price) : product.price,
+        price: price !== undefined ? Number(price) : product.price,
         affiliate_link: affiliate_link ?? product.affiliate_link,
         network: network ?? product.network,
         category: category ?? product.category,

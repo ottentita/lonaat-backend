@@ -157,7 +157,7 @@ router.post(
           description,
           property_type,
           transaction_type,
-          price: parseFloat(price),
+          price: Number(price),
           price_negotiable: price_negotiable !== false,
           currency: "XAF",
           location,
@@ -517,7 +517,7 @@ router.put(
             description !== undefined ? description : property.description,
           property_type: property_type || property.property_type,
           transaction_type: transaction_type || property.transaction_type,
-          price: price ? parseFloat(price) : property.price,
+          price: price ? Number(price) : property.price,
           location: location || property.location,
           region: region || property.region,
           city: city || property.city,
@@ -779,9 +779,9 @@ router.get("/marketplace", async (req, res) => {
     if (region) where.region = region;
     if (city) where.city = city;
     if (min_price)
-      where.price = { ...where.price, gte: parseFloat(min_price as string) };
+      where.price = { ...where.price, gte: Number(min_price as string) };
     if (max_price)
-      where.price = { ...where.price, lte: parseFloat(max_price as string) };
+      where.price = { ...where.price, lte: Number(max_price as string) };
 
     const properties = await prisma.realEstateProperty.findMany({
       where,

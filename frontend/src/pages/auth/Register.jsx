@@ -32,8 +32,9 @@ const Register = () => {
         password: formData.password,
       });
       
-      setTokens(data.access_token, data.refresh_token);
-      setUser(data.user);
+      // backend returns `token` in response body
+      setTokens(data.token || data.access_token, data.refresh_token);
+      setUser(data.user || data.user);
       
       toast.success('Registration successful! Check your email to verify your account.');
       navigate('/dashboard');

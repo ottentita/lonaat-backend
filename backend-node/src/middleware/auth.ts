@@ -11,6 +11,7 @@ export interface AuthRequest extends Request {
     isAuthority: boolean;
     balance: number;
     name: string;
+    userId?: number;
   };
   file?: Express.Multer.File;
 }
@@ -20,6 +21,21 @@ export async function authMiddleware(
   res: Response,
   next: NextFunction,
 ) {
+  // In development mode inject a mock user to simplify local dev
+  if (process.env.NODE_ENV === 'development') {
+    req.user = {
+      id: 1,
+      userId: 1,
+      role: 'admin',
+      email: 'dev@localhost',
+      isAdmin: true,
+      isAuthority: true,
+      balance: 0,
+      name: 'Dev'
+    } as any;
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -40,10 +56,8 @@ export async function authMiddleware(
         id: true,
         role: true,
         email: true,
-        is_admin: true,
         balance: true,
-        is_blocked: true,
-        is_active: true,
+        isActive: true,
         name: true,
       },
     });
@@ -52,21 +66,18 @@ export async function authMiddleware(
       return res.status(401).json({ error: "User not found" });
     }
 
-    if (user.is_blocked) {
-      return res.status(403).json({ error: "Account is blocked" });
-    }
-
-    if (!user.is_active) {
+    if (user.isActive === false) {
       return res.status(403).json({ error: "Account is inactive" });
     }
 
     req.user = {
       id: user.id,
-      role: user.role as "admin" | "user" | "authority",
+      userId: user.id,
+      role: (user.role as any) || 'user',
       email: user.email,
-      isAdmin: user.is_admin || user.role === "admin",
-      isAuthority: user.role === "authority" || user.role === "admin",
-      balance: user.balance,
+      isAdmin: (user.role || '').toLowerCase() === 'admin',
+      isAuthority: (user.role || '').toLowerCase() === 'authority' || (user.role || '').toLowerCase() === 'admin',
+      balance: Number(user.balance || 0),
       name: user.name || user.email,
     };
 
