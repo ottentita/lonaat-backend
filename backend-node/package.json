@@ -31,18 +31,17 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
+    "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/multer": "^2.0.0",
-    "@types/node": "^22.9.0",
+    "@types/node": "^22.19.11",
     "prisma": "^4.16.0",
+    "supertest": "^6.3.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vitest": "^4.0.18",
-    "supertest": "^6.3.3"
-  }
-  ,
+    "vitest": "^4.0.18"
+  },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   }
