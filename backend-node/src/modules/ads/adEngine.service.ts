@@ -16,6 +16,7 @@ function ipToNumber(ip?: string): number {
 }
 import tokenWallet from './tokenWallet.service'
 import adCampaignService from './adCampaign.service'
+import billingService, { BillingError } from './billing.service'
 import { DEFAULT_CLICK_COST } from './ads.types'
 
 // custom error type used by upper layers (and tests) to detect a rapid duplicate
@@ -116,34 +117,14 @@ export async function processAdClick(campaignId: number, ip?: string, isAdmin = 
 
     // Admin bypass or charge tokens
     if (!isAdmin) {
-      const wallet = await tx.adTokenWallet.findUnique({ where: { userId: campaign.userId } })
-      // wallet existence and non-negative balance already validated above
-      if (!wallet) throw new Error('Insufficient tokens')
-      if (wallet.balance < costPerClick) {
-        // pause campaign if insufficient for this click
-        await tx.adCampaign.update({ where: { id: campaignId }, data: { status: 'paused' } })
-        throw new Error('Insufficient tokens')
+      try {
+        await billingService.chargeAdClick(tx, campaignId, costPerClick)
+      } catch (e: any) {
+        if (e instanceof BillingError) {
+          throw new Error(e.message)
+        }
+        throw e
       }
-
-      // decrement tokens after all checks
-      await tx.adTokenWallet.update({
-        where: { userId: campaign.userId },
-        data: { balance: { decrement: costPerClick } }
-      })
-      await tx.tokenTransaction.create({ data: { userId: campaign.userId, amount: costPerClick, type: 'debit', reason: `ad_click:campaign:${campaignId}` } })
-
-      // Update campaign counters
-      await tx.adCampaign.update({ where: { id: campaignId }, data: { clicks: { increment: 1 }, totalSpent: { increment: costPerClick } as any } as any })
-
-      // Auto-pause campaign if balance is now zero or negative
-      const newBalance = wallet.balance - costPerClick
-      if (newBalance <= 0) {
-        await tx.adCampaign.update({ where: { id: campaignId }, data: { status: 'paused' } })
-      }
-
-      // record completed click (the DB insert for the timeBucket was already
-      // performed above). other metadata could be added here in future if
-      // needed (ip, userAgent, etc.)
     } else {
       // admin: increment clicks without charging
       await tx.adCampaign.update({ where: { id: campaignId }, data: { clicks: { increment: 1 } } as any })

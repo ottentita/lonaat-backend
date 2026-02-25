@@ -39,6 +39,7 @@ model User {
   adTokenWallet        AdTokenWallet?
   tokenTransactions    TokenTransaction[]
   adCampaigns          AdCampaign[]
+  transactionLedgers   TransactionLedger[]
 
   @@map("users")
 }
@@ -348,6 +349,7 @@ model TokenTransaction {
 model AdCampaign {
   id           Int      @id @default(autoincrement())
   userId       Int
+  ledgers      TransactionLedger[]
   productId    Int?
   offerId      Int?
   dailyBudget  Int
@@ -360,4 +362,20 @@ model AdCampaign {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model TransactionLedger {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  campaignId Int?
+  amount     Int
+  type       String
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  adCampaign AdCampaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([userId])
+  @@index([campaignId])
 }
