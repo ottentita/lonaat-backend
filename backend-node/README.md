@@ -14,7 +14,7 @@ npm install
 
 ```bash
 npx prisma generate
-npx prisma db push
+npx prisma migrate dev
 ```
 
 3. Start dev server

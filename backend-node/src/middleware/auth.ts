@@ -3,7 +3,17 @@ import multer from "multer";
 import { verifyToken, JWTPayload } from "../utils/jwt";
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+// instantiate Prisma lazily to avoid side-effects during module import
+let prismaClient: PrismaClient | null = null;
+async function getPrisma() {
+  if (!prismaClient) {
+    // dynamically import to let vitest/esbuild resolve TypeScript path
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { default: client } = await import('../../prisma');
+    prismaClient = client;
+  }
+  return prismaClient;
+}
 
 export interface AuthRequest extends Request {
   user?: JWTPayload & {
@@ -50,8 +60,8 @@ export async function authMiddleware(
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: Number(payload.id) },
+    const prisma = await getPrisma()
+    const user = await prisma.user.findUnique({ where: { id: Number(payload.id) },
       select: {
         id: true,
         role: true,

@@ -17,6 +17,7 @@ import categoriesRoutes from './routes/categories'
 import listingsRoutes from './routes/listings'
 import campaignRoutes from './routes/campaigns'
 import adminRoutes from './routes/admin'
+import adminConversionRoutes from './routes/adminConversionRoutes'
 import trackRoutes from './routes/track'
 import commissionRoutes from './routes/commissions'
 import paymentRoutes from './routes/payments'
@@ -30,12 +31,18 @@ import adsRoutes from './routes/ads'
 import socialRoutes from './routes/social'
 import affiliateRoutes from './routes/affiliate'
 import clickRoutes from './routes/click'
+import dashboardRoutes from './routes/dashboard'
 import statsRoutes from './routes/stats'
 import campaignStatusRoutes from './routes/campaign-status'
 import leadsRoutes from './routes/leads'
 import landRegistryRoutes from './routes/landRegistry'
 import realEstateAnalyticsRoutes from './routes/realEstateAnalytics'
 import automobilesRoutes from './routes/automobiles'
+import aiRoutes from './routes/ai'
+import adminAiRoutes from './routes/adminAi'
+import adsModuleRoutes from './modules/ads/ads.routes'
+import { aiRateLimiter } from './middleware/rateLimiter'
+import { blockIfSuspicious } from './middleware/security'
 
 const app = express()
 export default app
@@ -62,6 +69,7 @@ app.use('/api/campaigns', campaignRoutes)
 // expose ads routes at /api/ads (frontend uses /ads/*)
 app.use('/api/ads', adsRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/admin', adminConversionRoutes)
 app.use('/api/track', trackRoutes)
 app.use('/api/commissions', commissionRoutes)
 app.use('/api/payments', paymentRoutes)
@@ -82,8 +90,14 @@ app.use('/api/admin/postback-secrets', adminPostbackSecrets)
 app.use('/api/social', socialRoutes)
 app.use('/api/affiliate', affiliateRoutes)
 app.use('/api/click', clickRoutes)
+app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/campaign-status', campaignStatusRoutes)
+// AI endpoints (rate-limited & basic suspicious IP blocking)
+app.use('/api/ai', aiRateLimiter, blockIfSuspicious, aiRoutes)
+app.use('/api/admin/ai', adminAiRoutes)
+// internal ads module endpoints (token engine)
+app.use('/api/ads/internal', adsModuleRoutes)
 app.use('/api/leads', leadsRoutes)
 app.use('/api/land-registry', landRegistryRoutes)
 // real-estate analytics: mount at both `/real-estate` and `/real-estate/analytics` to match frontend

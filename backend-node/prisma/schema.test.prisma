@@ -1,11 +1,14 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma-test/client"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
+// Schema copied from schema.prisma but uses sqlite datasource for tests
 
 model User {
   id                   Int                  @id @default(autoincrement())
@@ -30,11 +33,12 @@ model User {
   offers               Offer[]
   payments             Payment[]
   products             Product[]
+  real_estate_property RealEstateProperty[]
+  // Advertising relations
+  subscriptions        Subscription[]
+  adTokenWallet        AdTokenWallet?
   tokenTransactions    TokenTransaction[]
   adCampaigns          AdCampaign[]
-  real_estate_property RealEstateProperty[]
-  Subscription         Subscription[]
-  AdTokenWallet        AdTokenWallet?
 
   @@map("users")
 }
@@ -123,9 +127,9 @@ model CreditPackage {
 model Click {
   id         Int         @id @default(autoincrement())
   offerId    Int
-  adId       Int        // new field for ad/campaign identifier
-  userId     Int        // new field representing the clicking user (0 for anonymous)
-  timeBucket Int        // bucketed time slot used for duplicate detection
+  adId       Int
+  userId     Int
+  timeBucket Int
   clickId    String      @unique
   clickToken String      @unique
   ip         String?
@@ -294,7 +298,6 @@ model LandAuditLog {
   @@map("land_audit_logs")
 }
 
-// Advertising module models
 model Plan {
   id            Int      @id @default(autoincrement())
   name          String
@@ -333,7 +336,7 @@ model TokenTransaction {
   id        Int      @id @default(autoincrement())
   userId    Int
   amount    Int
-  type      String // credit | debit
+  type      String
   reason    String
   createdAt DateTime @default(now())
 
@@ -343,16 +346,16 @@ model TokenTransaction {
 }
 
 model AdCampaign {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  productId   Int?
-  offerId     Int?
-  dailyBudget Int
-  status      String   @default("active")
-  totalSpent  Int      @default(0)
-  clicks      Int      @default(0)
-  impressions Int      @default(0)
-  createdAt   DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  productId    Int?
+  offerId      Int?
+  dailyBudget  Int
+  status       String   @default("active")
+  totalSpent   Int      @default(0)
+  clicks       Int      @default(0)
+  impressions  Int      @default(0)
+  createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 

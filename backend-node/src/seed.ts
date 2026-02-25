@@ -299,8 +299,12 @@ async function seed() {
   const clicks = [] as any[]
   for (let i = 0; i < 10; i++) {
     const user = createdUsers[i % createdUsers.length]
+    const timeBucket = Math.floor(Date.now() / 5000)
     const click = await prisma.click.create({ data: {
       offerId: offer ? offer.id : 1,
+      adId: offer ? offer.id : 1,
+      userId: user.id,
+      timeBucket,
       clickId: `clk_${Date.now()}_${i}`,
       clickToken: `ctok_${Math.random().toString(36).slice(2,10)}`,
       ip: `192.168.1.${10 + i}`,

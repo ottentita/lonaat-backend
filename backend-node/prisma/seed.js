@@ -81,9 +81,13 @@ async function main() {
             clicks.push(existing);
             continue;
         }
+        const timeBucket = Math.floor(Date.now() / 5000)
         const click = await prisma.click.create({
             data: {
                 offerId: offer.id,
+                adId: offer.id,
+                userId: user ? user.id : 0,
+                timeBucket,
                 clickId,
                 clickToken,
                 ip: `192.0.2.${(i % 250) + 1}`,

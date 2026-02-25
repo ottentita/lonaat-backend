@@ -15,13 +15,25 @@ router.post('/:offerId', authMiddleware, async (req: AuthRequest, res) => {
     const clickId = `c_${Date.now()}_${Math.floor(Math.random() * 10000)}`
     const token = Math.random().toString(36).slice(2)
 
+    const timeBucket = Math.floor(Date.now() / 5000)
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || undefined
+    const hashIp = (str?: string) => {
+      if (!str) return 0
+      let n = 0
+      for (let i = 0; i < str.length; i++) n = ((n << 5) - n) + str.charCodeAt(i) | 0
+      return Math.abs(n)
+    }
+    const userKey = req.user?.id || hashIp(ip)
     const click = await prisma.click.create({
       data: {
         offerId: offer.id,
+        adId: offer.id,
+        userId: userKey,
+        timeBucket,
         clickId,
         clickToken: token,
         user_id: req.user!.id,
-        ip: req.ip || (req.headers['x-forwarded-for'] as string) || undefined,
+        ip,
         userAgent: req.get('user-agent') || undefined
       }
     })

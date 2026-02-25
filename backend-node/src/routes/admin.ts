@@ -1829,4 +1829,25 @@ router.post('/payouts/:id/clear-fraud', async (req: AuthRequest, res: Response) 
   }
 });
 
+// Admin: credit tokens to a user's ad wallet (transactional)
+router.post('/tokens/credit', async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId, amount } = req.body
+    if (!userId || !amount) return res.status(400).json({ error: 'userId and amount required' })
+
+    const result = await prisma.$transaction(async (tx) => {
+      const wallet = await tx.adTokenWallet.upsert({ where: { userId }, create: { userId, balance: 0 }, update: {} })
+      const newBalance = wallet.balance + Number(amount)
+      await tx.adTokenWallet.update({ where: { userId }, data: { balance: newBalance } })
+      await tx.tokenTransaction.create({ data: { userId, amount: Number(amount), type: 'credit', reason: 'admin_credit' } })
+      return { newBalance }
+    })
+
+    return res.json(result)
+  } catch (err: any) {
+    console.error('Admin tokens credit error', err)
+    return res.status(500).json({ error: 'Failed to credit tokens' })
+  }
+})
+
 export default router;

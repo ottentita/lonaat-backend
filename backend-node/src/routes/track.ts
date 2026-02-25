@@ -9,7 +9,15 @@ router.post('/click', async (req, res) => {
     const { offerId, clickId, ip, userAgent } = req.body
     if (!offerId || !clickId) return res.status(400).json({ error: 'offerId and clickId required' })
 
-    const click = await prisma.click.create({ data: { offerId, clickId, ip, userAgent } })
+    const timeBucket = Math.floor(Date.now() / 5000)
+    const hashIp = (str?: string) => {
+      if (!str) return 0
+      let n = 0
+      for (let i = 0; i < str.length; i++) n = ((n << 5) - n) + str.charCodeAt(i) | 0
+      return Math.abs(n)
+    }
+    const userKey = (req as any).user?.id || hashIp(ip)
+    const click = await prisma.click.create({ data: { offerId, adId: offerId, userId: userKey, timeBucket, clickId, ip, userAgent } })
     res.json({ ok: true, click })
   } catch (err: any) {
     console.error('Track click error:', err)
@@ -53,9 +61,20 @@ router.get('/redirect/:offerId', async (req, res) => {
     const ip = req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || undefined
     const userAgent = req.get('user-agent')
 
+    const timeBucket = Math.floor(Date.now() / 5000)
+    const hashIp = (str?: string) => {
+      if (!str) return 0
+      let n = 0
+      for (let i = 0; i < str.length; i++) n = ((n << 5) - n) + str.charCodeAt(i) | 0
+      return Math.abs(n)
+    }
+    const userKey = (req as any).user?.id || hashIp(Array.isArray(ip) ? ip[0] : ip)
     const click = await prisma.click.create({
       data: {
         offerId: offer.id,
+        adId: offer.id,
+        userId: userKey,
+        timeBucket,
         clickId: `c_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
         clickToken: token,
         ip: Array.isArray(ip) ? ip[0] : ip,
