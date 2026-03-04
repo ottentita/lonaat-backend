@@ -1,5 +1,6 @@
 import request from 'supertest'
 import app from '../index'
+import { describe, it, expect } from 'vitest'
 
 describe('Backend compatibility aliases (minimal smoke)', () => {
   it('GET /api/plans is registered (alias → /api/subscriptions/plans)', async () => {

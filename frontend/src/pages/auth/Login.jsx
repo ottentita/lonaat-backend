@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Zap } from 'lucide-react';
 import { authAPI } from '../../services/api';
-import { setTokens, setUser } from '../../utils/auth';
+import { setUser } from '../../utils/auth';
 import toast from 'react-hot-toast';
 
 const Login = () => {
@@ -19,11 +19,12 @@ const Login = () => {
 
     try {
       const { data } = await authAPI.login(formData);
-      
-      // backend returns `token` in response body
-      setTokens(data.token || data.access_token, data.refresh_token);
-      setUser(data.user || data.user);
-      
+
+      // server sets httpOnly cookie; fetch user from backend
+      if (data.user) {
+        setUser(data.user);
+      }
+
       toast.success('Login successful!');
       
       if (data.user.is_admin === true || (typeof data.user.role === 'string' && data.user.role.toUpperCase() === 'ADMIN')) {

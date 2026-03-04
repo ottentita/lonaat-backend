@@ -1,12 +1,15 @@
-import React, { createContext, useState, useEffect } from 'react'
-import { authAPI } from '../services/api'
-import { getUser, setUser, setTokens, clearAuth } from '../utils/auth'
+import React, { createContext, useState, useEffect, useContext } from 'react'
+import { useNavigate } from 'react-router-dom';
+import { authAPI, api } from '../services/api'
+import { getUser, setUser, clearAuth } from '../utils/auth'
 
 export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUserState] = useState(getUser())
+  const [token, setToken] = useState(null)
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Try to refresh user on mount if token exists
@@ -31,29 +34,23 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     const resp = await authAPI.login(credentials)
     const data = resp?.data || {}
-    // Support backend returning `token` (legacy) or `access_token`
-    const token = data.access_token || data.token || null
-    const refresh = data.refresh_token || null
-    if (token) {
-      setTokens(token, refresh)
-    }
-
+    // server sets httpOnly cookie; fetch fresh user from /me
     if (data.user) {
       setUser(data.user)
       setUserState(data.user)
-    } else if (token) {
-      // try getMe when token present
+    } else {
       try {
         const me = await authAPI.getMe()
         if (me?.data?.user) {
           setUser(me.data.user)
           setUserState(me.data.user)
         } else if (me?.data?.id) {
-          // some /me endpoints return flat user object
           setUser(me.data)
           setUserState(me.data)
         }
-      } catch (e) {}
+      } catch (e) {
+        // ignore
+      }
     }
 
     return data
@@ -65,17 +62,23 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
+    // clear local cached user and notify server to clear cookie
     clearAuth()
     setUserState(null)
-    // redirect to login (safe fallback)
-    if (typeof window !== 'undefined') window.location.href = '/login'
+    // call server logout to clear cookie
+    try {
+      api.post('/auth/logout')
+    } catch (e) {}
+    navigate('/login', { replace: true })
   }
 
   return (
-    <AuthContext.Provider value={{ user, setUser: setUserState, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, setUser: setUserState, setToken, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )
 }
+
+export const useAuth = () => useContext(AuthContext);
 
 export default AuthContext

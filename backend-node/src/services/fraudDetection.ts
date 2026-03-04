@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '../prisma';
 import { Request } from "express";
 
-const prisma = new PrismaClient();
+
 
 interface FraudSignals {
   ip: string;

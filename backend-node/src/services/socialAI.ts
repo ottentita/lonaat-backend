@@ -1,6 +1,10 @@
-import OpenAI from 'openai';
+import { OpenAI } from 'openai';
 
-const openai = new OpenAI();
+function makeOpenAI() {
+  return new OpenAI();
+}
+
+
 
 interface Product {
   id: number;
@@ -49,6 +53,7 @@ Return JSON in this exact format:
 }`;
 
   try {
+    const openai = makeOpenAI();
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],

@@ -1,12 +1,14 @@
-import prisma from './prisma'
+import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 
 async function seed() {
-  console.log('Seeding sample offers and products...')
+  
 
   const offers = [
     {
       title: 'Amazing Gadget Offer',
+      name: 'Amazing Gadget Offer',
+      slug: 'amazing-gadget-offer',
       description: 'High converting gadget offer',
       url: 'https://example.com/gadget',
       payout: 3.5,
@@ -17,6 +19,8 @@ async function seed() {
     },
     {
       title: 'Cool App Signup',
+      name: 'Cool App Signup',
+      slug: 'cool-app-signup',
       description: 'Mobile app trial signup',
       url: 'https://example.com/app',
       payout: 1.2,
@@ -27,6 +31,8 @@ async function seed() {
     },
     {
       title: 'Subscription Box',
+      name: 'Subscription Box',
+      slug: 'subscription-box',
       description: 'Monthly box subscription',
       url: 'https://example.com/box',
       payout: 5.0,
@@ -34,6 +40,19 @@ async function seed() {
       externalOfferId: 'EXT-BOX-001',
       networkName: 'BoxNet',
       trackingUrl: 'https://track.boxnet.com/clk?offer=EXT-BOX-001'
+    },
+    // example Digistore offer uses placeholder value so that /track builds URL from ENV
+    {
+      title: 'Digistore Demo Offer',
+      name: 'Digistore Demo Offer',
+      slug: 'digi-demo',
+      description: 'Sample Digistore product',
+      url: 'https://digistore.example.com',
+      payout: 2.0,
+      network: 'digistore24',
+      externalOfferId: 'DS-123',
+      networkName: 'digistore24',
+      trackingUrl: 'digistore24'
     }
   ]
 
@@ -45,6 +64,8 @@ async function seed() {
           create: o as any,
           update: {
             title: o.title,
+            name: (o as any).name || o.title,
+            slug: (o as any).slug,
             description: o.description,
             url: o.url,
             payout: o.payout,
@@ -54,14 +75,14 @@ async function seed() {
             isActive: (o as any).isActive ?? true,
           },
         })
-        console.log('Upserted offer:', o.title)
+        
       } else {
         const exists = await prisma.offer.findFirst({ where: { title: o.title } })
         if (!exists) {
           await prisma.offer.create({ data: o as any })
-          console.log('Created offer:', o.title)
+          
         } else {
-          console.log('Offer already exists (by title):', o.title)
+          
         }
       }
   }
@@ -104,10 +125,10 @@ async function seed() {
     const exists = await prisma.product.findFirst({ where: { name: p.name } })
     if (!exists) {
       await prisma.product.create({ data: p as any })
-      console.log('Created product:', p.name)
+      
     } else {
       await prisma.product.update({ where: { id: exists.id }, data: p as any })
-      console.log('Updated product:', p.name)
+      
     }
   }
 
@@ -170,10 +191,10 @@ async function seed() {
     const exists = await prisma.realEstateProperty.findFirst({ where: { title: pr.title } })
     if (!exists) {
       await prisma.realEstateProperty.create({ data: pr as any })
-      console.log('Created property:', pr.title)
+      
     } else {
       await prisma.realEstateProperty.update({ where: { id: exists.id }, data: pr as any })
-      console.log('Updated property:', pr.title)
+      
     }
   }
 
@@ -251,16 +272,14 @@ async function seed() {
         seller_name: null,
         verification: 'verified'
       } })
-      console.log('Created land:', l.title_number)
+      
     } else {
-      console.log('Land already exists:', l.title_number)
+      
     }
   }
 
-  console.log('Seeding done')
-
+  
   // Additional realistic test data
-  console.log('Seeding additional test users, products, clicks, commissions, payments...')
 
   // Create 3 users
   const usersData = [
@@ -276,10 +295,10 @@ async function seed() {
     if (!existing) {
       const cu = await prisma.user.create({ data: { name: u.name, email: u.email, password: hash } as any })
       createdUsers.push(cu)
-      console.log('Created user:', cu.email)
+      
     } else {
       createdUsers.push(existing)
-      console.log('User exists:', existing.email)
+      
     }
   }
 
@@ -289,7 +308,7 @@ async function seed() {
   for (const name of productNames) {
     const p = await prisma.product.create({ data: { name, description: `${name} description`, price: Math.floor(Math.random()*200)+10, image_url: null, affiliate_link: null, network: 'test', category: 'Test' } as any })
     createdProducts.push(p)
-    console.log('Created product:', p.name)
+    
   }
 
   // Ensure there's at least one offer to attach clicks to
@@ -313,7 +332,7 @@ async function seed() {
     } })
     clicks.push(click)
   }
-  console.log('Created clicks:', clicks.length)
+  
 
   // Create 5 commission records linked to users (and some linked to clicks)
   const commissions = [] as any[]
@@ -330,7 +349,7 @@ async function seed() {
     } as any })
     commissions.push(commission)
   }
-  console.log('Created commissions:', commissions.length)
+  
 
   // Create 2 completed payments
   const payments = [] as any[]
@@ -346,7 +365,7 @@ async function seed() {
     } as any })
     payments.push(payment)
   }
-  console.log('Created payments:', payments.length)
+  
 }
 
 seed()

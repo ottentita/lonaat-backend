@@ -1,4 +1,4 @@
-import prisma from '../prisma'
+import { prisma } from '../prisma'
 
 export async function analyzeNetworks() {
   // Return top used networks and missing integrations

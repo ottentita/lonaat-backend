@@ -1,5 +1,5 @@
 import { Router, Response, Request } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '../prisma';
 import {
   authMiddleware,
   AuthRequest,
@@ -25,7 +25,6 @@ import {
 import { searchAffiliateOffers } from "../services/affiliateSearch";
 import { getAffiliateStats } from '../services/affiliateStats'
 const router = Router();
-const prisma = new PrismaClient();
 router.get("/", async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -415,7 +414,7 @@ router.post(
       const { network } = req.params;
       const { limit = 100 } = req.body;
 
-      console.log(`Starting sync for network: ${network}`);
+      
 
       if (network === "admitad") {
         const feedUrl = process.env.ADMITAD_FEED_URL;
@@ -428,7 +427,7 @@ router.post(
             const axios = (await import("axios")).default;
             const { XMLParser } = await import("fast-xml-parser");
 
-            console.log("Fetching Admitad feed...");
+            
             const response = await axios.get(feedUrl, {
               timeout: 30000,
               headers: { "User-Agent": "Lonaat/2.0 Sync" },
@@ -451,7 +450,7 @@ router.post(
               : offers
                 ? [offers]
                 : [];
-            console.log(`Found ${items.length} items in Admitad feed`);
+            
           } catch (err: any) {
             console.error("Admitad feed error:", err.message);
             feedError = err.message;
@@ -876,14 +875,13 @@ const CACHE_TTL = 30 * 60 * 1000;
 
 async function getFeedProducts(): Promise<any[]> {
   if (feedCache && Date.now() - feedCache.timestamp < CACHE_TTL) {
-    console.log("Using cached feed data");
     return feedCache.data;
   }
 
   const feedUrl = process.env.ADMITAD_FEED_URL;
   if (!feedUrl) return [];
 
-  console.log("Fetching Admitad feed for search...");
+  
   const axios = (await import("axios")).default;
   const { XMLParser } = await import("fast-xml-parser");
 
@@ -906,7 +904,7 @@ async function getFeedProducts(): Promise<any[]> {
 
   const products = Array.isArray(offers) ? offers : [offers];
   feedCache = { data: products, timestamp: Date.now() };
-  console.log(`Cached ${products.length} products from feed`);
+  
   return products;
 }
 

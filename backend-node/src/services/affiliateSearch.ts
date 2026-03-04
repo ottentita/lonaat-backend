@@ -78,10 +78,11 @@ export function getDisabledNetworks() {
 }
 
 async function searchDigistore24(query: string) {
-  const apiKey = process.env.DIGISTORE_API_KEY;
+  const { digistore } = require('../config/affiliateConfig');
+  const apiKey = digistore.apiKey;
 
   if (!apiKey) {
-    console.warn('DIGISTORE_API_KEY not configured');
+    console.warn('DIGISTORE_API_KEY not configured'); // check affiliateConfig for values
     return [];
   }
 

@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Polygon, Popup, Marker, useMap } from 'react-leaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { formatNumber } from '../../lib/currency';
 import toast from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { api } from '../../services/api';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -67,15 +69,12 @@ export default function AdminLandRegistry() {
     allow_transfer_requests: true
   });
 
-  const getToken = () => localStorage.getItem('token');
-
   const fetchLands = useCallback(async () => {
     try {
-      const params = filter !== 'all' ? `?status=${filter}` : '';
-      const response = await fetch(`${API_URL}/api/land-registry${params}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
+      const response = await api.get('/land-registry', {
+        params: filter !== 'all' ? { status: filter } : {}
       });
-      const data = await response.json();
+      const data = response.data;
       setLands(data.lands || []);
     } catch (error) {
       console.error('Error fetching lands:', error);
@@ -85,10 +84,8 @@ export default function AdminLandRegistry() {
 
   const fetchMapData = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/map`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const data = await response.json();
+      const response = await api.get('/land-registry/map');
+      const data = response.data;
       setMapData(data.lands || []);
     } catch (error) {
       console.error('Error fetching map data:', error);
@@ -97,10 +94,8 @@ export default function AdminLandRegistry() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/stats/overview`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const data = await response.json();
+      const response = await api.get('/land-registry/stats/overview');
+      const data = response.data;
       setStats(data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -109,10 +104,8 @@ export default function AdminLandRegistry() {
 
   const fetchHistory = async (landId) => {
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/${landId}/history`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const data = await response.json();
+      const response = await api.get(`/land-registry/${landId}/history`);
+      const data = response.data;
       setHistory(data.history || data.auditLog || []);
     } catch (error) {
       console.error('Error fetching history:', error);
@@ -122,10 +115,8 @@ export default function AdminLandRegistry() {
 
   const fetchNeighbors = async (landId) => {
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/${landId}/neighbors`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const data = await response.json();
+      const response = await api.get(`/land-registry/${landId}/neighbors`);
+      const data = response.data;
       setNeighbors(data.neighbors || []);
     } catch (error) {
       console.error('Error fetching neighbors:', error);
@@ -135,10 +126,8 @@ export default function AdminLandRegistry() {
 
   const fetchSections = async (landId) => {
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/${landId}/sections`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const data = await response.json();
+      const response = await api.get(`/land-registry/${landId}/sections`);
+      const data = response.data;
       setSections(data.sections || []);
     } catch (error) {
       console.error('Error fetching sections:', error);
@@ -152,16 +141,8 @@ export default function AdminLandRegistry() {
       return;
     }
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/${selectedLand.id}/sections`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`
-        },
-        body: JSON.stringify(newSection)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const { data } = await api.post(`/land-registry/${selectedLand.id}/sections`, newSection);
+      if (!data) throw new Error('Add section failed');
       toast.success('Section added successfully');
       setNewSection({ section_name: '', section_type: 'sitting', area_sqm: '', description: '', capacity: '' });
       setShowAddSection(false);
@@ -174,11 +155,7 @@ export default function AdminLandRegistry() {
   const handleDeleteSection = async (sectionId) => {
     if (!confirm('Are you sure you want to delete this section?')) return;
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/${selectedLand.id}/sections/${sectionId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      if (!response.ok) throw new Error('Delete failed');
+      await api.delete(`/land-registry/${selectedLand.id}/sections/${sectionId}`);
       toast.success('Section deleted');
       fetchSections(selectedLand.id);
     } catch (error) {
@@ -211,18 +188,9 @@ export default function AdminLandRegistry() {
 
   const handleVerifyAction = async (landId, action, notes = '') => {
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/${landId}/verify-authority`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`
-        },
-        body: JSON.stringify({ action, notes })
-      });
-      
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Action failed');
+      const { data } = await api.post(`/land-registry/${landId}/verify-authority`, { action, notes });
+      if (!data) {
+        throw new Error('Action failed');
       }
       
       toast.success(`Land ${action}d successfully`);
@@ -237,10 +205,7 @@ export default function AdminLandRegistry() {
 
   const handleVerifyIntegrity = async (landId) => {
     try {
-      const response = await fetch(`${API_URL}/api/land-registry/${landId}/verify-integrity`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const data = await response.json();
+      const { data } = await api.get(`/land-registry/${landId}/verify-integrity`);
       
       if (data.integrity_check?.tampered) {
         toast.error('TAMPERING DETECTED: Land record has been modified!');

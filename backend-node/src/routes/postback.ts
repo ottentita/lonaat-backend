@@ -45,15 +45,25 @@ router.post('/', async (req, res) => {
         .map((k) => `${k}=${params[k]}`)
         .join('&')
       const h = crypto.createHmac('sha256', secret).update(base).digest('hex')
-      // debug: log comparison when signature provided
-      console.debug('postback verify:', { network, base, expected: h, provided: String(sig) })
+      
       if (h !== String(sig)) return res.status(403).send('invalid signature')
     }
 
     // Resolve click by token or id when provided
     let click = null
-    if (params.clickToken) click = await prisma.click.findUnique({ where: { clickToken: String(params.clickToken) } })
-    else if (params.clickId) click = await prisma.click.findUnique({ where: { clickId: String(params.clickId) } })
+    // If sub_id present (our format: "{userId}-{clickId}"), try to resolve click by clickId encoded in sub_id
+    if (params.sub_id && !params.clickToken && !params.clickId) {
+      try {
+        const parts = String(params.sub_id).split('-')
+        // clickId may contain dashes; everything after first dash is clickId
+        const clickIdPart = parts.slice(1).join('-')
+        if (clickIdPart) click = await prisma.click.findUnique({ where: { clickId: String(clickIdPart) } })
+      } catch (e) { /* ignore */ }
+    }
+    if (!click) {
+      if (params.clickToken) click = await prisma.click.findUnique({ where: { clickToken: String(params.clickToken) } })
+      else if (params.clickId) click = await prisma.click.findUnique({ where: { clickId: String(params.clickId) } })
+    }
 
     const offerId = params.offerId ? Number(params.offerId) : click?.offerId
     if (!offerId) return res.status(400).send('missing offerId or clickToken')
@@ -77,10 +87,20 @@ router.post('/', async (req, res) => {
       data: {
         offerId,
         clickId: clickIdVal,
+        clickToken: click?.clickToken ? String(click.clickToken) : String(params.clickToken ?? clickIdVal ?? ''),
         amount: params.amount ? Number(params.amount) : undefined,
         status: params.status ? String(params.status) : 'confirmed',
       },
     })
+
+    // Attempt to process commission split asynchronously (do not fail the postback if this errors)
+    try {
+      // lazy-load to avoid circular imports when running tests
+      const { processConversionSplit } = await import('../services/commissionEngine')
+      await processConversionSplit(conv.id)
+    } catch (e) {
+      console.error('Commission split error (non-fatal):', e)
+    }
 
     const responses = loadResponses()
     const resp = (network && responses[network]) || responses['default'] || 'OK'

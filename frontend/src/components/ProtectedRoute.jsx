@@ -1,20 +1,13 @@
-import React from 'react'
-import { Navigate } from 'react-router-dom'
-import { isAuthenticated } from '../utils/auth'
+import { Navigate, Outlet } from "react-router-dom";
+import { useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 
-export default function ProtectedRoute({ children, adminOnly = false }) {
-  if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />
+export default function ProtectedRoute() {
+  const { user } = useContext(AuthContext);
+  // if no user in context, consider not authenticated
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
-  if (adminOnly) {
-    // keep admin gating minimal here - pages can re-check using isAdmin()
-    const userStr = localStorage.getItem('user')
-    const user = userStr ? JSON.parse(userStr) : null
-    if (!(user?.is_admin === true || user?.role === 'admin')) {
-      return <Navigate to="/dashboard" replace />
-    }
-  }
-
-  return children
+  return <Outlet />;
 }

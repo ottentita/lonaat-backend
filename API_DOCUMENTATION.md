@@ -112,6 +112,44 @@ DELETE /api/products/<product_id>
 POST /api/products/import
 ```
 
+---
+
+## 💰 Billing & Payments API
+
+### Token Balance & Purchases (internal)
+These endpoints are used by the frontend to check the user's token balance and to simulate token purchases.
+
+**GET /api/billing/balance**
+- Headers: `Authorization: Bearer <token>`
+- Response: `{ plan, tokens, totalUsed }`
+
+**POST /api/billing/purchase-tokens**
+- Body: `{ package: 'small'|'medium'|'large' }`
+- Adds tokens to user account and records a `TokenPurchase`.
+
+**GET /api/billing/usage-summary**
+- Provides totals for tokens used, drafts created, AI cost estimate, and tokens purchased.
+
+### Coinbase Commerce Integration
+Real money purchases are handled via Coinbase Commerce.
+
+**POST /api/payments/create-charge**
+- Headers: `Authorization: Bearer <token>`
+- Body: `{ package: 'small'|'medium'|'large' }`
+- Returns `{ hosted_url }` the user should be redirected to in order to complete payment.
+
+**POST /api/payments/webhook/coinbase**
+- Expects raw JSON payload from Coinbase (configure webhook URL accordingly).
+- Validates the `X-CC-Webhook-Signature` header using `COINBASE_COMMERCE_WEBHOOK_SECRET`.
+- On `charge:confirmed` events credits tokens to the user's account and records the charge.
+
+
+### Environment Variables (additions)
+- `COINBASE_COMMERCE_API_KEY` - API key for creating charges
+- `COINBASE_COMMERCE_WEBHOOK_SECRET` - secret used to verify webhook signatures
+
+---
+
 **Request Body:**
 ```json
 {

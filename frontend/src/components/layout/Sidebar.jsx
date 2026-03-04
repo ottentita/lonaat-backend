@@ -27,9 +27,11 @@ import {
   Share2
 } from 'lucide-react';
 import { isAdmin } from '../../utils/auth';
+import { useAuth } from '../../context/AuthContext';
 
-const Sidebar = ({ onLogout }) => {
+const Sidebar = () => {
   const admin = isAdmin();
+  const { logout } = useAuth();
 
   const userLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -105,7 +107,7 @@ const Sidebar = ({ onLogout }) => {
 
       <div className="p-4 border-t border-dark-800">
         <button
-          onClick={onLogout}
+          onClick={logout}
           className="sidebar-link w-full text-red-400 hover:bg-red-900/20"
         >
           <LogOut className="w-5 h-5" />

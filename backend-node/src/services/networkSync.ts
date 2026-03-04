@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { searchAliExpressProducts, getAdmitadStatus } from './admitadService';
 
-const prisma = new PrismaClient();
+
 
 interface SyncResult {
   network: string;
@@ -21,7 +21,8 @@ interface ProductData {
 }
 
 export async function syncDigistore24Products(userId?: number): Promise<SyncResult> {
-  const apiKey = process.env.DIGISTORE_API_KEY;
+  const { digistore } = require('../config/affiliateConfig');
+  const apiKey = digistore.apiKey;
   
   if (!apiKey) {
     return { network: 'digistore24', success: false, products_synced: 0, error: 'API key not configured' };
@@ -267,7 +268,7 @@ export async function getNetworkStatus(): Promise<{network: string; configured: 
   const admitadMissing = !admitadConfigured ? 'ADMITAD_ACCESS_TOKEN or ADMITAD_CLIENT_ID+SECRET' : undefined;
   
   return [
-    { network: 'digistore24', configured: !!process.env.DIGISTORE_API_KEY, key_name: 'DIGISTORE_API_KEY', sync_type: 'api' },
+    { network: 'digistore24', configured: !!digistore.apiKey, key_name: 'DIGISTORE_API_KEY', sync_type: 'api' },
     { network: 'awin', configured: awinConfigured, key_name: 'AWIN_TOKEN + AWIN_PUBLISHER_ID', sync_type: 'api', missing: awinMissing },
     { network: 'mylead', configured: true, key_name: 'N/A', sync_type: 'postback (link-based CPA)' },
     { network: 'admitad', configured: admitadConfigured, key_name: 'ADMITAD_ACCESS_TOKEN', sync_type: 'api', missing: admitadMissing },

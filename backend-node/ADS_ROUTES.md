@@ -13,6 +13,7 @@ Endpoints:
   - Params: `id` campaign id
   - Body: none
   - Auth: required (clicks from admin bypass token deduction)
+  - Rate limit: max 10 clicks per 30s per IP
   - Response: `{ success: boolean, deducted?: number, message?: string }`
 
 - `GET /dashboard/:userId` - Ads dashboard summary for a user

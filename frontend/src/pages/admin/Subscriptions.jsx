@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../lib/currency' 
+import { api } from '../../services/api';
 
 export default function AdminSubscriptions() {
   const [subscriptions, setSubscriptions] = useState([]);
@@ -17,10 +18,8 @@ export default function AdminSubscriptions() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/subscriptions?status=${filter}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const data = await response.json();
+      const response = await api.get('/admin/subscriptions', { params: { status: filter } });
+      const data = response.data;
       setSubscriptions(data.subscriptions || []);
       setStats(data.stats || null);
     } catch (error) {
@@ -32,11 +31,8 @@ export default function AdminSubscriptions() {
 
   const handleApprove = async (subId) => {
     try {
-      const response = await fetch(`/api/admin/subscriptions/${subId}/approve`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (response.ok) {
+      const response = await api.post(`/admin/subscriptions/${subId}/approve`);
+      if (response.status >= 200 && response.status < 300) {
         toast.success('Subscription approved');
         loadData();
       }

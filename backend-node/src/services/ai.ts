@@ -1,12 +1,13 @@
-import OpenAI from 'openai';
-import { PrismaClient } from '@prisma/client';
+import { OpenAI } from 'openai';
+import { prisma } from '../prisma';
 
-const prisma = new PrismaClient();
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
-});
+// instantiate OpenAI lazily or during runtime to avoid issues in tests
+function makeOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
+  });
+} // no instance at module load; create inside functions to avoid test import issues
 
 export interface DiscoveredProduct {
   name: string;
@@ -24,6 +25,7 @@ export async function discoverProducts(category?: string, count: number = 10): P
       ? `Focus on the "${category}" category.` 
       : 'Include diverse categories like courses, software, ebooks, health, finance, and lifestyle.';
 
+    const openai = makeOpenAIClient();
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -65,6 +67,7 @@ Return ONLY a valid JSON array with no additional text or markdown.`
 
 export async function searchProducts(query: string, count: number = 5): Promise<DiscoveredProduct[]> {
   try {
+    const openai = makeOpenAIClient();
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -147,6 +150,7 @@ export async function importDiscoveredProducts(products: DiscoveredProduct[], us
 
 export async function generateProductAd(product: any): Promise<string> {
   try {
+    const openai = makeOpenAIClient();
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -178,6 +182,7 @@ Generate a short, engaging ad (2-3 sentences) that highlights benefits and inclu
 
 export async function generateRealEstateAd(property: any): Promise<string> {
   try {
+    const openai = makeOpenAIClient();
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -645,10 +650,7 @@ export async function autoImportAliExpressProducts(category?: string, count: num
 }
 
 export async function runAIAutoImportCycle(): Promise<{ aliexpress_imported: number; ads_generated: number; boosted: number }> {
-  console.log('Running AI auto-import cycle...');
-  
   const aliexpress = await autoImportAliExpressProducts();
-  console.log(`Imported ${aliexpress.imported} AliExpress products`);
 
   const products = await prisma.product.findMany({
     where: { is_active: true, ai_generated_ad: null },

@@ -1,6 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma, Prisma } from '../prisma';
 
 export const SUPPORTED_CURRENCIES = [
   "USD",
@@ -609,17 +607,13 @@ export async function processPayout(
 }
 
 async function processPayoneerPayout(payout: any): Promise<string> {
-  console.log(
-    `Processing Payoneer payout: ${payout.id}, Amount: ${payout.amount} ${payout.currency}`,
-  );
+  
   return `PAYO_${Date.now()}_${payout.id}`;
 }
 
 async function processMobileMoneyPayout(payout: any): Promise<string> {
   const method = payout.payout_method;
-  console.log(
-    `Processing ${payout.provider} payout to ${method.mobile_number}`,
-  );
+  
   return `MOMO_${Date.now()}_${payout.id}`;
 }
 
@@ -640,12 +634,12 @@ async function processCryptoPayout(payout: any): Promise<string> {
       break;
   }
 
-  console.log(`Processing ${payout.provider} payout to ${address}`);
+  
   return `CRYPTO_${Date.now()}_${payout.id}`;
 }
 
 async function processBankTransferPayout(payout: any): Promise<string> {
-  console.log(`Processing bank transfer payout: ${payout.id}`);
+  
   return `BANK_${Date.now()}_${payout.id}`;
 }
 

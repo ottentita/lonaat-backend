@@ -3,7 +3,8 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '@/lib/currency' 
+import { formatCurrency } from '@/lib/currency'
+import { automobilesAPI } from '@/services/api';
 
 export default function AdminAutomobiles() {
   const [automobiles, setAutomobiles] = useState([]);
@@ -11,7 +12,8 @@ export default function AdminAutomobiles() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
-  const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+  // token removed; cookie-based auth will be used via api client
+  const token = null;
 
   useEffect(() => {
     loadData();
@@ -20,59 +22,34 @@ export default function AdminAutomobiles() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const [autosRes, statsRes] = await Promise.all([
-        fetch(`${BASE}/api/automobiles?status=${filter}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${BASE}/api/automobiles/stats`, { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      
-      const autosData = await autosRes.json();
-      const statsData = await statsRes.json();
-      
-      setAutomobiles(autosData.automobiles || []);
-      setStats(statsData);
+      const autosRes = await automobilesAPI.list({ status: filter === 'all' ? undefined : filter });
+      const statsRes = await automobilesAPI.getStats();
+      setAutomobiles(autosRes.data.automobiles || []);
+      setStats(statsRes.data || {});
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }; 
 
   const updateStatus = async (id, status) => {
     try {
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/automobiles/${id}/status`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({ status })
-      });
-      
-      if (response.ok) {
-        toast.success(`Status updated to ${status}`);
-        loadData();
-      }
+      await automobilesAPI.updateStatus(id, status);
+      toast.success(`Status updated to ${status}`);
+      loadData();
     } catch (error) {
       toast.error('Failed to update status');
     }
-  };
+  }; 
 
   const deleteAuto = async (id) => {
     if (!confirm('Are you sure you want to delete this listing?')) return;
     
     try {
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/automobiles/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.ok) {
-        toast.success('Listing deleted');
-        loadData();
-      }
+      await automobilesAPI.delete(id);
+      toast.success('Listing deleted');
+      loadData();
     } catch (error) {
       toast.error('Failed to delete listing');
     }

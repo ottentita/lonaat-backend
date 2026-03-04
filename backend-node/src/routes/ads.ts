@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { generateProductAd } from '../services/ai';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.post('/launch', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -30,25 +30,47 @@ router.post('/launch', authMiddleware, async (req: AuthRequest, res: Response) =
     const creditCost = isAdmin ? 0 : 10;
 
     if (!isAdmin) {
-      const wallet = await prisma.creditWallet.findUnique({
-        where: { user_id: req.user!.id }
-      });
+      try {
+        await prisma.$transaction(async (tx) => {
+          const wallet = await tx.creditWallet.findUnique({
+            where: { user_id: req.user!.id }
+          });
+          if (!wallet || wallet.credits < creditCost) {
+            // propagate details in error message
+            const avail = wallet ? wallet.credits : 0;
+            throw new Error(`INSUFFICIENT:${avail}`);
+          }
+          await tx.creditWallet.update({
+            where: { user_id: req.user!.id },
+            data: {
+              credits: { decrement: creditCost },
+              total_spent: { increment: creditCost }
+            }
+          });
 
-      if (!wallet || wallet.credits < creditCost) {
-        return res.status(403).json({
-          error: 'Insufficient credits',
-          required: creditCost,
-          available: wallet?.credits || 0
+          // record the debit in the transaction ledger within the same
+          // transaction so it only persists if the wallet update succeeds.
+          await tx.transactionLedger.create({
+            data: {
+              userId: req.user!.id,
+              amount: creditCost,
+              type: 'debit',
+              reason: 'ad_launch'
+            }
+          });
         });
-      }
-
-      await prisma.creditWallet.update({
-        where: { user_id: req.user!.id },
-        data: {
-          credits: { decrement: creditCost },
-          total_spent: { increment: creditCost }
+      } catch (e: any) {
+        if (e.message && e.message.startsWith('INSUFFICIENT:')) {
+          const parts = e.message.split(':');
+          const avail = Number(parts[1] || 0);
+          return res.status(403).json({
+            error: 'Insufficient credits',
+            required: creditCost,
+            available: avail
+          });
         }
-      });
+        throw e; // rethrow unexpected
+      }
     }
 
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

@@ -1,10 +1,10 @@
 import { Router, Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest } from "../middleware/auth";
 import { searchAffiliateOffers } from "../services/affiliateSearch";
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.get("/search", async (req: Request, res: Response) => {
   const { network, query, q, save } = req.query;

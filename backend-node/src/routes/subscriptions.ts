@@ -1,11 +1,12 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { body, validationResult } from 'express-validator';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
 import { logAudit, getClientIp } from '../services/audit';
+import { validate } from '../middleware/validation';
+import { subscriptionSchema } from '../schemas/requestSchemas';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 router.get('/plans', async (req, res: Response) => {
   try {
@@ -24,25 +25,33 @@ router.get('/my-subscription', authMiddleware, async (req: AuthRequest, res: Res
   try {
     const subscription = await prisma.subscription.findFirst({
       where: {
-        user_id: req.user!.id,
+        userId: req.user!.id,
         status: 'active',
-        expires_at: { gte: new Date() }
+        expiresAt: { gte: new Date() }
       },
       include: { plan: true },
-      orderBy: { started_at: 'desc' }
+      orderBy: { startedAt: 'desc' }
     });
 
-    res.json({ subscription });
+    // 🔐 FIX: prevent null crash and provide hasSubscription flag
+    if (!subscription) {
+      return res.status(200).json({
+        hasSubscription: false,
+        subscription: null
+      });
+    }
+
+    return res.status(200).json({
+      hasSubscription: true,
+      subscription
+    });
   } catch (error) {
     console.error('Get subscription error:', error);
     res.status(500).json({ error: 'Failed to get subscription' });
   }
 });
 
-router.post('/subscribe', [
-  authMiddleware,
-  body('plan_id').isInt().withMessage('Plan ID required')
-], async (req: AuthRequest, res: Response) => {
+router.post('/subscribe', validate(subscriptionSchema, 'body'), authMiddleware, async (req: AuthRequest, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });

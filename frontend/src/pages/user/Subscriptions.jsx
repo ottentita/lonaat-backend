@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/button';
 import { formatCurrency } from '../../lib/currency';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
+import { api } from '../../services/api';
 
 export default function Subscriptions() {
   const [plans, setPlans] = useState([]);
@@ -16,21 +17,12 @@ export default function Subscriptions() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
       const [plansRes, currentRes] = await Promise.all([
-        fetch(`${BASE}/api/plans`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        }),
-        fetch(`${BASE}/api/subscription/current`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
+        api.get('/subscriptions/plans'),
+        api.get('/subscriptions/my-subscription')
       ]);
-      
-      const plansData = await plansRes.json();
-      const currentData = await currentRes.json();
-      
-      setPlans(plansData.plans || []);
-      setCurrentPlan(currentData.subscription || null);
+      setPlans(plansRes.data.plans || []);
+      setCurrentPlan(currentRes.data.subscription || null);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -40,24 +32,11 @@ export default function Subscriptions() {
 
   const handleSubscribe = async (planId) => {
     try {
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/subscription/subscribe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ plan_id: planId })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        toast.success(data.message || 'Subscription request submitted');
-        loadData();
-      } else {
-        toast.error(data.error || 'Failed to subscribe');
-      }
+      const { data } = await api.post('/subscriptions/subscribe', { plan_id: planId });
+      toast.success(data.message || 'Subscription request submitted');
+      loadData();
     } catch (error) {
-      toast.error('Failed to subscribe');
+      toast.error(error.response?.data?.error || 'Failed to subscribe');
     }
   };
 

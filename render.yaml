@@ -1,23 +1,86 @@
 services:
+  # Backend API Service
   - type: web
-    name: lonaat-backend
-    env: python
-    plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 main:app
+    name: lonaat-backend-api
+    runtime: node
+    plan: standard
+    rootDir: backend-node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     envVars:
-      - key: FLASK_SECRET
-        generateValue: true
-      - key: FIREBASE_DATABASE_URL
-        value: https://lonaat-93a89-default-rtdb.firebaseio.com
-      - key: ADMIN_USERNAME
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: DATABASE_URL
+        scope: build
         sync: false
-      - key: ADMIN_PASSWORD
+      - key: JWT_SECRET
+        scope: build
         sync: false
-      - key: ENCRYPTION_KEY
+      - key: REDIS_URL
+        scope: build
         sync: false
-      - key: FIREBASE_SERVICE_ACCOUNT
+      # External APIs
+      - key: ADMITAD_CLIENT_ID
+        scope: build
         sync: false
-      - key: OPENAI_API_KEY
+      - key: ADMITAD_CLIENT_SECRET
+        scope: build
         sync: false
+      - key: AWIN_API_TOKEN
+        scope: build
+        sync: false
+      # Email Service
+      - key: SMTP_HOST
+        scope: build
+        sync: false
+      - key: SMTP_PORT
+        scope: build
+        sync: false
+      - key: SMTP_USER
+        scope: build
+        sync: false
+      - key: SMTP_PASS
+        scope: build
+        sync: false
+      # Error Tracking
+      - key: SENTRY_DSN
+        scope: build
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+
+  # Frontend Static Site
+  - type: static_site
+    name: lonaat-frontend
+    staticPublishPath: dist
+    buildCommand: npm install && npm run build
+    envVars:
+      - key: VITE_API_URL
+        value: https://lonaat-backend-api.onrender.com
+      - key: VITE_LOG_LEVEL
+        value: warn
+      - key: VITE_ENABLE_ERROR_TRACKING
+        value: "true"
+      - key: VITE_SENTRY_DSN
+        scope: build
+        sync: false
+
+  # PostgreSQL Database (optional - can use external)
+  # - type: pserv
+  #   name: lonaat-db
+  #   ipWhitelist: [] # Allow all
+  #   plan: standard
+
+  # Redis Cache (optional)
+  # - type: redis
+  #   name: lonaat-cache
+  #   plan: standard
+
+# Deployment configuration
+branches:
+  - branch: main
+    isProduction: true
+  - branch: develop
+    isProduction: false

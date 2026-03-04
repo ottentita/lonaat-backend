@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware, authorityMiddleware } from '../middleware/auth';
 import { 
   verifyLandRegistration, 
@@ -15,7 +15,7 @@ import {
 import { generateLandHash, detectTampering } from '../services/landHash';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -380,7 +380,7 @@ router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.json({ success: true, count: mapData.length, lands: mapData });
     } catch (pgErr) {
       // Fallback for SQLite/no PostGIS: select from fields we have (center_lat/center_lng)
-      console.debug('Map query fallback (no geom):', pgErr?.meta || pgErr?.message || pgErr);
+      
       const lands = await prisma.land.findMany({
         where: { verification_status: { not: 'rejected' } },
         orderBy: { created_at: 'desc' },

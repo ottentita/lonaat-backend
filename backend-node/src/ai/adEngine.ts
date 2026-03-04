@@ -1,4 +1,4 @@
-import prisma from '../prisma'
+import { prisma } from '../prisma'
 
 export async function generateAdBlueprint(productId: number) {
   const product = await prisma.product.findUnique({ where: { id: productId } as any })

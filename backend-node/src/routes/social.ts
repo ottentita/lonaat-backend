@@ -1,12 +1,12 @@
 import { Router, Response, Request } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
 import { enqueueSocialPosts } from '../services/socialQueue';
 import { processPendingPosts, getSocialStats, publishPost } from '../services/socialPublisher';
 import { generateSocialContent } from '../services/socialAI';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.get('/accounts', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

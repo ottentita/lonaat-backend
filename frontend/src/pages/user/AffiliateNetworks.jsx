@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import toast from 'react-hot-toast';
+import { api } from '../../services/api';
 
 export default function AffiliateNetworks() {
   const [networks, setNetworks] = useState([]);
@@ -19,12 +20,8 @@ export default function AffiliateNetworks() {
   const loadNetworks = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/affiliate/networks`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
+      const response = await api.get('/affiliate/networks');
+      const data = response.data;
       setNetworks(data.networks || []);
       setProductNetworks(data.productNetworks || data.networks?.filter(n => n.supportsProducts) || []);
       setCpaNetworks(data.cpaNetworks || data.networks?.filter(n => n.supportsCPA && !n.supportsProducts) || []);
@@ -43,21 +40,11 @@ export default function AffiliateNetworks() {
 
     try {
       setSyncing(networkId);
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/affiliate/sync/${networkId}`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ limit: 100 })
-      });
-      const data = await response.json();
-      if (response.ok) {
+      try {
+        const { data } = await api.post(`/affiliate/sync/${networkId}`, { limit: 100 });
         toast.success(data.message || 'Products synced successfully');
-      } else {
-        toast.error(data.error || 'Failed to sync');
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Failed to sync');
       }
     } catch (error) {
       toast.error('Failed to sync products');

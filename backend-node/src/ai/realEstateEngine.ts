@@ -1,4 +1,4 @@
-import prisma from '../prisma'
+import { prisma } from '../prisma'
 
 export async function matchPropertiesForUser(userId: number) {
   // Simple matching: prefer properties in same city as user's listings or premium budget

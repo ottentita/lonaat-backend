@@ -7,27 +7,13 @@ export const setUser = (user) => {
   localStorage.setItem('user', JSON.stringify(user));
 };
 
-export const getAccessToken = () => {
-  return localStorage.getItem('access_token');
-};
-
-export const setTokens = (accessToken, refreshToken) => {
-  // Store both `access_token` and legacy `token` for compatibility
-  localStorage.setItem('access_token', accessToken);
-  if (accessToken) localStorage.setItem('token', accessToken);
-  if (refreshToken) {
-    localStorage.setItem('refresh_token', refreshToken);
-  }
-};
-
+// tokens are now handled via httpOnly cookies, so we no longer expose them
 export const clearAuth = () => {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
   localStorage.removeItem('user');
 };
 
 export const isAuthenticated = () => {
-  return !!getAccessToken();
+  return !!getUser();
 };
 
 export const isAdmin = () => {

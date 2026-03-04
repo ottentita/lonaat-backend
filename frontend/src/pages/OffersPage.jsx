@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from "react";
-
-const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-const API_URL = BASE + '/api';
+import { api } from '../services/api';
 
 export default function OffersPage() {
   const [offers, setOffers] = useState([]);
 
   useEffect(() => {
-    fetch(`${API_URL}/products`)
-      .then((res) => res.json())
-      .then((data) => {
+    api.get('/products')
+      .then((resp) => {
+        const data = resp.data;
         const arr = Array.isArray(data) ? data : (data?.products || data?.offers || []);
         setOffers(arr);
       })

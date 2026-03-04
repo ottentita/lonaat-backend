@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import prisma from '../prisma'
+import { prisma } from '../prisma'
 import { authMiddleware, AuthRequest } from '../middleware/auth'
 
 const router = Router()
@@ -24,19 +24,30 @@ router.post('/:offerId', authMiddleware, async (req: AuthRequest, res) => {
       return Math.abs(n)
     }
     const userKey = req.user?.id || hashIp(ip)
-    const click = await prisma.click.create({
-      data: {
-        offerId: offer.id,
-        adId: offer.id,
-        userId: userKey,
-        timeBucket,
-        clickId,
-        clickToken: token,
-        user_id: req.user!.id,
-        ip,
-        userAgent: req.get('user-agent') || undefined
+    // perform the click insert in a transaction to let the DB enforce uniqueness
+    let click
+    try {
+      click = await prisma.$transaction(async (tx) => {
+        return tx.click.create({
+          data: {
+            offerId: offer.id,
+            adId: null,
+            userId: userKey,
+            timeBucket,
+            clickId,
+            clickToken: token,
+            user_id: req.user!.id,
+            ip,
+            userAgent: req.get('user-agent') || undefined
+          }
+        })
+      })
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        return res.status(409).json({ error: 'Duplicate click' })
       }
-    })
+      throw e
+    }
 
     const payout = (offer.payout as any) ? Number(offer.payout) : 0
 

@@ -11,9 +11,13 @@ describe('Ads route docs and module', () => {
     expect(md).toContain('POST /campaign')
   })
 
+  // this import can occasionally be slow when the full suite has just run
+  // (Prisma client generation, DB resets, etc). extend timeout to keep the
+  // test stable while still ensuring the module loads and exports a router.
   it('ads.routes exports a router', async () => {
-    const mod = await import('../../src/modules/ads/ads.routes')
+    // path should point to backend-node/src not workspace root
+    const mod = await import('../src/modules/ads/ads.routes')
     expect(mod).toBeDefined()
     expect(mod.default).toBeDefined()
-  })
+  }, 10000)
 })

@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import axios from 'axios';
 import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+
 
 const ADMITAD_API_BASE = process.env.ADMITAD_API_BASE || 'https://api.admitad.com';
 
@@ -151,7 +151,6 @@ export async function searchAliExpressProducts(
     );
 
     if (!aliexpressCampaign) {
-      console.log('AliExpress campaign not found in Admitad - returning empty results');
       return [];
     }
 
@@ -311,7 +310,7 @@ export async function handleAdmitadPostback(payload: any): Promise<{ success: bo
 export async function initializeAdmitadNetworks(): Promise<void> {
   try {
     // affiliateNetwork model is not included in the local Prisma schema; nothing to initialize here
-    console.log('Admitad networks initialization skipped (no affiliateNetwork model)');
+    
   } catch (error) {
     console.error('Failed to initialize Admitad networks:', error);
   }

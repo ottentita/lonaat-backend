@@ -1,8 +1,13 @@
 import express from 'express'
 import prisma from '../prisma'
 import crypto from 'crypto'
+import { authMiddleware, AuthRequest } from '../middleware/auth'
+import { createCharge, verifySignature } from '../services/coinbase.service'
 
 const router = express.Router()
+import { handlePaymentWebhook } from '../modules/payments/webhook.controller'
+import { validate } from '../middleware/validation'
+import { webhookSchema } from '../schemas/requestSchemas'
 
 // POST /api/payments/skrill/create
 // Body: { userId, amount, currency, returnUrl, cancelUrl }
@@ -101,5 +106,166 @@ router.post('/skrill/webhook', express.raw({ type: '*/*' }), async (req, res) =>
     res.status(500).send('error')
   }
 })
+
+// ================= Coinbase Commerce integration =================
+
+const PACKAGES: Record<string, { price: number; tokens: number }> = {
+  small: { price: 10, tokens: 100 },
+  medium: { price: 25, tokens: 300 },
+  large: { price: 70, tokens: 1000 }
+}
+
+// POST /api/payments/create
+// Coinbase payment creation - takes custom amount
+router.post('/create', async (req, res) => {
+  try {
+    const { amount, description, name } = req.body
+
+    if (!amount) {
+      return res.status(400).json({ error: 'amount is required' })
+    }
+
+    const apiKey = process.env.COINBASE_API_KEY
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Coinbase API key not configured' })
+    }
+
+    const response = await fetch('https://api.commerce.coinbase.com/charges', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CC-Api-Key': apiKey,
+        'X-CC-Version': '2018-03-22'
+      },
+      body: JSON.stringify({
+        name: name || 'Payment',
+        description: description || 'Payment for services',
+        pricing_type: 'fixed_price',
+        local_price: {
+          amount: String(amount),
+          currency: 'USD'
+        }
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('Coinbase API error:', error)
+      return res.status(response.status).json({ error: 'Coinbase API error' })
+    }
+
+    const data = await response.json()
+    return res.status(200).json(data)
+
+  } catch (error) {
+    console.error('Create payment error:', error)
+    res.status(500).json({ error: 'Payment creation failed' })
+  }
+})
+
+// POST /api/payments/create-charge
+// Body: { package: 'small'|'medium'|'large' }
+router.post('/create-charge', authMiddleware, async (req: AuthRequest, res: express.Response) => {
+  try {
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { package: pack } = req.body as { package: string }
+    if (!pack || !PACKAGES[pack]) {
+      return res.status(400).json({ error: 'Invalid package' })
+    }
+
+    const { price, tokens } = PACKAGES[pack]
+    const charge = await createCharge(userId, tokens, price)
+
+    // store pending token purchase record with charge id to prevent duplicates
+    await prisma.tokenPurchase.create({
+      data: {
+        userId,
+        amount: tokens,
+        chargeId: charge.charge_id
+      }
+    })
+
+    return res.json({ hosted_url: charge.hosted_url })
+  } catch (error: any) {
+    console.error('create-charge error', error)
+    return res.status(500).json({ error: error.message || 'Failed to create charge' })
+  }
+})
+
+// Exported webhook handler so it can be mounted with raw body parsing before JSON parser
+export async function webhookHandler(req: express.Request, res: express.Response) {
+  try {
+    const signature = (req.headers['x-cc-webhook-signature'] || req.headers['X-CC-Webhook-Signature']) as string | undefined
+
+    // req.body MUST be the raw Buffer here
+    const raw = req.body as Buffer
+
+    // Verify signature using raw body buffer. Do not JSON.parse before verifying.
+    if (!verifySignature(raw, signature)) {
+      return res.status(400).send('Invalid signature')
+    }
+
+    const event = JSON.parse(raw.toString())
+
+    // Minimal debug logging (do NOT log secrets)
+    // webhook event received
+
+    if (event.type !== 'charge:confirmed') {
+      return res.status(200).send('ignoring event')
+    }
+
+    const charge = event.data
+    const metadata = charge.metadata || {}
+    const userId = Number(metadata.userId)
+    const tokens = Number(metadata.tokens)
+    const chargeId = charge.id
+
+    // charge processed
+
+    if (!userId || !tokens || !chargeId) {
+      return res.status(400).send('missing metadata')
+    }
+
+    // Idempotency protection: check tokenPurchase for existing processed charge
+    const existingPurchase = await prisma.tokenPurchase.findUnique({ where: { chargeId: String(chargeId) } as any })
+    if (existingPurchase && existingPurchase.amount > 0) {
+      return res.status(200).send('already processed')
+    }
+
+    // Credit user tokens exactly once
+    await prisma.user.update({ where: { id: Number(userId) }, data: { tokens: { increment: Number(tokens) } } })
+
+    // Persist token purchase record if missing
+    if (!existingPurchase) {
+      await prisma.tokenPurchase.create({ data: { userId: Number(userId), amount: Number(tokens), chargeId: String(chargeId) } })
+    }
+
+    return res.status(200).send('processed')
+  } catch (err: any) {
+    console.error('coinbase webhook error', err?.message || err)
+    return res.status(500).send('error')
+  }
+}
+
+
+// POST /api/payments/webhook/coinbase
+// Coinbase webhook endpoint - logs and returns OK
+router.post('/webhook/coinbase', express.raw({ type: 'application/json' }), (req, res) => {
+  try {
+    // raw webhook received
+    res.status(200).send('OK')
+  } catch (error) {
+    console.error('Coinbase webhook error:', error)
+    res.status(500).send('error')
+  }
+})
+
+// No router-level alias: prefer the central `/api/payments/webhook` mount in index.ts
+// generic payment webhook endpoint
+router.post('/webhook', express.json(), validate(webhookSchema, 'body'), handlePaymentWebhook)
 
 export default router

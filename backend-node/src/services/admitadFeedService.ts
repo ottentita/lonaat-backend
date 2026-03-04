@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 
-const prisma = new PrismaClient();
+
 
 interface FeedProduct {
   id: string;
@@ -25,7 +25,7 @@ export async function importAdmitadFeed(feedUrl?: string): Promise<{ imported: n
     throw new Error('ADMITAD_FEED_URL not configured');
   }
 
-  console.log('Fetching Admitad XML feed...');
+  
   
   try {
     const response = await axios.get(url, {
@@ -127,7 +127,7 @@ export async function importAdmitadFeed(feedUrl?: string): Promise<{ imported: n
       }
     }
 
-    console.log(`Feed import complete: ${imported} imported, ${updated} updated, ${errors} errors`);
+    
     return { imported, updated, errors };
   } catch (error: any) {
     console.error('Feed import error:', error.message);
@@ -162,20 +162,20 @@ export function startFeedSyncScheduler(intervalHours: number = 6): void {
   
   feedSyncInterval = setInterval(async () => {
     try {
-      console.log('Running scheduled feed sync...');
+      
       await importAdmitadFeed();
     } catch (error) {
       console.error('Scheduled feed sync failed:', error);
     }
   }, intervalMs);
 
-  console.log(`Feed sync scheduler started (every ${intervalHours} hours)`);
+  
 }
 
 export function stopFeedSyncScheduler(): void {
   if (feedSyncInterval) {
     clearInterval(feedSyncInterval);
     feedSyncInterval = null;
-    console.log('Feed sync scheduler stopped');
+    
   }
 }

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from '../../components/ui/textarea';
 import toast from 'react-hot-toast';
 import { formatCurrency, formatNumber, parseNumericInput } from '../../lib/currency';
+import { automobilesAPI } from '@/services/api';
 
 export default function Automobiles() {
   const [automobiles, setAutomobiles] = useState([]);
@@ -20,7 +21,8 @@ export default function Automobiles() {
     price: '', currency: 'USD', location: '', description: ''
   });
 
-  const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+  // token removed; cookie-based auth will be used via api client
+  const token = null;
 
   useEffect(() => {
     loadData();
@@ -29,90 +31,53 @@ export default function Automobiles() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
       const [autosRes, statsRes] = await Promise.all([
-        fetch(`${BASE}/api/automobiles/mine`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${BASE}/api/automobiles/stats`, { headers: { Authorization: `Bearer ${token}` } })
+        automobilesAPI.getMine(),
+        automobilesAPI.getStats(),
       ]);
-      
-      const autosData = await autosRes.json();
-      const statsData = await statsRes.json();
-      
-      setAutomobiles(autosData.automobiles || []);
-      setStats(statsData);
+      setAutomobiles(autosRes.data.automobiles || []);
+      setStats(statsRes.data || {});
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }; 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/automobiles`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify(formData)
+      const data = await automobilesAPI.create(formData);
+      toast.success('Vehicle listing created successfully');
+      setShowAddDialog(false);
+      setFormData({
+        title: '', brand: '', model: '', year: '', mileage: '',
+        fuel_type: '', transmission: '', condition: '',
+        price: '', currency: 'USD', location: '', description: ''
       });
-      
-      const data = await response.json();
-      if (response.ok) {
-        toast.success('Vehicle listing created successfully');
-        setShowAddDialog(false);
-        setFormData({
-          title: '', brand: '', model: '', year: '', mileage: '',
-          fuel_type: '', transmission: '', condition: '',
-          price: '', currency: 'USD', location: '', description: ''
-        });
-        loadData();
-      } else {
-        toast.error(data.error || 'Failed to create listing');
-      }
+      loadData();
     } catch (error) {
       toast.error('Failed to create listing');
     }
-  };
+  }; 
 
   const markAsSold = async (id) => {
     try {
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/automobiles/${id}/status`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({ status: 'sold' })
-      });
-      
-      if (response.ok) {
-        toast.success('Marked as sold');
-        loadData();
-      }
+      await automobilesAPI.updateStatus(id, 'sold');
+      toast.success('Marked as sold');
+      loadData();
     } catch (error) {
       toast.error('Failed to update status');
     }
-  };
+  }; 
 
   const deleteAuto = async (id) => {
     if (!confirm('Are you sure you want to delete this listing?')) return;
     
     try {
-      const BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-      const response = await fetch(`${BASE}/api/automobiles/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.ok) {
-        toast.success('Listing deleted');
-        loadData();
-      }
+      await automobilesAPI.delete(id);
+      toast.success('Listing deleted');
+      loadData();
     } catch (error) {
       toast.error('Failed to delete listing');
     }

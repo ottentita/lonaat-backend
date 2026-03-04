@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
+import { clickLimiter } from '../../middleware/rateLimiter'
 
 const router = Router()
 
@@ -21,7 +22,7 @@ router.post('/campaign', (req, res, next) =>
   })
 )
 
-router.post('/campaign/:id/click', (req, res, next) =>
+router.post('/campaign/:id/click', clickLimiter, (req, res, next) =>
   withAuth(req, res, next, async (r, s) => {
     const { processClickHandler } = await import('./ads.controller')
     return processClickHandler(r, s)

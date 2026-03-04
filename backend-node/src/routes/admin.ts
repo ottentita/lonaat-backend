@@ -1,14 +1,15 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
-import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
+import { authMiddleware, AuthRequest, adminOnlyMiddleware, authenticate } from '../middleware/auth';
+import { authorizeRole } from '../middleware/role';
 import { processAIJob, processPendingJobs, discoverProducts, searchProducts, importDiscoveredProducts, detectFraud, runFraudScan, autoBoostAdminProducts, scanNetworksForProducts, autoImportAliExpressProducts, runAIAutoImportCycle } from '../services/ai';
+import { addTokens } from '../services/token.service';
 import { syncAllNetworks, syncDigistore24Products, syncAwinProducts, syncMyLeadProducts, syncPartnerStackProducts, getNetworkStatus } from '../services/networkSync';
 import { generateGrowthReport, rankProducts, getAIRecommendations } from '../services/growthEngine';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 router.use(authMiddleware);
 router.use(adminOnlyMiddleware);
@@ -68,12 +69,8 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
 });
 
 // Aggregated global admin stats
-router.get('/stats', async (req: AuthRequest, res: Response) => {
+router.get('/stats', authenticate, authorizeRole('ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
-    // Double-check admin role
-    if (!req.user || (req.user.role || '').toUpperCase() !== 'ADMIN') {
-      return res.status(403).json({ error: 'Admin access required' })
-    }
 
     const [
       totalUsers,
@@ -110,6 +107,28 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to compute admin stats' })
   }
 })
+
+// expose affiliate events audit log
+router.get('/affiliate-events', async (req: AuthRequest, res: Response) => {
+  try {
+    const events = await (prisma as any).affiliateEvent.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { id: true, email: true, name: true } } }
+    });
+    const formatted = events.map(e => ({
+      network: e.network,
+      eventId: e.eventId,
+      status: e.status,
+      user: e.user ? { id: e.user.id, email: e.user.email, name: e.user.name } : null,
+      amount: e.amount ? Number(e.amount) : null,
+      processedAt: e.createdAt
+    }));
+    res.json({ events: formatted });
+  } catch (err) {
+    console.error('Failed to fetch affiliate events', err);
+    res.status(500).json({ error: 'Unable to load events' });
+  }
+});
 
 router.get('/users', async (req: AuthRequest, res: Response) => {
   try {
@@ -1849,5 +1868,22 @@ router.post('/tokens/credit', async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Failed to credit tokens' })
   }
 })
+
+// Temporary admin credit route (adds tokens to a user's tokenBalance)
+router.post(
+  '/credit',
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { userId, amount } = req.body as any;
+      if (!userId || !amount) return res.status(400).json({ error: 'Missing fields' });
+
+      const updated = await addTokens(Number(userId), Number(amount));
+      return res.json({ success: true, newBalance: updated.tokenBalance });
+    } catch (err: any) {
+      console.error('Admin credit error', err);
+      return res.status(500).json({ error: 'Failed to credit' });
+    }
+  }
+)
 
 export default router;

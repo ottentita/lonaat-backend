@@ -1,11 +1,12 @@
 import { Router, Response, Request } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import crypto from 'crypto';
 import { handleAdmitadPostback } from '../services/admitadService';
 
 const router = Router();
-const prisma = new PrismaClient();
 
+
+// commission/webhook callbacks from Digistore24 (existing)
 router.post('/digistore24', async (req: Request, res: Response) => {
   try {
     const { event, data } = req.body;
@@ -43,7 +44,7 @@ router.post('/digistore24', async (req: Request, res: Response) => {
                 paid_at: new Date()
               }
             });
-            console.log(`[Digistore24] Marked as PAID_BY_NETWORK: $${existing.amount} for user ${user.id}`);
+            
           }
         } else {
           await prisma.commission.create({
@@ -64,10 +65,10 @@ router.post('/digistore24', async (req: Request, res: Response) => {
               })
             }
           });
-          console.log(`[Digistore24] Commission tracked: $${commissionAmount} for user ${user.id} (PAID_BY_NETWORK)`);
+          
         }
 
-        console.log(`[Digistore24] Commission logged for ${affiliate_email}: $${commission_value}`);
+        
       }
     }
 
@@ -75,6 +76,35 @@ router.post('/digistore24', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Digistore24 webhook error:', error);
     res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// lightweight click conversion webhook - simpler than the main Digistore24 notification
+router.post('/digistore', async (req: Request, res: Response) => {
+  try {
+    // optional basic secret check (recommended to configure DIGISTORE_WEBHOOK_SECRET)
+    if (process.env.DIGISTORE_WEBHOOK_SECRET) {
+      if (req.body.secret !== process.env.DIGISTORE_WEBHOOK_SECRET) {
+        return res.status(403).json({ error: 'Invalid webhook secret' });
+      }
+    }
+
+    const subid = req.body.subid;
+    const amount = parseFloat(req.body.amount);
+
+    if (!subid || isNaN(amount)) {
+      return res.status(400).json({ error: 'missing subid or amount' });
+    }
+
+    await prisma.click.update({
+      where: { id: parseInt(subid) },
+      data: { converted: true, revenue: amount }
+    });
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Digistore click webhook error:', error);
+    res.status(500).json({ error: 'processing failed' });
   }
 });
 
@@ -116,7 +146,7 @@ router.post('/awin', async (req: Request, res: Response) => {
                 paid_at: new Date() 
               }
             });
-            console.log(`[Awin] Marked as PAID_BY_NETWORK: $${existing.amount} for user ${user.id}`);
+            
           }
         } else {
           await prisma.commission.create({
@@ -136,7 +166,7 @@ router.post('/awin', async (req: Request, res: Response) => {
               })
             }
           });
-          console.log(`[Awin] Commission tracked: $${amount} for user ${user.id} (PAID_BY_NETWORK)`);
+          
         }
       }
     }
@@ -163,7 +193,7 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
     const ml_sub1 = params.ml_sub1 as string;
     const ml_sub2 = params.ml_sub2 as string || params.ml_sub3 as string;
 
-    console.log(`[MyLead] Postback received: transaction_id=${transaction_id}, program=${program_name}, status=${status}, payout=${payout} ${currency}, user=${ml_sub1}, country=${country_code}`);
+    
 
     if (!transaction_id) {
       return res.status(400).json({ error: 'Missing transaction_id' });
@@ -186,7 +216,7 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
             paid_at: isPaid ? new Date() : existing.paid_at
           }
         });
-        console.log(`[MyLead] Updated commission ${existing.id} status to ${newStatus}`);
+        
       }
       return res.json({ status: 'ok', message: 'Updated' });
     }
@@ -197,7 +227,6 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
     }) : null;
 
     if (!user) {
-      console.log(`[MyLead] User not found for ml_sub1=${ml_sub1}`);
       return res.json({ status: 'ok', message: 'User not found' });
     }
 
@@ -231,7 +260,7 @@ const processMyLeadPostback = async (req: Request, res: Response) => {
       }
     });
 
-    console.log(`[MyLead] Commission tracked: $${payout} ${currency} for user ${user.id} - ${program_name} (PAID_BY_NETWORK)`);
+    
 
     res.json({ status: 'ok' });
   } catch (error) {
@@ -244,7 +273,7 @@ router.get('/mylead', processMyLeadPostback);
 router.post('/mylead', processMyLeadPostback);
 
 router.post('/partnerstack', async (req: Request, res: Response) => {
-  console.log('[PartnerStack] Webhook received but network is disabled');
+  
   res.status(400).json({ 
     error: 'PartnerStack not connected',
     message: 'PartnerStack network is currently disabled'
@@ -253,7 +282,7 @@ router.post('/partnerstack', async (req: Request, res: Response) => {
 
 router.post('/admitad', async (req: Request, res: Response) => {
   try {
-    console.log('[Admitad] Postback received:', JSON.stringify(req.body));
+    
     
     const result = await handleAdmitadPostback(req.body);
     
@@ -270,7 +299,7 @@ router.post('/admitad', async (req: Request, res: Response) => {
 
 router.get('/admitad', async (req: Request, res: Response) => {
   try {
-    console.log('[Admitad] GET Postback received:', req.query);
+    
     
     const result = await handleAdmitadPostback(req.query);
     

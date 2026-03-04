@@ -1,14 +1,15 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { isAuthenticated, isAdmin } from './utils/auth';
+import { lazy, Suspense } from 'react';
+// Note: router context provided in main.jsx
 
-// Pages
+// Pages (eager for core auth/utility)
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import VerifyEmail from './pages/auth/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import Products from './pages/user/Products';
-import AdBoosts from './pages/user/AdBoosts';
 import Wallet from './pages/user/Wallet';
 import Transactions from './pages/user/Transactions';
 import Withdrawals from './pages/user/Withdrawals';
@@ -20,39 +21,49 @@ import RealEstate from './pages/user/RealEstate';
 import RealEstateLayout from './modules/real-estate/RealEstateLayout';
 import LandRegistry from './pages/user/LandRegistry';
 import PropertyLeads from './pages/user/PropertyLeads';
-import RealEstateAnalytics from './pages/user/RealEstateAnalytics';
 import AffiliateNetworks from './pages/user/AffiliateNetworks';
 import Subscriptions from './pages/user/Subscriptions';
 import OffersLeads from './pages/user/OffersLeads';
-import Automobiles from './pages/user/Automobiles';
 import SocialAutomation from './pages/user/SocialAutomation';
 import Marketplace from './pages/Marketplace';
 import CategoryPage from './pages/Category';
 
+// Lazy-loaded pages (heavier, pulled only when requested)
+const Automobiles = lazy(() => import('./pages/user/Automobiles'));
+const RealEstateAnalytics = lazy(() => import('./pages/user/RealEstateAnalytics'));
+
 // Admin Pages
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminUsers from './pages/admin/Users';
-import AdminAds from './pages/admin/Ads';
-import AdminWithdrawals from './pages/admin/Withdrawals';
-import AdminPayments from './pages/admin/Payments';
-import AdminNotifications from './pages/admin/Notifications';
-import AdminRealEstate from './pages/admin/RealEstate';
-import AdminProducts from './pages/admin/Products';
-import AdminSubscriptions from './pages/admin/Subscriptions';
-import FraudDetection from './pages/admin/FraudDetection';
-import AIControlCenter from './pages/admin/AIControlCenter';
-import AdminCommissions from './pages/admin/Commissions';
-import AdminLandRegistry from './pages/admin/LandRegistry';
-import AdminAutomobiles from './pages/admin/Automobiles';
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminAds = lazy(() => import('./pages/admin/Ads'));
+const AdminWithdrawals = lazy(() => import('./pages/admin/Withdrawals'));
+const AdminPayments = lazy(() => import('./pages/admin/Payments'));
+const AdminNotifications = lazy(() => import('./pages/admin/Notifications'));
+const AdminRealEstate = lazy(() => import('./pages/admin/RealEstate'));
+const AdminProducts = lazy(() => import('./pages/admin/Products'));
+const AdminSubscriptions = lazy(() => import('./pages/admin/Subscriptions'));
+const FraudDetection = lazy(() => import('./pages/admin/FraudDetection'));
+const AIControlCenter = lazy(() => import('./pages/admin/AIControlCenter'));
+const AdminCommissions = lazy(() => import('./pages/admin/Commissions'));
+const AdminLandRegistry = lazy(() => import('./pages/admin/LandRegistry'));
+const AdminAutomobiles = lazy(() => import('./pages/admin/Automobiles'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 
 // Legal Pages
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Contact from './pages/Contact';
+import TestPayment from './pages/TestPayment';
 
 // New dashboard layout & pages
 import DashboardLayout from './components/layout/DashboardLayout';
+import AdminLayout from './components/layout/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import Services from './pages/Services';
+import Users from './pages/Users';
+import Payments from './pages/Payments';
+import Reports from './pages/Reports';
 import DashboardHome from './pages/DashboardHome';
 import OffersPage from './pages/OffersPage';
 import LeadsPage from './pages/LeadsPage';
@@ -63,7 +74,7 @@ import DashboardSettings from './pages/SettingsPage';
 
 function App() {
   return (
-    <BrowserRouter>
+    <>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -88,73 +99,61 @@ function App() {
         }}
       />
 
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+      <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={<DashboardHome />} />
-          <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-          <Route path="ads" element={<ProtectedRoute><AdBoosts /></ProtectedRoute>} />
-          <Route path="wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
-          <Route path="transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-          <Route path="withdrawals" element={<ProtectedRoute><Withdrawals /></ProtectedRoute>} />
-          <Route path="commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
-          <Route path="notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-          <Route path="settings" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="user-settings" element={<ProtectedRoute><DashboardSettings /></ProtectedRoute>} />
-          <Route path="real-estate" element={<ProtectedRoute><RealEstateLayout /></ProtectedRoute>} />
-          <Route path="land-registry" element={<ProtectedRoute><LandRegistry /></ProtectedRoute>} />
-          <Route path="property-leads" element={<ProtectedRoute><PropertyLeads /></ProtectedRoute>} />
-          <Route path="real-estate-analytics" element={<ProtectedRoute><RealEstateAnalytics /></ProtectedRoute>} />
-          <Route path="networks" element={<ProtectedRoute><AffiliateNetworks /></ProtectedRoute>} />
-          <Route path="offers-leads" element={<ProtectedRoute><OffersLeads /></ProtectedRoute>} />
-          <Route path="subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
-          <Route path="automobiles" element={<ProtectedRoute><Automobiles /></ProtectedRoute>} />
-          <Route path="social" element={<ProtectedRoute><SocialAutomation /></ProtectedRoute>} />
-          <Route path="offers" element={<ProtectedRoute><OffersPage /></ProtectedRoute>} />
-          <Route path="leads" element={<ProtectedRoute><LeadsPage /></ProtectedRoute>} />
-          <Route path="earnings" element={<ProtectedRoute><EarningsPage /></ProtectedRoute>} />
+        {/* User Dashboard Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<DashboardHome />} />
+            <Route path="products" element={<Products />} />
+            <Route path="real-estate" element={<RealEstate />} />
+            <Route path="automobiles" element={<Automobiles />} />
+            <Route path="services" element={<Services />} />
+            <Route path="users" element={<Users />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="reports" element={<Reports />} />
+
+            <Route path="wallet" element={<Wallet />} />
+            <Route path="transactions" element={<Transactions />} />
+            <Route path="withdrawals" element={<Withdrawals />} />
+            <Route path="commissions" element={<Commissions />} />
+            <Route path="subscriptions" element={<Subscriptions />} />
+            <Route path="offers" element={<OffersPage />} />
+            <Route path="offers-leads" element={<OffersLeads />} />
+            <Route path="leads" element={<LeadsPage />} />
+            <Route path="earnings" element={<EarningsPage />} />
+            <Route path="settings" element={<DashboardSettings />} />
+          </Route>
         </Route>
 
-        <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
-        <Route path="/admin/ads" element={<ProtectedRoute adminOnly><AdminAds /></ProtectedRoute>} />
-        <Route path="/admin/withdrawals" element={<ProtectedRoute adminOnly><AdminWithdrawals /></ProtectedRoute>} />
-        <Route path="/admin/payments" element={<ProtectedRoute adminOnly><AdminPayments /></ProtectedRoute>} />
-        <Route path="/admin/notifications" element={<ProtectedRoute adminOnly><AdminNotifications /></ProtectedRoute>} />
-        <Route path="/admin/real-estate" element={<ProtectedRoute adminOnly><AdminRealEstate /></ProtectedRoute>} />
-        <Route path="/admin/products" element={<ProtectedRoute adminOnly><AdminProducts /></ProtectedRoute>} />
-        <Route path="/admin/subscriptions" element={<ProtectedRoute adminOnly><AdminSubscriptions /></ProtectedRoute>} />
-        <Route path="/admin/fraud" element={<ProtectedRoute adminOnly><FraudDetection /></ProtectedRoute>} />
-        <Route path="/admin/ai" element={<ProtectedRoute adminOnly><AIControlCenter /></ProtectedRoute>} />
-        <Route path="/admin/commissions" element={<ProtectedRoute adminOnly><AdminCommissions /></ProtectedRoute>} />
-        <Route path="/admin/land-registry" element={<ProtectedRoute adminOnly><AdminLandRegistry /></ProtectedRoute>} />
-        <Route path="/admin/automobiles" element={<ProtectedRoute adminOnly><AdminAutomobiles /></ProtectedRoute>} />
-
-        <Route path="/marketplace" element={<Marketplace />} />
-        <Route path="/marketplace/:slug" element={<CategoryPage />} />
-
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/contact" element={<Contact />} />
-
-        <Route
-          path="/"
-          element={
-            isAuthenticated() ? (
-              isAdmin() ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+        {/* Admin Routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="withdrawals" element={<AdminWithdrawals />} />
+            <Route path="commissions" element={<AdminCommissions />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="ads" element={<AdminAds />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="payments" element={<AdminPayments />} />
+            <Route path="subscriptions" element={<AdminSubscriptions />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="real-estate" element={<AdminRealEstate />} />
+            <Route path="automobiles" element={<AdminAutomobiles />} />
+            <Route path="land-registry" element={<AdminLandRegistry />} />
+            <Route path="fraud-detection" element={<FraudDetection />} />
+            <Route path="ai-control" element={<AIControlCenter />} />
+          </Route>
+        </Route>
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Zap } from 'lucide-react';
 import { authAPI } from '../../services/api';
-import { setTokens, setUser } from '../../utils/auth';
+import { setUser } from '../../utils/auth';
 import toast from 'react-hot-toast';
 
 const Register = () => {
@@ -31,11 +31,12 @@ const Register = () => {
         email: formData.email,
         password: formData.password,
       });
-      
-      // backend returns `token` in response body
-      setTokens(data.token || data.access_token, data.refresh_token);
-      setUser(data.user || data.user);
-      
+
+      // server sets httpOnly cookie; fetch user from backend
+      if (data.user) {
+        setUser(data.user);
+      }
+
       toast.success('Registration successful! Check your email to verify your account.');
       navigate('/dashboard');
     } catch (error) {

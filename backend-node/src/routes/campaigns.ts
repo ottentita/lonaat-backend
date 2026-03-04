@@ -1,14 +1,54 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { body, validationResult } from 'express-validator';
+import { debitTokensTransactional } from '../modules/ads/tokenWallet.service';
 import { authMiddleware, AuthRequest, creditCheckMiddleware } from '../middleware/auth';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 const CAMPAIGN_COST = 10;
 const CAMPAIGN_DURATION_HOURS = 24;
 const MAX_AI_BOOSTS_PER_DAY = 5;
+
+// Create a campaign from a MarketplaceItem using ad token balance
+router.post('/marketplace', [ authMiddleware, body('marketplaceItemId').notEmpty().isInt(), body('budgetTokens').notEmpty().isInt() ], async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  try {
+    const marketplaceItemId = parseInt(req.body.marketplaceItemId);
+    const budgetTokens = parseInt(req.body.budgetTokens);
+
+    const item = await prisma.marketplaceItem.findUnique({ where: { id: marketplaceItemId } });
+    if (!item) return res.status(404).json({ error: 'Marketplace item not found' });
+
+    // atomic: deduct tokens and create campaign
+    const result = await prisma.$transaction(async (tx) => {
+      await debitTokensTransactional(tx, req.user!.id, budgetTokens, 'campaign_launch');
+
+      const campaign = await tx.adCampaign.create({
+        data: {
+          userId: req.user!.id,
+          productId: item.manualProductId || null,
+          offerId: item.offerId || null,
+          dailyBudget: budgetTokens,
+          status: 'active'
+        }
+      });
+
+      await tx.transactionLedger.create({ data: { userId: req.user!.id, campaignId: campaign.id, amount: -budgetTokens, type: 'debit', reason: 'campaign_launch' } });
+
+      return { campaign };
+    });
+
+    res.status(201).json({ message: 'Campaign created', campaign: result.campaign });
+  } catch (e: any) {
+    console.error('Create marketplace campaign error', e);
+    if (String(e).includes('Insufficient tokens')) return res.status(403).json({ error: 'Insufficient tokens' });
+    res.status(500).json({ error: 'Failed to create campaign' });
+  }
+});
 
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

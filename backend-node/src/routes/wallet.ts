@@ -1,12 +1,11 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { body, validationResult } from 'express-validator';
 import { logPaymentAction } from '../services/audit';
 import { encryptBankAccountNumber, decryptBankAccountNumber, getLast4, maskAccountNumber } from '../services/encryption';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const MIN_WITHDRAWAL_AMOUNT = 10;
 
@@ -86,9 +85,10 @@ router.get('/transactions', authMiddleware, async (req: AuthRequest, res: Respon
       take: 50
     });
 
-    res.json({ transactions });
+    res.json({ transactions: transactions || [] });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to get transactions' });
+    console.error('Get transactions error:', error);
+    res.json({ transactions: [], error: 'Failed to get transactions' });
   }
 });
 
@@ -479,12 +479,13 @@ router.get('/withdrawals', authMiddleware, async (req: AuthRequest, res: Respons
     });
 
     res.json({ 
-      withdrawals,
+      withdrawals: withdrawals || [],
       withdrawable_balance: user?.withdrawable_balance != null ? Number(user.withdrawable_balance) : 0,
       total_balance: user?.balance != null ? Number(user.balance) : 0
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to get withdrawals' });
+    console.error('Get withdrawals error:', error);
+    res.json({ withdrawals: [], withdrawable_balance: 0, total_balance: 0, error: 'Failed to get withdrawals' });
   }
 });
 

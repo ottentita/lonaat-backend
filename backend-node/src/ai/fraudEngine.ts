@@ -1,4 +1,4 @@
-import prisma from '../prisma'
+import { prisma } from '../prisma'
 import { subMinutes } from 'date-fns'
 
 export async function analyzeFraudForUser(userId: number) {

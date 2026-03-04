@@ -1,6 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma, Prisma } from '../prisma';
 
 interface PolygonCoord {
   lat: number;
@@ -138,7 +136,7 @@ export async function initPostGIS(): Promise<void> {
       await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS lands_geom_idx ON lands USING GIST (geom)`;
     }
     
-    console.log('PostGIS initialized successfully');
+    
   } catch (error) {
     console.error('PostGIS initialization failed:', error);
     throw new Error('Failed to initialize PostGIS - database may not support spatial operations');

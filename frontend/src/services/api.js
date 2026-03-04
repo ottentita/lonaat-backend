@@ -1,88 +1,99 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import logger from '../middleware/logger';
+import envConfig from '../utils/envConfig';
 
 // Prefer explicit VITE_API_URL, fall back to localhost backend for development
 const envBase = import.meta.env.VITE_API_URL || '';
 const base = envBase || 'http://localhost:4000';
 const API_BASE_URL = `${base.replace(/\/$/, '')}/api`;
 
+logger.setContext('service', 'api');
+logger.setContext('apiUrl', API_BASE_URL);
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // send cookies automatically
 });
 
-// Request interceptor to add auth token
+// Request interceptor for logging (token not used)
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token');
-    // TEMP DEBUG: log token presence
-    console.debug('[api] Request:', config.method, config.url, 'token present:', !!token);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const startTime = Date.now();
+    // Attach metadata for response interceptor
+    config._metadata = { startTime };
+
+    // Log API call in development
+    if (envConfig.isDevelopment()) {
+      logger.debug(`API Request: ${config.method.toUpperCase()} ${config.url}`);
     }
+
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    logger.error('Request error', error);
+    return Promise.reject(error);
+  }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling and logging
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const duration = Date.now() - (response.config._metadata?.startTime || 0);
+    
+    // Log successful API calls
+    logger.trackApiCall(
+      response.config.method.toUpperCase(),
+      response.config.url,
+      response.status,
+      duration
+    );
+
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
-    // TEMP DEBUG: log error details
-    console.error('[api] Error response:', error?.response?.status, error?.response?.data || error.message);
+    const duration = Date.now() - (originalRequest._metadata?.startTime || 0);
+    
+    // Log API error
+    logger.trackApiCall(
+      originalRequest.method.toUpperCase(),
+      originalRequest.url,
+      error.response?.status || 0,
+      duration,
+      error
+    );
 
     // Handle 401 - Unauthorized
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      // Try to refresh token
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (refreshToken) {
-        try {
-          const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
-            headers: { Authorization: `Bearer ${refreshToken}` }
-          });
-          
-          localStorage.setItem('access_token', data.access_token);
-          if (data.refresh_token) {
-            localStorage.setItem('refresh_token', data.refresh_token);
-          }
-          originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-          
-          return api(originalRequest);
-        } catch (refreshError) {
-          // Refresh failed, clear tokens but don't redirect if on public pages
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
-          
-          const publicPaths = ['/login', '/register', '/', '/about'];
-          if (!publicPaths.includes(window.location.pathname)) {
-            window.location.href = '/login';
-          }
-          return Promise.reject(refreshError);
-        }
-      } else {
-        // No refresh token - only redirect if on protected routes
-        const publicPaths = ['/login', '/register', '/', '/about'];
-        if (!publicPaths.includes(window.location.pathname)) {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-        }
-      }
+    if (error.response?.status === 401) {
+      // With cookie-based auth, server manages session. Clear client-side user and redirect.
+      localStorage.removeItem('user');
+      window.location.href = '/login';
     }
 
-    // Show error toast (but not for 401s to avoid spam during refresh)
+    // Show error toast (but not for 401s to avoid spam)
     if (error.response?.status !== 401) {
       const errorMessage = error.response?.data?.error || error.message || 'An error occurred';
       toast.error(errorMessage);
+      logger.error('API Error', error, {
+        endpoint: originalRequest.url,
+        status: error.response?.status,
+        message: errorMessage
+      });
     }
 
+    return Promise.reject(error);
+  }
+);
+
+// no extra safety interceptor needed; cookie auth is handled server-side
+api.interceptors.response.use(
+  response => response,
+  (error) => {
+    // propagate all errors through the main response interceptor
     return Promise.reject(error);
   }
 );
@@ -187,10 +198,21 @@ export const walletAPI = {
     }
     return resp;
   },
+  getWallet: async () => {
+    const resp = await api.get('/wallet');
+    if (resp?.data?.wallet?.balance !== undefined) {
+      const parsed = Number(resp.data.wallet.balance);
+      resp.data.wallet.balance = Number.isNaN(parsed) ? resp.data.wallet.balance : parsed;
+      resp.data.balance = resp.data.wallet.balance;
+    }
+    return resp;
+  },
   buyCredits: (data) => api.post('/wallet/buy_credits', data),
   getTransactions: () => api.get('/wallet/transactions'),
   getBankAccount: () => api.get('/wallet/bank-account'),
   saveBankAccount: (data) => api.post('/wallet/bank-account', data),
+  getMyWithdrawals: () => api.get('/wallet/withdrawals'),
+  requestWithdrawal: (data) => api.post('/wallet/withdraw', data),
 };
 
 // Withdrawal APIs
@@ -365,6 +387,22 @@ export const socialAPI = {
   deletePost: (id) => api.delete(`/social/posts/${id}`),
   retryFailed: () => api.post('/social/posts/retry-failed'),
   getStats: () => api.get('/social/stats'),
+};
+
+// Analytics API (platform-wide)
+export const analyticsAPI = {
+  // backend route should provide aggregated platform metrics
+  getPlatformAnalytics: () => api.get('/admin/analytics/platform'),
+};
+
+// Automobiles feature API helpers
+export const automobilesAPI = {
+  getMine: () => api.get('/automobiles/mine'),
+  getStats: () => api.get('/automobiles/stats'),
+  list: (params) => api.get('/automobiles', { params }),
+  create: (data) => api.post('/automobiles', data),
+  updateStatus: (id, status) => api.put(`/automobiles/${id}/status`, { status }),
+  delete: (id) => api.delete(`/automobiles/${id}`),
 };
 
 export default api;

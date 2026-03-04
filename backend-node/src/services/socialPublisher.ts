@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { updatePostStatus } from './socialQueue';
-
-const prisma = new PrismaClient();
 
 interface SocialPost {
   id: number;

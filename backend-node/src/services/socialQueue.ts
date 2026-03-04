@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { generateSocialContent, generateQuickContent } from './socialAI';
-
-const prisma = new PrismaClient();
 
 interface Product {
   id: number;
@@ -38,7 +36,7 @@ export async function enqueueSocialPosts(product: Product, userId?: number, useA
             status: 'pending'
           }
         });
-        console.log(`[SocialQueue] Enqueued ${platform} post for product ${product.id}`);
+        
       }
     }
   } catch (error) {

@@ -53,6 +53,17 @@ Environment
 
 Copy or edit `.env` in the project root; example values are already provided in `.env`.
 
+Additional Digistore settings (used by `/track` route):
+
+```ini
+# product id to use when redirecting clicks for network=digistore24
+DIGISTORE_PRODUCT_ID=YOUR_PRODUCT_ID
+# affiliate id to use in the same redirect URL
+DIGISTORE_AFFILIATE_ID=YOUR_AFFILIATE_ID
+```
+
+These values should **never** be logged to console or exposed in responses; the code checks for their presence and returns a 500 error if missing.
+
 Notes
 
 - This is intentionally minimal for local development. Feel free to ask for additional routes, tests, or CI scripts.

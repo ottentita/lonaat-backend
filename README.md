@@ -101,6 +101,16 @@ ADMIN_EMAIL=admin@lonaat.com
 ADMIN_PASSWORD=secure_password
 FLUTTERWAVE_SECRET=your_flw_secret
 FLUTTERWAVE_PUBLIC=your_flw_public
+# -- Digistore tracking (used by legacy /track endpoint)
+DIGISTORE_PRODUCT_ID=your_product_id_here
+DIGISTORE_AFFILIATE_ID=your_affiliate_id_here
+# secret for click-conversion webhooks
+DIGISTORE_WEBHOOK_SECRET=your_webhook_secret_here
+
+The server exposes a simple conversion webhook at `POST /webhook/digistore` (an alias for `/api/webhooks/digistore`).
+Digistore should send JSON with: `{ subid: <clickId>, amount: <string>, secret: <value> }`.
+If `DIGISTORE_WEBHOOK_SECRET` is set the same value must be included in `secret`.
+This endpoint will mark the click as `converted` and update `revenue`.
 BASE_URL=https://your-domain.com
 ```
 

@@ -1,9 +1,12 @@
 import { Router, Response, Request } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { prisma } from '../prisma';
+import { authMiddleware, AuthRequest, authenticate } from '../middleware/auth';
+import { authorizeRole } from '../middleware/role';
+import { body, validationResult } from 'express-validator';
+import { getWallet } from '../modules/ads/tokenWallet.service';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.get('/products', async (req: Request, res: Response) => {
   try {
@@ -129,7 +132,7 @@ router.get('/categories', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/stats', async (req: Request, res: Response) => {
+router.get('/stats', authenticate, authorizeRole('ADMIN'), async (req: Request, res: Response) => {
   try {
     const [totalProducts, totalNetworks, recentProducts] = await Promise.all([
       prisma.product.count({ where: { is_active: true } }),
@@ -152,4 +155,37 @@ router.get('/stats', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/import-offer', authMiddleware, body('networkOfferId').notEmpty(), async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  try {
+    const { networkOfferId } = req.body as any;
+    let offer;
+    const idNum = Number(networkOfferId);
+    if (!isNaN(idNum) && Number.isInteger(idNum)) {
+      offer = await prisma.offer.findUnique({ where: { id: idNum } });
+    }
+    if (!offer) {
+      offer = await prisma.offer.findFirst({ where: { externalOfferId: String(networkOfferId) } });
+    }
+    if (!offer) return res.status(404).json({ error: 'Network offer not found' });
+
+    // check user eligibility: active subscription OR token wallet with balance
+    const sub = await prisma.subscription.findFirst({ where: { userId: req.user!.id, expiresAt: { gt: new Date() } } });
+    const wallet = await getWallet(req.user!.id);
+    if (!sub && (!wallet || wallet.balance <= 0)) {
+      return res.status(403).json({ error: 'Not eligible to import; requires active subscription or tokens' });
+    }
+
+    const item = await prisma.marketplaceItem.create({ data: { userId: req.user!.id, offerId: offer.id, customTitle: offer.title } });
+
+    res.status(201).json({ marketplaceItem: item });
+  } catch (e) {
+    console.error('Import offer error', e);
+    res.status(500).json({ error: 'Failed to import offer' });
+  }
+});
+
 export default router;
+

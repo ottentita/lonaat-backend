@@ -1,3 +1,6 @@
+import { DuplicateClickError } from '../../errors/DuplicateClickError'
+import { InsufficientTokensError } from '../../errors/InsufficientTokensError'
+
 // prisma is required lazily to avoid creating a client at module load
 async function getPrisma() {
   const { default: prisma } = await import('../../prisma')
@@ -19,13 +22,7 @@ import adCampaignService from './adCampaign.service'
 import billingService, { BillingError } from './billing.service'
 import { DEFAULT_CLICK_COST } from './ads.types'
 
-// custom error type used by upper layers (and tests) to detect a rapid duplicate
-export class DuplicateClickError extends Error {
-  constructor(message?: string) {
-    super(message || 'Rapid duplicate click detected')
-    this.name = 'DuplicateClickError'
-  }
-}
+// custom error types moved to central errors directory; keep import below
 
 // In-memory maps for simple fraud detection (phase 1)
 // key = ip:campaignId -> array of timestamps
@@ -49,7 +46,7 @@ export async function processAdClick(campaignId: number, ip?: string, isAdmin = 
     if (campaign.offerId) {
       clickOfferId = campaign.offerId
     } else {
-      const dummy = await tx.offer.create({ data: { title: 'autogen', url: '', network: '', isActive: true } })
+      const dummy = await tx.offer.create({ data: { title: 'autogen', name: 'autogen', slug: `autogen-${Date.now()}`, url: '', network: '', isActive: true } })
       clickOfferId = dummy.id
     }
 
@@ -83,7 +80,7 @@ export async function processAdClick(campaignId: number, ip?: string, isAdmin = 
       const wallet = await tx.adTokenWallet.findUnique({ where: { userId: campaign.userId } })
       if (!wallet || wallet.balance <= 0) {
         // don't change campaign status here, just fail
-        throw new Error('Insufficient tokens')
+        throw new InsufficientTokensError()
       }
     }
 

@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { verifyLandRegistration, calculatePolygonCenter, calculatePolygonArea, saveGeometry } from '../services/gpsVerification';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 interface GPSPoint {
   lat: number;

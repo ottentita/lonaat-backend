@@ -3,9 +3,9 @@ import { PrismaClient } from '@prisma/client';
 import { body, validationResult } from 'express-validator';
 import { authMiddleware, AuthRequest, creditCheckMiddleware } from '../middleware/auth';
 import { getUserProductLimit, checkProductCreationAllowed, getSubscriptionPlansForUpgrade } from '../services/productLimits';
+import { prisma } from '../prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 router.get('/affiliate', async (req: Request, res: Response) => {
   try {
@@ -98,9 +98,12 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
         pages: Math.ceil(total / limit)
       }
     });
-  } catch (error) {
-    console.error('Products error:', error);
-    res.status(500).json({ error: 'Failed to get products' });
+  } catch (error: any) {
+    console.error('GET PRODUCTS ERROR:', error);
+    res.status(500).json({
+      error: 'Failed to get products',
+      details: error?.message || error
+    });
   }
 });
 
@@ -134,8 +137,12 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     res.json({ product });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get product' });
+  } catch (error: any) {
+    console.error('GET PRODUCT BY ID ERROR:', error);
+    res.status(500).json({
+      error: 'Failed to get product',
+      details: error?.message || error
+    });
   }
 });
 
@@ -160,7 +167,24 @@ router.post('/', [
       });
     }
 
-    const { name, description, price, affiliate_link, network, category, image_url } = req.body;
+    const { name, description, price, affiliate_link, network, category, image_url, type } = req.body;
+
+    if (type === 'marketplace') {
+      // delegate to marketplace engine which will deduct listing fee atomically
+      const { createMarketplaceProduct } = await import('../services/marketplaceEngine')
+      const product = await createMarketplaceProduct(req.user!.id, {
+        name,
+        description,
+        price: price !== undefined ? Number(price) : null,
+        affiliate_link: affiliate_link || `https://lonaat.com/product/${Date.now()}`,
+        network: network || 'internal',
+        category,
+        image_url,
+        is_active: true
+      })
+
+      return res.status(201).json({ message: 'Marketplace product created', product, limit_info: limitCheck.limit_info })
+    }
 
     const product = await prisma.product.create({
       data: {
@@ -181,9 +205,12 @@ router.post('/', [
       product,
       limit_info: limitCheck.limit_info
     });
-  } catch (error) {
-    console.error('Create product error:', error);
-    res.status(500).json({ error: 'Failed to create product' });
+  } catch (error: any) {
+    console.error('CREATE PRODUCT ERROR:', error);
+    res.status(500).json({
+      error: 'Failed to create product',
+      details: error?.message || error
+    });
   }
 });
 
@@ -217,8 +244,12 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     });
 
     res.json({ message: 'Product updated', product: updated });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update product' });
+  } catch (error: any) {
+    console.error('UPDATE PRODUCT ERROR:', error);
+    res.status(500).json({
+      error: 'Failed to update product',
+      details: error?.message || error
+    });
   }
 });
 
@@ -241,8 +272,12 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
     });
 
     res.json({ message: 'Product deleted' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to delete product' });
+  } catch (error: any) {
+    console.error('DELETE PRODUCT ERROR:', error);
+    res.status(500).json({
+      error: 'Failed to delete product',
+      details: error?.message || error
+    });
   }
 });
 

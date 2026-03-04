@@ -21,12 +21,14 @@ router.get('/', async (req, res) => {
 // Create offer (basic)
 router.post('/', async (req, res) => {
   try {
-    const { title, description, url, payout, network, externalOfferId, networkName, trackingUrl, isActive } = req.body
+    const { title, name, description, url, payout, network, externalOfferId, networkName, trackingUrl, isActive, slug } = req.body
     if (!title || !url) return res.status(400).json({ error: 'title and url required' })
 
     const offer = await prisma.offer.create({
       data: {
         title,
+        name,
+        slug,
         description,
         url,
         payout,
@@ -56,6 +58,8 @@ router.post('/import', async (req, res) => {
     for (const it of items) {
       const {
         externalOfferId,
+        slug,
+        name,
         title,
         description,
         url,
@@ -71,6 +75,8 @@ router.post('/import', async (req, res) => {
           where: { externalOfferId },
           create: {
             externalOfferId,
+            slug,
+            name,
             title,
             description,
             url,
@@ -81,6 +87,8 @@ router.post('/import', async (req, res) => {
             isActive: isActive ?? true,
           },
           update: {
+            slug,
+            name,
             title,
             description,
             url,

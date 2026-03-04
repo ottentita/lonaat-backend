@@ -1,13 +1,13 @@
 import { Router, Response } from "express";
 import Multer from "multer";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest } from "../middleware/auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 const LISTING_FEES = {
   house: { sale: 50000, rent: 25000 },

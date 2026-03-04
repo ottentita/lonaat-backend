@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import { authMiddleware, AuthRequest, adminOnlyMiddleware } from '../middleware/auth';
 import { logAudit, getClientIp } from '../services/audit';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -34,7 +34,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     });
 
     if (!commissions || commissions.length === 0) {
-      return res.json([])
+      return res.json({ commissions: [], stats: { total_count: 0, total_amount: 0, approved_amount: 0 }, pagination: { page, limit, total: 0, pages: 0 } })
     }
 
     const total = await prisma.commission.count({ where });
@@ -54,7 +54,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     });
 
     res.json({
-      commissions,
+      commissions: commissions || [],
       stats: {
         total_count: stats._count,
         total_amount: stats._sum.amount ? Number(stats._sum.amount) : 0,
@@ -64,7 +64,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Commissions error:', error);
-    return res.status(500).json({ error: (error as any).message || 'Failed to fetch commissions' });
+    return res.json({ commissions: [], stats: { total_count: 0, total_amount: 0, approved_amount: 0 }, pagination: { page: 1, limit: 20, total: 0, pages: 0 }, error: (error as any).message || 'Failed to fetch commissions' });
   }
 });
 

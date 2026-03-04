@@ -6,6 +6,32 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Running Prisma deterministic seed...');
 
+  // Seed token packs
+  const tokenPacks = [
+    { name: 'Starter', tokenAmount: 1000, priceUSD: 5 },
+    { name: 'Growth', tokenAmount: 5000, priceUSD: 20 },
+    { name: 'Pro', tokenAmount: 15000, priceUSD: 50 },
+  ];
+
+  for (const p of tokenPacks) {
+    await prisma.tokenPack.deleteMany({ where: { name: p.name } as any });
+    await prisma.tokenPack.create({ data: { name: p.name, tokenAmount: p.tokenAmount, priceUSD: p.priceUSD } as any });
+    console.log('Seeded token pack', p.name);
+  }
+
+  // Seed default subscription plans by clearing existing and recreating
+  try {
+    await prisma.plan.deleteMany({});
+    await prisma.plan.create({
+      data: { name: 'Basic', price: 0, monthlyTokens: 0 }
+    });
+    await prisma.plan.create({
+      data: { name: 'Pro', price: 29, monthlyTokens: 0 }
+    });
+  } catch (e: any) {
+    console.warn('Skipping plan reset due to existing references:', e && e.message ? e.message : e)
+  }
+
   // 1) Users: 1 admin + 4 affiliates
   const usersSpec = [
     { name: 'Admin User', email: 'admin@lonaat.com', password: 'Admin123!', role: 'ADMIN', is_admin: true, balance: '0' },
@@ -19,9 +45,8 @@ async function main() {
 
   for (const [i, u] of usersSpec.entries()) {
     const passwordHash = await bcrypt.hash(u.password, 10);
-    const referral_code = `SEED${i + 1}`;
 
-    const existing = await prisma.user.findUnique({ where: { email: u.email } });
+    const existing = await prisma.user.findUnique({ where: { email: u.email } as any });
     if (existing) {
       createdUsers.push(existing);
       console.log(`⚠️  User ${u.email} exists - reusing`);
@@ -45,9 +70,6 @@ async function main() {
 
   // Map affiliates (exclude admin)
   const affiliates = createdUsers.filter((x) => x.role !== 'ADMIN');
-  if (affiliates.length < 4) {
-    console.warn('⚠️  Less than 4 affiliates created — stopping further seed steps.');
-  }
 
   // 2) Offers: 10 offers
   const offers: any[] = [];
@@ -55,7 +77,7 @@ async function main() {
     const externalOfferId = `seed_offer_${i}`;
     const seller = affiliates[(i - 1) % Math.max(affiliates.length, 1)];
 
-    const existing = await prisma.offer.findUnique({ where: { externalOfferId } as any });
+    const existing = await prisma.offer.findFirst({ where: { externalOfferId } as any });
     if (existing) {
       offers.push(existing);
       continue;
@@ -64,10 +86,13 @@ async function main() {
     const offer = await prisma.offer.create({
       data: {
         title: `Offer ${i}`,
+        name: `Offer ${i}`,
+        slug: `offer-${i}`,
         description: `Deterministic seeded offer ${i}`,
         url: `https://offers.example.com/${i}`,
         network: 'seed-net',
         externalOfferId,
+        trackingUrl: `https://track.example.com/${i}`,
         isActive: true,
         payout: `${5 + i}`,
         sellerId: seller ? seller.id : undefined,
@@ -86,15 +111,19 @@ async function main() {
     const clickId = `seed_click_${i + 1}`;
     const clickToken = `seed_token_${i + 1}`;
 
-    const existing = await prisma.click.findUnique({ where: { clickId } as any });
+    const existing = await prisma.click.findFirst({ where: { clickId } as any });
     if (existing) {
       clicks.push(existing);
       continue;
     }
 
+    const timeBucket = Math.floor(Date.now() / 5000);
     const click = await prisma.click.create({
       data: {
         offerId: offer.id,
+        adId: offer.id,
+        userId: user ? user.id : i,
+        timeBucket: timeBucket + i,
         clickId,
         clickToken,
         ip: `192.0.2.${(i % 250) + 1}`,
@@ -168,7 +197,7 @@ async function main() {
     const user = affiliates[i % affiliates.length];
     const transactionId = `seed_payout_${i + 1}`;
 
-    const existing = await prisma.payment.findUnique({ where: { transactionId } as any });
+    const existing = await prisma.payment.findFirst({ where: { transactionId } as any });
     if (existing) {
       console.log(`⚠️  Payout ${transactionId} exists - skipping`);
       continue;

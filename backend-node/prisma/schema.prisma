@@ -7,61 +7,133 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Schema copied from schema.prisma but uses sqlite datasource for tests
+
 model User {
-  id                   Int                  @id @default(autoincrement())
-  name                 String?
-  email                String               @unique
-  password             String
-  role                 String               @default("user")
-  isActive             Boolean              @default(true)
-  balance              Decimal              @default(0)
-  withdrawable_balance Decimal              @default(0) @map("withdrawable_balance")
-  pending_earnings     Decimal              @default(0) @map("pending_earnings")
-  country              String?
-  phone                String?
-  paymentMethod        String?
-  paymentAccount       String?
-  preferredLanguage    String?              @default("en")
-  profilePicture       String?
-  createdAt            DateTime             @default(now())
-  clicks               Click[]
-  commission           Commission[]
-  credit_wallet        CreditWallet?
-  offers               Offer[]
-  payments             Payment[]
-  products             Product[]
-  tokenTransactions    TokenTransaction[]
-  adCampaigns          AdCampaign[]
-  // transactions ledger entries for this user
-  transactionLedgers   TransactionLedger[]
-  real_estate_property RealEstateProperty[]
-  Subscription         Subscription[]
-  AdTokenWallet        AdTokenWallet?
+  id                     Int                     @id @default(autoincrement())
+  name                   String?
+  email                  String                  @unique
+  password               String
+  role                   String                  @default("user")
+  isActive               Boolean                 @default(true)
+  balance                Decimal                 @default(0)
+  withdrawable_balance   Decimal                 @default(0) @map("withdrawable_balance")
+  pending_earnings       Decimal                 @default(0) @map("pending_earnings")
+  country                String?
+  phone                  String?
+  paymentMethod          String?
+  paymentAccount         String?
+  preferredLanguage      String?                 @default("en")
+  profilePicture         String?
+  createdAt              DateTime                @default(now())
+  clicks                 Click[]
+  commission             Commission[]
+  credit_wallet          CreditWallet?
+  offers                 Offer[]
+  payments               Payment[]
+  products               Product[]
+  real_estate_property   RealEstateProperty[]
+  // Advertising relations
+  subscriptions          Subscription[]
+  adTokenWallet          AdTokenWallet?
+  tokenTransactions      TokenTransaction[]
+  adCampaigns            AdCampaign[]
+  transactionLedgers     TransactionLedger[]
+  userNetworkCredentials UserNetworkCredential[]
+  marketplaceItems       MarketplaceItem[]
+  contentDrafts          ContentDraft[]
+  plan                   String                  @default("free")
+  tokens                 Int                     @default(10)
+  aiUsage                AiUsage[]
+  tokenPurchases         TokenPurchase[]
+  affiliateEvents        AffiliateEvent[]
+  tokenAccount           TokenAccount?
+
+  // tokenBalance and plan relation for token system
+  tokenBalance Int   @default(0)
+  trialEndsAt DateTime?
+  subscriptionEndsAt DateTime?
+  planId       Int?
+  planRef      Plan? @relation(fields: [planId], references: [id])
+
+  // password reset fields
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
 
   @@map("users")
 }
 
+model AiUsage {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  tokensUsed Int
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ai_usage")
+}
+
+model TokenPurchase {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Int
+  chargeId  String?  @unique
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("token_purchases")
+}
+
+model ContentDraft {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  offerId   Int
+  hooks     String?
+  script    String?
+  caption   String?
+  hashtags  String?
+  status    String   @default("generated")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([offerId])
+  @@map("content_drafts")
+}
+
 model Offer {
-  id              Int          @id @default(autoincrement())
-  title           String
-  description     String?
-  url             String
-  network         String?
-  externalOfferId String?      @unique
-  networkName     String?
-  trackingUrl     String?
-  isActive        Boolean      @default(true)
-  sellerId        Int?
-  payout          Decimal?
-  categoryId      Int?
-  images          String?
-  location        String?
-  status          String       @default("active")
-  createdAt       DateTime     @default(now())
-  clicks          Click[]
-  conversions     Conversion[]
-  category        Category?    @relation(fields: [categoryId], references: [id])
-  seller          User?        @relation(fields: [sellerId], references: [id])
+  // unique identifier and look‑ups by slug
+  id    Int    @id @default(autoincrement())
+  name  String
+  title String // legacy column, new code can prefer `name`
+  slug  String @unique
+
+  description        String?
+  url                String
+  network            String?
+  externalOfferId    String?           @unique
+  networkName        String?
+  trackingUrl        String?
+  isActive           Boolean           @default(true)
+  sellerId           Int?
+  payout             Decimal?
+  categoryId         Int?
+  images             String?
+  location           String?
+  status             String            @default("active")
+  createdAt          DateTime          @default(now())
+  clicks             Click[]
+  conversions        Conversion[]
+  category           Category?         @relation(fields: [categoryId], references: [id])
+  seller             User?             @relation(fields: [sellerId], references: [id])
+  affiliateNetworkId Int?
+  affiliateNetwork   AffiliateNetwork? @relation(fields: [affiliateNetworkId], references: [id])
+  marketplaceItems   MarketplaceItem[]
 
   @@map("offers")
 }
@@ -122,36 +194,57 @@ model CreditPackage {
   @@map("credit_packages")
 }
 
-model Click {
-  id         Int         @id @default(autoincrement())
-  offerId    Int
-  adId       Int        // new field for ad/campaign identifier
-  userId     Int        // new field representing the clicking user (0 for anonymous)
-  timeBucket Int        // bucketed time slot used for duplicate detection
-  clickId    String      @unique
-  clickToken String      @unique
-  ip         String?
-  userAgent  String?
-  user_id    Int?
-  createdAt  DateTime    @default(now())
-  offer      Offer       @relation(fields: [offerId], references: [id])
-  users      User?       @relation(fields: [user_id], references: [id])
-  Commission Commission?
+model TokenPack {
+  id          String   @id @default(uuid())
+  name        String
+  tokenAmount Int
+  priceUSD    Float
+  createdAt   DateTime @default(now())
 
-  @@index([offerId])
+  @@map("token_packs")
+}
+
+model Click {
+  id            Int          @id @default(autoincrement())
+  network       String? // tracking route will supply network name
+  offerId       Int
+  adId          Int
+  userId        Int
+  timeBucket    Int
+  clickId       String       @unique
+  clickToken    String       @unique
+  ip            String?
+  ipAddress     String? // new field used by `/track` endpoint
+  userAgent     String?
+  externalSubId String? // stores user-supplied subid from query (not forwarded to networks)
+  revenue       Float        @default(0)
+  converted     Boolean      @default(false)
+  user_id       Int?
+  createdAt     DateTime     @default(now())
+  offer         Offer        @relation(fields: [offerId], references: [id])
+  users         User?        @relation(fields: [user_id], references: [id])
+  Commission    Commission?
+  conversions   Conversion[] // related conversions via clickToken
+
   @@unique([userId, adId, timeBucket])
+  @@index([offerId])
   @@map("clicks")
 }
 
 model Conversion {
-  id        Int      @id @default(autoincrement())
-  offerId   Int
-  clickId   String?
-  amount    Decimal  @default(0)
-  status    String   @default("pending")
-  createdAt DateTime @default(now())
-  offer     Offer    @relation(fields: [offerId], references: [id])
+  id         Int      @id @default(autoincrement())
+  offerId    Int
+  clickId    String?
+  clickToken String? // token from click table, used for reliable match
+  revenue    Int? // integer revenue amount reported by tracker
+  amount     Decimal  @default(0)
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
 
+  offer Offer  @relation(fields: [offerId], references: [id])
+  click Click? @relation(fields: [clickToken], references: [clickToken])
+
+  @@unique([clickToken])
   @@index([offerId])
   @@map("conversions")
 }
@@ -164,10 +257,20 @@ model Payment {
   status        String   @default("pending")
   provider      String   @default("skrill")
   transactionId String   @unique
+  txHash        String?
   createdAt     DateTime @default(now())
   user          User?    @relation(fields: [userId], references: [id])
 
   @@map("payments")
+}
+
+model PaymentEvent {
+  id          String   @id @default(uuid())
+  provider    String
+  providerRef String   @unique
+  userId      String
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
 
 model Commission {
@@ -190,6 +293,49 @@ model Commission {
   user             User      @relation(fields: [user_id], references: [id])
 
   @@map("commissions")
+}
+
+model AffiliateEvent {
+  id          Int      @id @default(autoincrement())
+  network     String
+  eventId     String   @unique
+  payloadHash String
+  status      String   @default("processed")
+  userId      Int?
+  amount      Decimal?
+  processedAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("affiliate_events")
+}
+
+model TokenAccount {
+  id              String   @id @default(uuid())
+  userId          Int      @unique
+  balance         Int      @default(0)
+  reservedBalance Int      @default(0)
+  planType        String
+  rolloverCap     Int
+  overdraftLimit  Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id])
+  ledgerEntries TokenLedger[]
+}
+
+model TokenLedger {
+  id          String   @id @default(uuid())
+  userId      Int
+  type        String
+  amount      Int
+  feature     String?
+  referenceId String?
+  status      String
+  createdAt   DateTime @default(now())
+
+  account TokenAccount @relation(fields: [userId], references: [userId])
 }
 
 model RealEstateProperty {
@@ -296,16 +442,15 @@ model LandAuditLog {
   @@map("land_audit_logs")
 }
 
-// Advertising module models
 model Plan {
-  id            Int      @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   name          String
   price         Decimal
   monthlyTokens Int
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
   subscriptions Subscription[]
+  users         User[]
 }
 
 model Subscription {
@@ -335,7 +480,7 @@ model TokenTransaction {
   id        Int      @id @default(autoincrement())
   userId    Int
   amount    Int
-  type      String // credit | debit
+  type      String
   reason    String
   createdAt DateTime @default(now())
 
@@ -345,35 +490,101 @@ model TokenTransaction {
 }
 
 model AdCampaign {
-  id          Int      @id @default(autoincrement())
+  id          Int                 @id @default(autoincrement())
   userId      Int
-  // related ledger entries
   ledgers     TransactionLedger[]
   productId   Int?
   offerId     Int?
   dailyBudget Int
-  status      String   @default("active")
-  totalSpent  Int      @default(0)
-  clicks      Int      @default(0)
-  impressions Int      @default(0)
-  createdAt   DateTime @default(now())
+  status      String              @default("active")
+  totalSpent  Int                 @default(0)
+  clicks      Int                 @default(0)
+  impressions Int                 @default(0)
+  createdAt   DateTime            @default(now())
 
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
+
 model TransactionLedger {
   id         Int      @id @default(autoincrement())
   userId     Int
   campaignId Int?
   amount     Int
-  type       String   // 'credit' | 'debit'
+  type       String
   reason     String?
   createdAt  DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
   adCampaign AdCampaign? @relation(fields: [campaignId], references: [id])
 
   @@index([userId])
   @@index([campaignId])
+}
+
+model PlatformRevenue {
+  id            Int      @id @default(autoincrement())
+  conversionId  Int?
+  offerId       Int?
+  userId        Int?
+  amount        Decimal?
+  platformShare Decimal?
+  userShare     Decimal?
+  createdAt     DateTime @default(now())
+
+  @@map("platform_revenues")
+}
+
+model AffiliateNetwork {
+  id               Int      @id @default(autoincrement())
+  name             String
+  baseApiUrl       String
+  // optional secret used to validate inbound webhooks (HMAC-SHA256)
+  webhookSecret    String?
+  documentationUrl String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  credentials UserNetworkCredential[]
+  offers      Offer[]
+
+  @@map("affiliate_networks")
+}
+
+model UserNetworkCredential {
+  id                 Int      @id @default(autoincrement())
+  userId             Int
+  networkId          Int
+  apiKeyEncrypted    String?
+  apiKeyIv           String?
+  apiKeyTag          String?
+  apiSecretEncrypted String?
+  apiSecretIv        String?
+  apiSecretTag       String?
+  extraConfig        String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  user    User             @relation(fields: [userId], references: [id])
+  network AffiliateNetwork @relation(fields: [networkId], references: [id])
+
+  @@unique([userId, networkId])
+  @@map("user_network_credentials")
+}
+
+model MarketplaceItem {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  offerId         Int?
+  manualProductId Int?
+  customTitle     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id])
+  offer Offer? @relation(fields: [offerId], references: [id])
+
+  @@map("marketplace_items")
 }
