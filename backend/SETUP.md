@@ -20,12 +20,8 @@ Edit `backend/.env` and set the following:
 FLASK_SECRET=your_random_secret_key_here_minimum_32_characters
 JWT_SECRET=your_jwt_secret_key_here_minimum_32_characters
 
-# Database Configuration
-# For SQLite (development):
-# No DATABASE_URL needed - defaults to sqlite:///app.db
-
-# For PostgreSQL (production):
-# DATABASE_URL=postgresql://username:password@host:port/database
+# Database Configuration (Docker PostgreSQL only)
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lonaat
 
 # Flutterwave Payment Gateway
 FLUTTERWAVE_SECRET=your_flutterwave_secret_key
@@ -69,11 +65,11 @@ If deploying on Replit, add these as Secrets (not in .env):
 
 ### 5. Database Setup
 
-The application will automatically:
-- Create SQLite database `app.db` if DATABASE_URL is not set
-- Connect to PostgreSQL if DATABASE_URL is provided
-- Run migrations and create tables on startup
-- Create admin user with credentials from environment
+The application uses the Docker PostgreSQL container exclusively:
+- Ensure the `postgres` service from `docker-compose.yml` is running
+- `DATABASE_URL` must be set to `postgresql://postgres:postgres@postgres:5432/lonaat`
+- On startup the app will run migrations and create tables
+- An admin user is created using credentials from environment
 
 ### 6. Start the Server
 

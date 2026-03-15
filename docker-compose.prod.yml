@@ -85,6 +85,21 @@ services:
       timeout: 5s
       retries: 3
 
+  # Phase9 background worker (Python)
+  phase9-worker:
+    image: python:3.11-slim
+    container_name: lonaat-phase9-worker
+    working_dir: /app
+    volumes:
+      - ./backend:/app:ro
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["python", "workers/phase9_worker.py"]
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

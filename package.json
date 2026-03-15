@@ -3,22 +3,27 @@
   "private": true,
   "scripts": {
     "build": "cd frontend && npm ci && npm run build && cd .. && cd backend-node && npm ci && npm run build",
-    "start": "cd backend-node && npm start"
+    "start": "cd backend-node && npm start",
+    "test": "jest"
   },
   "engines": {
     "node": "20.x"
   },
   "dependencies": {
+    "@prisma/client": "^4.16.2",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "axios": "^1.13.2",
     "fast-xml-parser": "^5.3.3",
+    "firebase": "^12.10.0",
     "leaflet": "^1.9.4",
     "morgan": "^1.10.1",
+    "prisma": "^4.16.2",
     "react-leaflet": "^5.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "jest": "^30.3.0",
     "jsdom": "^28.1.0",
     "vitest": "^4.0.18"
   }

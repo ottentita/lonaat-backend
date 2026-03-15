@@ -1,5 +1,5 @@
-// use SQLite to avoid requiring Postgres when running this check script
-process.env.DATABASE_URL = 'file:./dev.db';
+// use Docker PostgreSQL when running this check script
+process.env.DATABASE_URL = 'postgresql://postgres:postgres@postgres:5432/lonaat';
 
 const request = require('supertest');
 const app = require('../src/index').default;

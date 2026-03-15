@@ -262,6 +262,44 @@ npm run build
 
 ---
 
+## 🛰️ Monitoring Stack (Local)
+
+You can run a local monitoring stack that includes Prometheus, Grafana, Alertmanager, MailHog (SMTP capture), and a simple webhook echo for testing alerts.
+
+1. Copy the example env file and adjust recipients if desired:
+
+```bash
+cp .env.example .env
+# Edit .env to set ALERT_EMAIL and SMTP settings if needed
+```
+
+2. Start the monitoring services (they run on the project's Docker network):
+
+```bash
+docker compose up -d redis backend-api phase9-worker prometheus grafana alertmanager mailhog webhook-receiver
+```
+
+3. Useful UIs:
+- Grafana: http://localhost:3000 (admin/admin)
+- MailHog (captures email sent by Alertmanager): http://localhost:8025
+- Alertmanager UI: http://localhost:9093
+- Webhook echo (for verifying webhook receiver): http://localhost:5001
+
+4. Quick test — send a test alert to Alertmanager:
+
+```bash
+curl -XPOST -H "Content-Type: application/json" \
+	-d '[{"labels":{"alertname":"TestAlert","severity":"critical"},"annotations":{"summary":"test","description":"This is a test"}}]' \
+	http://localhost:9093/api/v1/alerts
+```
+
+5. To test Prometheus-driven alerts, see `monitoring/alertmanager/README_TESTING.md` for DLQ and heartbeat simulation steps.
+
+Notes:
+- The Alertmanager service reads `ALERT_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` from the project's `.env` file. Use `.env.example` as a template.
+- For production, replace MailHog with a real SMTP host and secure credentials.
+
+
 ## 📝 Contributing
 
 Contributions welcome! Please:

@@ -2,6 +2,7 @@ import { Router, Response, Request } from 'express';
 import { prisma } from '../prisma';
 import crypto from 'crypto';
 import { handleAdmitadPostback } from '../services/admitadService';
+import { validateEvent } from '../services/eventStandardization';
 
 const router = Router();
 
@@ -11,66 +12,24 @@ router.post('/digistore24', async (req: Request, res: Response) => {
   try {
     const { event, data } = req.body;
 
-    if (event === 'on_payment' || event === 'on_affiliation_payment') {
-      const {
-        order_id,
-        affiliate_name,
-        affiliate_email,
-        product_id,
-        product_name,
-        commission_value,
-        currency,
-        commission_status
-      } = data;
+    const standardizedEvent = {
+      event_type: event,
+      network: 'Digistore24',
+      product_id: data.product_id,
+      transaction_id: data.order_id,
+      commission: parseFloat(data.commission),
+      currency: data.currency,
+      timestamp: new Date().toISOString(),
+    };
 
-      const user = await prisma.user.findFirst({
-        where: { email: affiliate_email }
-      });
-
-      if (user) {
-        const existing = await prisma.commission.findFirst({
-          where: { external_ref: order_id, network: 'digistore24' }
-        });
-
-        const isPaid = commission_status === 'approved' || event === 'on_affiliation_payment';
-        const commissionAmount = Number(commission_value) || 0;
-
-        if (existing) {
-          if (!existing.paid_at && isPaid) {
-            await prisma.commission.update({
-              where: { id: existing.id },
-              data: { 
-                status: 'paid_by_network', 
-                paid_at: new Date()
-              }
-            });
-            
-          }
-        } else {
-          await prisma.commission.create({
-            data: {
-              user_id: user.id,
-              network: 'digistore24',
-              amount: commissionAmount,
-              status: isPaid ? 'paid_by_network' : 'pending',
-              external_ref: order_id,
-              paid_at: isPaid ? new Date() : null,
-              webhook_data: JSON.stringify({
-                product_id,
-                product_name,
-                currency,
-                order_id,
-                payout_method: 'AFFILIATE_NETWORK',
-                raw: data
-              })
-            }
-          });
-          
-        }
-
-        
-      }
+    const validation = validateEvent(standardizedEvent);
+    if (!validation.valid) {
+      console.error('Validation errors:', validation.errors);
+      return res.status(400).json({ error: 'Invalid event payload', details: validation.errors });
     }
+
+    // Process the standardized event (e.g., forward to event_ingestion_service)
+    console.log('Standardized Event:', standardizedEvent);
 
     res.json({ status: 'ok' });
   } catch (error) {

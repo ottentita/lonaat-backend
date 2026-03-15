@@ -3,6 +3,7 @@ import prisma from '../prisma'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import { validateEvent } from '../services/eventStandardization';
 
 const router = express.Router()
 
@@ -100,6 +101,22 @@ router.post('/', async (req, res) => {
       await processConversionSplit(conv.id)
     } catch (e) {
       console.error('Commission split error (non-fatal):', e)
+    }
+
+    const standardizedEvent = {
+      event_type: 'conversion',
+      network: network,
+      product_id: params.product_id,
+      transaction_id: params.transaction_id,
+      commission: parseFloat(params.amount),
+      currency: params.currency,
+      timestamp: new Date().toISOString(),
+    };
+
+    const validation = validateEvent(standardizedEvent);
+    if (!validation.valid) {
+      console.error('Validation errors:', validation.errors);
+      return res.status(400).json({ error: 'Invalid event payload', details: validation.errors });
     }
 
     const responses = loadResponses()

@@ -1,3 +1,371 @@
+from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
+api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+# --- Autonomous Orchestrator Endpoints ---
+@api_bp.route('/orchestrator/start', methods=['POST'])
+@jwt_required()
+def orchestrator_start():
+    from growth.autonomous_campaign_controller import _campaign_controller
+    return jsonify(_campaign_controller.start_orchestration())
+
+@api_bp.route('/orchestrator/stop', methods=['POST'])
+@jwt_required()
+def orchestrator_stop():
+    from growth.autonomous_campaign_controller import _campaign_controller
+    return jsonify(_campaign_controller.stop_orchestration())
+
+@api_bp.route('/orchestrator/status', methods=['GET'])
+@jwt_required()
+def orchestrator_status():
+    from growth.autonomous_campaign_controller import _campaign_controller
+    return jsonify(_campaign_controller.orchestrator_status())
+
+@api_bp.route('/orchestrator/run-cycle', methods=['POST'])
+@jwt_required()
+def orchestrator_run_cycle():
+    from growth.autonomous_campaign_controller import _campaign_controller
+    return jsonify(_campaign_controller.run_cycle())
+
+@api_bp.route('/orchestrator/health', methods=['GET'])
+@jwt_required()
+def orchestrator_health():
+    from growth.autonomous_campaign_controller import _campaign_controller
+    return jsonify(_campaign_controller.orchestrator_health())
+# --- Predictive Optimization Engine Endpoints ---
+from ai.campaign_optimization.optimization_strategy_engine import OptimizationStrategyEngine
+from ai.campaign_optimization.performance_metrics_engine import PerformanceMetricsEngine
+from ai.campaign_optimization.experiment_manager import ExperimentManager
+from ai.campaign_optimization.campaign_analyzer import CampaignAnalyzer
+
+_optimization_engine = OptimizationStrategyEngine()
+_metrics_engine = PerformanceMetricsEngine()
+_experiment_manager = ExperimentManager()
+_campaign_analyzer = CampaignAnalyzer()
+
+@api_bp.route('/optimization/analyze', methods=['POST'])
+@jwt_required()
+def optimization_analyze():
+    data = request.get_json()
+    result = _campaign_analyzer.analyze(data)
+    return jsonify(result)
+
+@api_bp.route('/optimization/predict', methods=['POST'])
+@jwt_required()
+def optimization_predict():
+    data = request.get_json()
+    result = _metrics_engine.predict_performance(data)
+    return jsonify(result)
+
+@api_bp.route('/optimization/recommend', methods=['POST'])
+@jwt_required()
+def optimization_recommend():
+    data = request.get_json()
+    insights = data.get('insights', {})
+    metrics = data.get('metrics', {})
+    result = _optimization_engine.recommend(insights, metrics)
+    return jsonify(result)
+
+@api_bp.route('/optimization/experiments', methods=['POST'])
+@jwt_required()
+def optimization_experiments():
+    data = request.get_json()
+    variants = data.get('variants', [])
+    result = _experiment_manager.run_experiment(variants)
+    return jsonify(result)
+
+@api_bp.route('/optimization/performance', methods=['POST'])
+@jwt_required()
+def optimization_performance():
+    data = request.get_json()
+    result = _metrics_engine.compute_metrics(data)
+    return jsonify(result)
+# --- Campaign Automation Manager Endpoints ---
+from growth.autonomous_campaign_controller import AutonomousCampaignController
+from growth.budget_allocator import BudgetAllocator
+from growth.creative_testing_manager import CreativeTestingManager
+from growth.traffic_strategy_engine import TrafficStrategyEngine
+
+_budget_allocator = BudgetAllocator()
+_creative_testing_manager = CreativeTestingManager()
+_traffic_strategy_engine = TrafficStrategyEngine()
+_campaign_controller = AutonomousCampaignController(
+    launcher=None,  # Not used in REST API, handled by create/launch
+    allocator=_budget_allocator,
+    strategy_engine=_traffic_strategy_engine,
+    creative_manager=_creative_testing_manager
+)
+
+@api_bp.route('/campaign/create', methods=['POST'])
+@jwt_required()
+def campaign_create():
+    data = request.get_json()
+    campaign = _campaign_controller.create_campaign(data)
+    return jsonify(campaign)
+
+@api_bp.route('/campaign/launch', methods=['POST'])
+@jwt_required()
+def campaign_launch():
+    data = request.get_json()
+    campaign_id = data.get('campaign_id')
+    result = _campaign_controller.launch_campaign(campaign_id)
+    return jsonify(result)
+
+@api_bp.route('/campaign/optimize', methods=['POST'])
+@jwt_required()
+def campaign_optimize():
+    data = request.get_json()
+    campaign_id = data.get('campaign_id')
+    result = _campaign_controller.optimize_campaign(campaign_id)
+    return jsonify(result)
+
+@api_bp.route('/campaign/pause', methods=['POST'])
+@jwt_required()
+def campaign_pause():
+    data = request.get_json()
+    campaign_id = data.get('campaign_id')
+    result = _campaign_controller.pause_campaign(campaign_id)
+    return jsonify(result)
+
+@api_bp.route('/campaign/performance', methods=['GET'])
+@jwt_required()
+def campaign_performance():
+    campaign_id = request.args.get('campaign_id')
+    result = _campaign_controller.get_performance(campaign_id)
+    return jsonify(result)
+# --- Creative Generation Endpoints ---
+from ai.content_generation.content_generator import ContentGenerator
+from ai.content_generation.campaign_copy_engine import CampaignCopyEngine
+from ai.content_generation.video_script_generator import VideoScriptGenerator
+from ai.content_generation.prompt_builder import PromptBuilder
+
+# Dummy model interface for demonstration (replace with real model in production)
+class DummyModelInterface:
+    def predict(self, model_name, prompt):
+        return {"model": model_name, "prompt": prompt, "output": f"Generated content for: {prompt}"}
+
+_model_interface = DummyModelInterface()
+_content_generator = ContentGenerator(_model_interface)
+_campaign_copy_engine = CampaignCopyEngine(_content_generator)
+_video_script_generator = VideoScriptGenerator(_content_generator)
+_prompt_builder = PromptBuilder()
+
+@api_bp.route('/creative/generate', methods=['POST'])
+@jwt_required()
+def creative_generate():
+    data = request.get_json()
+    prompt = data.get('prompt')
+    return jsonify(_content_generator.generate(prompt))
+
+@api_bp.route('/creative/variants', methods=['POST'])
+@jwt_required()
+def creative_generate_variants():
+    data = request.get_json()
+    prompt = data.get('prompt')
+    n = int(data.get('n', 3))
+    return jsonify({"variants": _content_generator.generate_variants(prompt, n)})
+
+@api_bp.route('/creative/score', methods=['POST'])
+@jwt_required()
+def creative_score():
+    data = request.get_json()
+    creative = data.get('creative')
+    context = data.get('context')
+    return jsonify(_content_generator.score_creative(creative, context))
+
+@api_bp.route('/creative/copy', methods=['POST'])
+@jwt_required()
+def creative_generate_copy():
+    data = request.get_json()
+    context = data.get('context')
+    return jsonify(_campaign_copy_engine.generate_copy(context))
+
+@api_bp.route('/creative/headlines', methods=['POST'])
+@jwt_required()
+def creative_generate_headlines():
+    data = request.get_json()
+    context = data.get('context')
+    n = int(data.get('n', 3))
+    return jsonify({"headlines": _campaign_copy_engine.generate_headlines(context, n)})
+
+@api_bp.route('/creative/hooks', methods=['POST'])
+@jwt_required()
+def creative_generate_hooks():
+    data = request.get_json()
+    context = data.get('context')
+    n = int(data.get('n', 3))
+    return jsonify({"hooks": _campaign_copy_engine.generate_hooks(context, n)})
+
+@api_bp.route('/creative/descriptions', methods=['POST'])
+@jwt_required()
+def creative_generate_descriptions():
+    data = request.get_json()
+    context = data.get('context')
+    n = int(data.get('n', 3))
+    return jsonify({"descriptions": _campaign_copy_engine.generate_descriptions(context, n)})
+
+@api_bp.route('/creative/video_script', methods=['POST'])
+@jwt_required()
+def creative_generate_video_script():
+    data = request.get_json()
+    context = data.get('context')
+    return jsonify(_video_script_generator.generate_script(context))
+
+@api_bp.route('/creative/video_script_variants', methods=['POST'])
+@jwt_required()
+def creative_generate_video_script_variants():
+    data = request.get_json()
+    context = data.get('context')
+    n = int(data.get('n', 3))
+    return jsonify({"variants": _video_script_generator.generate_script_variants(context, n)})
+
+@api_bp.route('/creative/prompt', methods=['POST'])
+@jwt_required()
+def creative_build_prompt():
+    data = request.get_json()
+    context = data.get('context')
+    format_type = data.get('format_type', 'general')
+    optimize = bool(data.get('optimize', False))
+    return jsonify({"prompt": _prompt_builder.build_prompt(context, format_type, optimize)})
+
+@api_bp.route('/creative/prompt_optimize', methods=['POST'])
+@jwt_required()
+def creative_optimize_prompt():
+    data = request.get_json()
+    prompt = data.get('prompt')
+    return jsonify({"optimized_prompt": _prompt_builder.optimize_prompt(prompt)})
+# --- Ad Platform Integrations Endpoints ---
+from integrations import impact_connector, admitad_connector, mylead_connector, aliexpress_connector
+
+@api_bp.route('/integrations/impact/report', methods=['GET'])
+@jwt_required()
+def get_impact_report():
+    return jsonify(impact_connector.get_report())
+
+@api_bp.route('/integrations/impact/sync', methods=['POST'])
+@jwt_required()
+def sync_impact_campaigns():
+    return jsonify(impact_connector.sync_campaigns())
+
+@api_bp.route('/integrations/impact/ingest', methods=['POST'])
+@jwt_required()
+def ingest_impact_campaign():
+    campaign = request.get_json()
+    return jsonify(impact_connector.ingest_campaign(campaign))
+
+@api_bp.route('/integrations/admitad/report', methods=['GET'])
+@jwt_required()
+def get_admitad_report():
+    return jsonify(admitad_connector.get_report())
+
+@api_bp.route('/integrations/admitad/sync', methods=['POST'])
+@jwt_required()
+def sync_admitad_campaigns():
+    return jsonify(admitad_connector.sync_campaigns())
+
+@api_bp.route('/integrations/admitad/ingest', methods=['POST'])
+@jwt_required()
+def ingest_admitad_campaign():
+    campaign = request.get_json()
+    return jsonify(admitad_connector.ingest_campaign(campaign))
+
+@api_bp.route('/integrations/mylead/report', methods=['GET'])
+@jwt_required()
+def get_mylead_report():
+    return jsonify(mylead_connector.get_report())
+
+@api_bp.route('/integrations/mylead/sync', methods=['POST'])
+@jwt_required()
+def sync_mylead_campaigns():
+    return jsonify(mylead_connector.sync_campaigns())
+
+@api_bp.route('/integrations/mylead/ingest', methods=['POST'])
+@jwt_required()
+def ingest_mylead_campaign():
+    campaign = request.get_json()
+    return jsonify(mylead_connector.ingest_campaign(campaign))
+
+@api_bp.route('/integrations/aliexpress/report', methods=['GET'])
+@jwt_required()
+def get_aliexpress_report():
+    return jsonify(aliexpress_connector.get_report())
+
+@api_bp.route('/integrations/aliexpress/sync', methods=['POST'])
+@jwt_required()
+def sync_aliexpress_campaigns():
+    return jsonify(aliexpress_connector.sync_campaigns())
+
+@api_bp.route('/integrations/aliexpress/ingest', methods=['POST'])
+@jwt_required()
+def ingest_aliexpress_campaign():
+    campaign = request.get_json()
+    return jsonify(aliexpress_connector.ingest_campaign(campaign))
+from intelligence.performance_learning_engine import PerformanceLearningEngine
+from intelligence.traffic_source_analyzer import TrafficSourceAnalyzer
+from intelligence.conversion_tracker import ConversionTracker
+from intelligence.revenue_attribution_engine import RevenueAttributionEngine
+from intelligence.conversion_event_router import ConversionEventRouter
+
+# Singleton instances for in-memory analytics (for demonstration; replace with persistent storage in production)
+_conversion_tracker = ConversionTracker()
+_traffic_analyzer = TrafficSourceAnalyzer()
+_revenue_attributor = RevenueAttributionEngine()
+_learning_engine = PerformanceLearningEngine()
+_event_router = ConversionEventRouter(_conversion_tracker, _traffic_analyzer, _revenue_attributor, _learning_engine)
+
+# --- Product Intelligence Engine Endpoints ---
+@api_bp.route('/intelligence/summary', methods=['GET'])
+@jwt_required()
+def get_intelligence_summary():
+    """Get a summary report of product intelligence analytics."""
+    limit = int(request.args.get('limit', 100))
+    report = _event_router.get_full_report(limit=limit)
+    return jsonify(report)
+
+@api_bp.route('/intelligence/conversions', methods=['GET'])
+@jwt_required()
+def get_conversion_events():
+    limit = int(request.args.get('limit', 100))
+    return jsonify({
+        "conversions": _conversion_tracker.get_all(limit),
+        "stats": _conversion_tracker.get_conversion_stats()
+    })
+
+@api_bp.route('/intelligence/traffic_sources', methods=['GET'])
+@jwt_required()
+def get_traffic_sources():
+    limit = int(request.args.get('limit', 100))
+    return jsonify({
+        "traffic_sources": _traffic_analyzer.get_recent_analyses(limit),
+        "stats": _traffic_analyzer.get_source_stats()
+    })
+
+@api_bp.route('/intelligence/revenue_attributions', methods=['GET'])
+@jwt_required()
+def get_revenue_attributions():
+    limit = int(request.args.get('limit', 100))
+    return jsonify({
+        "revenue_attributions": _revenue_attributor.get_recent_attributions(limit),
+        "summary": _revenue_attributor.get_attribution_summary()
+    })
+
+@api_bp.route('/intelligence/learning', methods=['GET'])
+@jwt_required()
+def get_learning_data():
+    limit = int(request.args.get('limit', 100))
+    return jsonify({
+        "learning_data": _learning_engine.get_learning_data(limit),
+        "summary": _learning_engine.get_learning_summary()
+    })
+
+@api_bp.route('/intelligence/ingest_event', methods=['POST'])
+@jwt_required()
+def ingest_intelligence_event():
+    """Ingest a new event for intelligence analytics (for testing/demo)."""
+    event = request.get_json()
+    result = _event_router.route(event)
+    return jsonify(result)
 """
 API routes for user profile and admin dashboard
 """

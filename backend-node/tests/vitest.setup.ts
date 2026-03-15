@@ -1,23 +1,15 @@
-import { vi, beforeAll, afterAll } from 'vitest'
+const { PrismaClient } = require('@prisma/client')
 
-// Load test env
-require('dotenv').config({ path: '.env.test' })
+let prismaClient
 
-// Ensure Prisma test client is connected and available as a singleton on globalThis
-// Use dynamic import inside beforeAll to avoid resolution issues when vitest changes cwd
-beforeAll(async () => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const path = require('path')
-    const prismaRequirePath = path.resolve(process.cwd(), 'src', 'prisma')
-    const mod = await import(prismaRequirePath)
-    const prismaClient = mod.prisma || mod.default || mod
-    if (!globalThis.prisma) globalThis.prisma = prismaClient
-    if (globalThis.prisma && typeof globalThis.prisma.$connect === 'function') {
-      await globalThis.prisma.$connect()
-    }
-  } catch (e: any) {
-    // eslint-disable-next-line no-console
+if (!globalThis.prisma) {
+  prismaClient = new PrismaClient()
+  globalThis.prisma = prismaClient
+} else {
+  prismaClient = globalThis.prisma
+}
+
+module.exports = prismaClient
     console.warn('Could not initialize test Prisma client in vitest.setup:', e && e.message ? e.message : e)
   }
 })

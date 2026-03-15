@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  backend:
+    build: .
+    container_name: lonaat-backend
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/lonaat
+      REDIS_URL: redis://redis:6379
+  postgres:
+    image: postgres:15
+    container_name: lonaat-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lonaat
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: lonaat-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  health-server:
+    image: curlimages/curl:latest
+    container_name: lonaat-health-server
+    command: ["sleep", "infinity"]
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: lonaat-network
+

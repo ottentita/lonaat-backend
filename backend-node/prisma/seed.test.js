@@ -1,7 +1,7 @@
 // Minimal test seed that uses the generated test Prisma client (created by test setup)
 async function run() {
 	try {
-		const { PrismaClient } = require('./node_modules/.prisma-test/client')
+		const { PrismaClient } = require('@prisma/client')
 		const prisma = new PrismaClient()
 		// create a minimal admin user if not exists
 		try {

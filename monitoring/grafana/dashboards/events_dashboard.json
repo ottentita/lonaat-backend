@@ -1,0 +1,63 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1628737043436,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 2,
+      "options": {},
+      "targets": [{"expr": "events_processed_total", "legendFormat": "processed", "refId": "A"}],
+      "title": "Events Processed",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 3,
+      "options": {},
+      "targets": [{"expr": "events_failed_total", "legendFormat": "failed", "refId": "A"}],
+      "title": "Events Failed",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 8},
+      "id": 4,
+      "options": {},
+      "targets": [{"expr": "worker_heartbeat_age_seconds", "legendFormat": "heartbeat_age_s", "refId": "A"}],
+      "title": "Worker Heartbeat Age (seconds)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 8},
+      "id": 5,
+      "options": {},
+      "targets": [{"expr": "event_queue_length", "legendFormat": "queue_size", "refId": "A"}, {"expr": "event_dead_letter_queue_length", "legendFormat": "dlq_size", "refId": "B"}],
+      "title": "Redis Queue Sizes",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["events"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Event Pipeline Overview",
+  "uid": "event-pipeline-overview"
+}

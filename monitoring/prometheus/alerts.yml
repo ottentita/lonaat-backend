@@ -1,0 +1,29 @@
+groups:
+  - name: Workflows
+    rules:
+      - alert: HighDeadLetterQueue
+        expr: event_dead_letter_queue_length > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dead-letter queue has items"
+          description: "The event dead-letter queue has {{ $value }} items for more than 5 minutes."
+
+      - alert: WorkerHeartbeatMissing
+        expr: worker_heartbeat_age_seconds > 300
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker heartbeat missing or stale"
+          description: "Worker heartbeat is older than 5 minutes ({{ $value }}s). Check worker process."
+
+      - alert: RapidFailures
+        expr: increase(events_failed_total[5m]) > 5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rapid increase in failed events"
+          description: "events_failed_total increased by more than 5 in the last 5 minutes ({{ $value }})."

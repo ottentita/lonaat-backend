@@ -16,23 +16,10 @@ class Config:
     # Flask
     SECRET_KEY = os.getenv('FLASK_SECRET', 'dev_secret_lonaat_2025_change_in_production')
     
-    # Database - PostgreSQL only (no SQLite)
-    # Replit provides DATABASE_URL automatically when PostgreSQL is enabled
+    # Database - Docker PostgreSQL only
     DATABASE_URL = os.getenv('DATABASE_URL')
-    
     if not DATABASE_URL:
-        raise RuntimeError(
-            "DATABASE_URL environment variable is required. "
-            "Please enable PostgreSQL in Replit's Database panel."
-        )
-    
-    # Fix for SQLAlchemy 1.4+ which requires postgresql:// instead of postgres://
-    # Use psycopg2 driver explicitly for production
-    if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg2://', 1)
-    elif DATABASE_URL.startswith('postgresql://') and '+' not in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg2://', 1)
-    
+        raise RuntimeError("DATABASE_URL environment variable is required.")
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
@@ -82,6 +69,8 @@ class Config:
     NALAREF_TOKEN = os.getenv('NALAREF_TOKEN')
     GREY_TOKEN = os.getenv('GREY_TOKEN')
     TRADETRACKER_TOKEN = os.getenv('TRADETRACKER_TOKEN')
+    # Autopilot/Growth Engine Endpoint
+    AUTOPILOT_ENDPOINT = os.getenv('AUTOPILOT_ENDPOINT', 'http://localhost:8000/autopilot/publish')
     
     # Security & Fraud Prevention
     MAX_WITHDRAWALS_PER_DAY = 3

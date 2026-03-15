@@ -174,6 +174,24 @@ app.use(logger)
 // apply global rate limit to all incoming requests (test-mode uses very high limits)
 app.use(globalLimiter)
 
+// Root endpoint for backend availability
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'lonaat-backend',
+    message: 'API server is running'
+  });
+});
+
+// Health check endpoint for infrastructure monitoring
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 // compatibility alias for frontend (frontend uses `/user/...` in places)

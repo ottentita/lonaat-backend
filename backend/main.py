@@ -1,6 +1,11 @@
 from flask import Flask, render_template, request, jsonify, session, Response, send_file, redirect, send_from_directory
 from flask_cors import CORS
 from flask_migrate import Migrate
+
+# Firebase Admin imports
+from firebase_admin import credentials, initialize_app
+import firebase_admin
+import os
 from flask_jwt_extended import JWTManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -28,9 +33,19 @@ from affiliate_manager import get_affiliate_manager, sync_affiliate_products
 from dotenv import load_dotenv
 from config import Config
 from models import db as sqlalchemy_db, User, Transaction, Plan, AdBoost, CreditWallet, SocialConnection, BankAccount, WithdrawalRequest, AuditLog, CreditPackage, PaymentRequest, Commission
+
+# --- Firebase Admin Initialization ---
+firebase_creds_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "lonaat-d0995-firebase-adminsdk-fbsvc-8b627237ef.json"))
+if os.path.exists(firebase_creds_path):
+    cred = credentials.Certificate(firebase_creds_path)
+    firebase_admin.initialize_app(cred)
+    print(f"Firebase initialized successfully using: {firebase_creds_path}")
+else:
+    print("Firebase credentials not found at project root")
 from models_network_connection import NetworkConnection
 from auth import auth_bp
 from api_routes import api_bp
+from api.events import events_bp
 from products_routes import products_bp
 from wallet_routes import wallet_bp
 from ads_routes import ads_bp
@@ -49,6 +64,11 @@ from real_estate_routes import real_estate_bp
 from fraud_routes import fraud_bp
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
+from security.auth_middleware import require_auth
+from security.rate_limiter import rate_limit
+from security.secret_manager import SecretManager
+from security.webhook_verifier import verify_webhook
+from security.audit_logger import AuditLogger
 
 # Configure logging
 logging.basicConfig(
@@ -59,13 +79,52 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("Invalid database URL: DATABASE_URL environment variable is required.")
+
 # Detect environment - allow deployment without crashing, but warn about missing features
 # This allows initial deployment to succeed while prompting for proper configuration
 IS_PRODUCTION = bool(os.getenv('RENDER') or os.getenv('RAILWAY') or os.getenv('FLY_APP_NAME') or os.getenv('REPLIT_DEPLOYMENT'))
 logger.info(f"🔍 Environment: {'PRODUCTION' if IS_PRODUCTION else 'DEVELOPMENT'}")
 
+
+
+
 app = Flask(__name__)
 app.config.from_object(Config)
+
+
+# Health check endpoint (must be before blueprints/static serving)
+@app.route("/api/health", methods=["GET"])
+def health():
+    return {
+        "status": "ok",
+        "service": "lonaat-backend",
+        "firebase": "connected"
+    }
+
+# Add compatibility endpoints for root health and API
+@app.route("/health", methods=["GET"])
+def health_root():
+    return {
+        "status": "ok",
+        "service": "lonaat-backend",
+        "firebase": "connected"
+    }
+
+@app.route("/api", methods=["GET"])
+def api_root():
+    return {
+        "message": "Lonaat API root. Use /api/health for health check."
+    }
+
+
+# Enable CORS for frontend dev origins
+CORS(app, origins=[
+    "http://localhost:3000",
+    "http://localhost:3001"
+], supports_credentials=True)
 
 # Enforce JWT secret in production to avoid default dev secrets
 if IS_PRODUCTION:
@@ -79,7 +138,9 @@ if IS_PRODUCTION:
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['PREFERRED_URL_SCHEME'] = 'https'
 
-CORS(app)
+
+
+# Serve React frontend static files in production
 
 # Initialize SQLAlchemy
 sqlalchemy_db.init_app(app)
@@ -91,7 +152,8 @@ migrate = Migrate(app, sqlalchemy_db)
 jwt = JWTManager(app)
 
 # Rate limiting (global defaults) to protect endpoints
-limiter = Limiter(app, key_func=get_remote_address, default_limits=["1000 per day", "200 per hour"]) 
+limiter = Limiter(key_func=get_remote_address)
+limiter.init_app(app)
 
 # JWT Error Handlers
 @jwt.expired_token_loader
@@ -143,17 +205,23 @@ app.register_blueprint(fraud_bp)
 # Import and register Admin AI blueprint
 from admin_ai_routes import admin_ai_bp
 app.register_blueprint(admin_ai_bp)
+app.register_blueprint(events_bp)
 
-# Serve React frontend static files in production
+
+# ...existing code...
+
+# Serve React frontend static files in production (must be last)
 FRONTEND_BUILD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_frontend(path):
-    """Serve React frontend - only for non-API routes"""
-    if path.startswith('api/') or path.startswith('auth/'):
+    # Do NOT intercept API routes
+    if path.startswith('api/'):
+        return jsonify({'error': 'API route not handled'}), 404
+    if path.startswith('auth/'):
         return jsonify({'error': 'Not found'}), 404
-    
+
     if os.path.exists(FRONTEND_BUILD_DIR):
         if path and os.path.exists(os.path.join(FRONTEND_BUILD_DIR, path)):
             return send_from_directory(FRONTEND_BUILD_DIR, path)
@@ -1436,6 +1504,11 @@ import atexit
 atexit.register(lambda: scheduler.shutdown())
 
 if __name__ == '__main__':
-    # Use PORT environment variable for Render deployment, fallback to 5000 for local
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    # Use PORT environment variable for Render deployment, fallback to 8000 for local
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port, debug=True)
+import uvicorn
+
+if __name__ == "__main__":
+    print("Starting Lonaat backend server...")
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

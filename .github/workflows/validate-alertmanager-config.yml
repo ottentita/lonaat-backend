@@ -1,0 +1,54 @@
+name: Validate Alertmanager Config
+
+on:
+  push:
+    paths:
+      - 'monitoring/alertmanager/**'
+  pull_request:
+    paths:
+      - 'monitoring/alertmanager/**'
+
+jobs:
+  render-and-validate:
+    name: Render template and validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install envsubst (gettext)
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
+
+      - name: Render Alertmanager template
+        env:
+          ALERT_EMAIL: ci-alerts@example.com
+          SMTP_HOST: smtp.ci.local
+          SMTP_PORT: '2525'
+          SMTP_USER: ciuser
+          SMTP_PASSWORD: cisecret
+        run: |
+          set -euo pipefail
+          envsubst < monitoring/alertmanager/config.yml.tmpl > rendered-alertmanager.yml
+          echo "--- rendered alertmanager config ---"
+          sed -n '1,200p' rendered-alertmanager.yml
+
+      - name: Fail if unsubstituted variables remain
+        run: |
+          if grep -q '\${' rendered-alertmanager.yml; then
+            echo 'Unsubstituted variables found in rendered-alertmanager.yml' >&2
+            grep --color -n '\${' rendered-alertmanager.yml || true
+            exit 1
+          fi
+
+      - name: Validate substituted values
+        run: |
+          set -euo pipefail
+          grep -q "to: 'ci-alerts@example.com'" rendered-alertmanager.yml
+          grep -q "smarthost: 'smtp.ci.local:2525'" rendered-alertmanager.yml
+          grep -q "auth_username: 'ciuser'" rendered-alertmanager.yml
+
+      - name: YAML lint (optional)
+        run: |
+          sudo apt-get install -y python3-pip
+          pip3 install yamllint
+          yamllint rendered-alertmanager.yml || true

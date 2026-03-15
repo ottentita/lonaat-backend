@@ -1,13 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// Schema copied from schema.prisma but uses sqlite datasource for tests
 
 model User {
   id                     Int                     @id @default(autoincrement())
@@ -26,39 +21,34 @@ model User {
   preferredLanguage      String?                 @default("en")
   profilePicture         String?
   createdAt              DateTime                @default(now())
+  plan                   String                  @default("free")
+  resetToken             String?                 @unique
+  resetTokenExpiry       DateTime?
+  tokens                 Int                     @default(10)
+  planId                 Int?
+  tokenBalance           Int                     @default(0)
+  subscriptionEndsAt     DateTime?
+  trialEndsAt            DateTime?
+  adCampaigns            AdCampaign[]
+  adTokenWallet          AdTokenWallet?
+  subscriptions          Subscription[]
+  tokenAccount           TokenAccount?
+  tokenTransactions      TokenTransaction[]
+  transactionLedgers     TransactionLedger[]
+  affiliateEvents        AffiliateEvent[]
+  aiUsage                AiUsage[]
   clicks                 Click[]
   commission             Commission[]
+  contentDrafts          ContentDraft[]
   credit_wallet          CreditWallet?
+  marketplaceItems       MarketplaceItem[]
   offers                 Offer[]
   payments               Payment[]
   products               Product[]
   real_estate_property   RealEstateProperty[]
-  // Advertising relations
-  subscriptions          Subscription[]
-  adTokenWallet          AdTokenWallet?
-  tokenTransactions      TokenTransaction[]
-  adCampaigns            AdCampaign[]
-  transactionLedgers     TransactionLedger[]
-  userNetworkCredentials UserNetworkCredential[]
-  marketplaceItems       MarketplaceItem[]
-  contentDrafts          ContentDraft[]
-  plan                   String                  @default("free")
-  tokens                 Int                     @default(10)
-  aiUsage                AiUsage[]
   tokenPurchases         TokenPurchase[]
-  affiliateEvents        AffiliateEvent[]
-  tokenAccount           TokenAccount?
-
-  // tokenBalance and plan relation for token system
-  tokenBalance Int   @default(0)
-  trialEndsAt DateTime?
-  subscriptionEndsAt DateTime?
-  planId       Int?
-  planRef      Plan? @relation(fields: [planId], references: [id])
-
-  // password reset fields
-  resetToken       String?   @unique
-  resetTokenExpiry DateTime?
+  userNetworkCredentials UserNetworkCredential[]
+  planRef                Plan?                   @relation(fields: [planId], references: [id])
 
   @@map("users")
 }
@@ -68,8 +58,7 @@ model AiUsage {
   userId     Int
   tokensUsed Int
   createdAt  DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("ai_usage")
@@ -81,8 +70,7 @@ model TokenPurchase {
   amount    Int
   chargeId  String?  @unique
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("token_purchases")
@@ -98,8 +86,7 @@ model ContentDraft {
   hashtags  String?
   status    String   @default("generated")
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([offerId])
@@ -107,12 +94,10 @@ model ContentDraft {
 }
 
 model Offer {
-  // unique identifier and look‑ups by slug
-  id    Int    @id @default(autoincrement())
-  name  String
-  title String // legacy column, new code can prefer `name`
-  slug  String @unique
-
+  id                 Int               @id @default(autoincrement())
+  name               String
+  title              String
+  slug               String            @unique
   description        String?
   url                String
   network            String?
@@ -127,13 +112,13 @@ model Offer {
   location           String?
   status             String            @default("active")
   createdAt          DateTime          @default(now())
+  affiliateNetworkId Int?
   clicks             Click[]
   conversions        Conversion[]
+  marketplaceItems   MarketplaceItem[]
+  affiliateNetwork   AffiliateNetwork? @relation(fields: [affiliateNetworkId], references: [id])
   category           Category?         @relation(fields: [categoryId], references: [id])
   seller             User?             @relation(fields: [sellerId], references: [id])
-  affiliateNetworkId Int?
-  affiliateNetwork   AffiliateNetwork? @relation(fields: [affiliateNetworkId], references: [id])
-  marketplaceItems   MarketplaceItem[]
 
   @@map("offers")
 }
@@ -205,26 +190,26 @@ model TokenPack {
 }
 
 model Click {
-  id            Int          @id @default(autoincrement())
-  network       String? // tracking route will supply network name
+  id            Int         @id @default(autoincrement())
+  network       String?
   offerId       Int
   adId          Int
   userId        Int
   timeBucket    Int
-  clickId       String       @unique
-  clickToken    String       @unique
+  clickId       String      @unique
+  clickToken    String      @unique
   ip            String?
-  ipAddress     String? // new field used by `/track` endpoint
+  ipAddress     String?
   userAgent     String?
-  externalSubId String? // stores user-supplied subid from query (not forwarded to networks)
-  revenue       Float        @default(0)
-  converted     Boolean      @default(false)
+  revenue       Float       @default(0)
+  converted     Boolean     @default(false)
   user_id       Int?
-  createdAt     DateTime     @default(now())
-  offer         Offer        @relation(fields: [offerId], references: [id])
-  users         User?        @relation(fields: [user_id], references: [id])
+  createdAt     DateTime    @default(now())
+  externalSubId String?
+  offer         Offer       @relation(fields: [offerId], references: [id])
+  users         User?       @relation(fields: [user_id], references: [id])
   Commission    Commission?
-  conversions   Conversion[] // related conversions via clickToken
+  conversions   Conversion?
 
   @@unique([userId, adId, timeBucket])
   @@index([offerId])
@@ -235,16 +220,14 @@ model Conversion {
   id         Int      @id @default(autoincrement())
   offerId    Int
   clickId    String?
-  clickToken String? // token from click table, used for reliable match
-  revenue    Int? // integer revenue amount reported by tracker
+  clickToken String?  @unique
+  revenue    Int?
   amount     Decimal  @default(0)
   status     String   @default("pending")
   createdAt  DateTime @default(now())
+  click      Click?   @relation(fields: [clickToken], references: [clickToken])
+  offer      Offer    @relation(fields: [offerId], references: [id])
 
-  offer Offer  @relation(fields: [offerId], references: [id])
-  click Click? @relation(fields: [clickToken], references: [clickToken])
-
-  @@unique([clickToken])
   @@index([offerId])
   @@map("conversions")
 }
@@ -257,8 +240,8 @@ model Payment {
   status        String   @default("pending")
   provider      String   @default("skrill")
   transactionId String   @unique
-  txHash        String?
   createdAt     DateTime @default(now())
+  txHash        String?
   user          User?    @relation(fields: [userId], references: [id])
 
   @@map("payments")
@@ -304,38 +287,35 @@ model AffiliateEvent {
   userId      Int?
   amount      Decimal?
   processedAt DateTime @default(now())
-
-  user User? @relation(fields: [userId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@map("affiliate_events")
 }
 
 model TokenAccount {
-  id              String   @id @default(uuid())
-  userId          Int      @unique
-  balance         Int      @default(0)
-  reservedBalance Int      @default(0)
+  id              String        @id @default(uuid())
+  userId          Int           @unique
+  balance         Int           @default(0)
+  reservedBalance Int           @default(0)
   planType        String
   rolloverCap     Int
   overdraftLimit  Int
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  user          User          @relation(fields: [userId], references: [id])
-  ledgerEntries TokenLedger[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id])
+  ledgerEntries   TokenLedger[]
 }
 
 model TokenLedger {
-  id          String   @id @default(uuid())
+  id          String       @id @default(uuid())
   userId      Int
   type        String
   amount      Int
   feature     String?
   referenceId String?
   status      String
-  createdAt   DateTime @default(now())
-
-  account TokenAccount @relation(fields: [userId], references: [userId])
+  createdAt   DateTime     @default(now())
+  account     TokenAccount @relation(fields: [userId], references: [userId])
 }
 
 model RealEstateProperty {
@@ -460,9 +440,8 @@ model Subscription {
   status    String   @default("active")
   startedAt DateTime @default(now())
   expiresAt DateTime
-
-  user User @relation(fields: [userId], references: [id])
-  plan Plan @relation(fields: [planId], references: [id])
+  plan      Plan     @relation(fields: [planId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -472,8 +451,7 @@ model AdTokenWallet {
   userId    Int      @unique
   balance   Int      @default(0)
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model TokenTransaction {
@@ -483,8 +461,7 @@ model TokenTransaction {
   type      String
   reason    String
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -492,7 +469,6 @@ model TokenTransaction {
 model AdCampaign {
   id          Int                 @id @default(autoincrement())
   userId      Int
-  ledgers     TransactionLedger[]
   productId   Int?
   offerId     Int?
   dailyBudget Int
@@ -501,23 +477,22 @@ model AdCampaign {
   clicks      Int                 @default(0)
   impressions Int                 @default(0)
   createdAt   DateTime            @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user        User                @relation(fields: [userId], references: [id])
+  ledgers     TransactionLedger[]
 
   @@index([userId])
 }
 
 model TransactionLedger {
-  id         Int      @id @default(autoincrement())
+  id         Int         @id @default(autoincrement())
   userId     Int
   campaignId Int?
   amount     Int
   type       String
   reason     String?
-  createdAt  DateTime @default(now())
-
-  user       User        @relation(fields: [userId], references: [id])
+  createdAt  DateTime    @default(now())
   adCampaign AdCampaign? @relation(fields: [campaignId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([campaignId])
@@ -537,24 +512,22 @@ model PlatformRevenue {
 }
 
 model AffiliateNetwork {
-  id               Int      @id @default(autoincrement())
+  id               Int                     @id @default(autoincrement())
   name             String
   baseApiUrl       String
-  // optional secret used to validate inbound webhooks (HMAC-SHA256)
   webhookSecret    String?
   documentationUrl String?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  credentials UserNetworkCredential[]
-  offers      Offer[]
+  isActive         Boolean                 @default(true)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  offers           Offer[]
+  credentials      UserNetworkCredential[]
 
   @@map("affiliate_networks")
 }
 
 model UserNetworkCredential {
-  id                 Int      @id @default(autoincrement())
+  id                 Int              @id @default(autoincrement())
   userId             Int
   networkId          Int
   apiKeyEncrypted    String?
@@ -564,11 +537,10 @@ model UserNetworkCredential {
   apiSecretIv        String?
   apiSecretTag       String?
   extraConfig        String?
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-
-  user    User             @relation(fields: [userId], references: [id])
-  network AffiliateNetwork @relation(fields: [networkId], references: [id])
+  isActive           Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  network            AffiliateNetwork @relation(fields: [networkId], references: [id])
+  user               User             @relation(fields: [userId], references: [id])
 
   @@unique([userId, networkId])
   @@map("user_network_credentials")
@@ -582,9 +554,8 @@ model MarketplaceItem {
   customTitle     String?
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
-
-  user  User   @relation(fields: [userId], references: [id])
-  offer Offer? @relation(fields: [offerId], references: [id])
+  offer           Offer?   @relation(fields: [offerId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
 
   @@map("marketplace_items")
 }

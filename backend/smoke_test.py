@@ -6,8 +6,8 @@ Run: python backend/smoke_test.py
 import os
 import json
 
-# Use in-memory sqlite for testing
-os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
+# Use Docker PostgreSQL for testing (must be running)
+os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@postgres:5432/lonaat'
 os.environ['FLASK_SECRET'] = 'test_flask_secret'
 os.environ['JWT_SECRET_KEY'] = 'test_jwt_secret'
 
