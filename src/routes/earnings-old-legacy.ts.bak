@@ -1,0 +1,220 @@
+import express from 'express';
+import { prisma } from '../prisma';
+import { authMiddleware } from '../middleware/auth';
+
+const router = express.Router();
+
+// GET /api/earnings - Get user's earnings with filtering
+router.get('/', authMiddleware, async (req: any, res: express.Response) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'User not authenticated' 
+      });
+    }
+    
+    const { status, limit, offset } = req.query;
+    
+    // Build where clause for transactions (earnings are credit transactions)
+    const where: any = {
+      userId: String(userId),
+      type: 'credit' // Earnings are credits to the wallet
+    };
+    
+    // Filter by status if provided
+    if (status && (status === 'pending' || status === 'completed' || status === 'failed')) {
+      where.status = status;
+    }
+    
+    // Get earnings from transactions table
+    const earnings = await prisma.transactions.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit ? Number(limit) : 100,
+      skip: offset ? Number(offset) : 0,
+      select: {
+        id: true,
+        userId: true,
+        amount: true,
+        status: true,
+        description: true,
+        reference: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    });
+    
+    return res.status(200).json({
+      success: true,
+      count: earnings.length,
+      earnings: earnings.map(e => ({
+        id: e.id,
+        user_id: e.userId,
+        amount: parseFloat(e.amount.toString()),
+        status: e.status,
+        description: e.description,
+        reference: e.reference,
+        metadata: e.metadata,
+        created_at: e.createdAt,
+        updated_at: e.updatedAt,
+      }))
+    });
+    
+  } catch (error: any) {
+    console.error('❌ GET EARNINGS ERROR:', error?.message);
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to get earnings',
+      message: error?.message || 'Internal server error'
+    });
+  }
+});
+
+// GET /api/earnings/dashboard - Get earnings summary for dashboard
+router.get('/dashboard', authMiddleware, async (req: any, res: express.Response) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'User not authenticated' 
+      });
+    }
+    
+    // Get total earnings (credit transactions)
+    const totalEarnings = await prisma.transactions.aggregate({
+      where: { 
+        userId: String(userId),
+        type: 'credit'
+      },
+      _sum: { amount: true },
+      _count: { id: true }
+    });
+    
+    // Get pending earnings
+    const pendingEarnings = await prisma.transactions.aggregate({
+      where: { 
+        userId: String(userId),
+        type: 'credit',
+        status: 'pending'
+      },
+      _sum: { amount: true },
+      _count: { id: true }
+    });
+    
+    // Get completed earnings
+    const completedEarnings = await prisma.transactions.aggregate({
+      where: { 
+        userId: String(userId),
+        type: 'credit',
+        status: 'completed'
+      },
+      _sum: { amount: true },
+      _count: { id: true }
+    });
+    
+    // Get user wallet info
+    const wallet = await prisma.wallets.findUnique({
+      where: { userId: String(userId) },
+      select: {
+        balance: true,
+        totalEarned: true,
+        totalWithdrawn: true,
+      }
+    }).catch((err) => {
+      console.error('❌ DB ERROR [wallets.findUnique]:', err);
+      return null;
+    });
+    
+    const dashboard = {
+      total_earnings: parseFloat(totalEarnings._sum.amount?.toString() || '0'),
+      total_count: totalEarnings?._count?.id ?? 0,
+      
+      pending_earnings: parseFloat(pendingEarnings._sum.amount?.toString() || '0'),
+      pending_count: pendingEarnings?._count?.id ?? 0,
+      
+      completed_earnings: parseFloat(completedEarnings._sum.amount?.toString() || '0'),
+      completed_count: completedEarnings?._count?.id ?? 0,
+      
+      // Wallet balance info
+      current_balance: parseFloat(wallet?.balance?.toString() || '0'),
+      total_earned: parseFloat(wallet?.totalEarned?.toString() || '0'),
+      total_withdrawn: parseFloat(wallet?.totalWithdrawn?.toString() || '0'),
+    };
+    
+    return res.status(200).json({
+      success: true,
+      dashboard
+    });
+    
+  } catch (error: any) {
+    console.error('❌ GET DASHBOARD ERROR:', error?.message);
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to get dashboard',
+      message: error?.message || 'Internal server error'
+    });
+  }
+});
+
+// GET /api/earnings/:id - Get specific earning details
+router.get('/:id', authMiddleware, async (req: any, res: express.Response) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    const earningId = req.params.id;
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'User not authenticated' 
+      });
+    }
+    
+    const earning = await prisma.transactions.findFirst({
+      where: { 
+        id: earningId,
+        userId: String(userId),
+        type: 'credit'
+      }
+    });
+    
+    if (!earning) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Earning not found' 
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      earning: {
+        id: earning.id,
+        user_id: earning.userId,
+        amount: parseFloat(earning.amount.toString()),
+        status: earning.status,
+        description: earning.description,
+        reference: earning.reference,
+        metadata: earning.metadata,
+        created_at: earning.createdAt,
+        updated_at: earning.updatedAt,
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Get earning error:', error?.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to get earning',
+      message: error?.message
+    });
+  }
+});
+
+export default router;

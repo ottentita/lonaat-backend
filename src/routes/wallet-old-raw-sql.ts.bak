@@ -1,0 +1,187 @@
+import { Router, Response } from 'express';
+import prisma from '../prisma';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { body, validationResult } from 'express-validator';
+
+const router = Router();
+
+const MIN_WITHDRAWAL_AMOUNT = 10;
+
+// Helper: get or create wallet for user
+async function getOrCreateWallet(userId: string) {
+  const wallets: any[] = await prisma.$queryRawUnsafe(
+    `SELECT * FROM wallets WHERE user_id = $1 LIMIT 1`, userId
+  );
+  if (wallets.length > 0) return wallets[0];
+
+  // Auto-create wallet
+  const newId = `wallet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  await prisma.$queryRawUnsafe(
+    `INSERT INTO wallets (id, "userId", balance, tokens, "totalEarned", "totalWithdrawn", "totalTokensBought", "totalTokensSpent", currency, "isActive", "createdAt", "updatedAt")
+     VALUES ($1, $2, 0, 0, 0, 0, 0, 0, 'USD', true, NOW(), NOW())`,
+    newId, userId
+  );
+  const created: any[] = await prisma.$queryRawUnsafe(
+    `SELECT * FROM wallets WHERE id = $1`, newId
+  );
+  return created[0];
+}
+
+// GET /api/wallet — wallet overview
+router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const wallet = await getOrCreateWallet(req.user!.id);
+    res.json({
+      wallet: {
+        id: wallet.id,
+        balance: Number(wallet.balance) || 0,
+        tokens: wallet.tokens || 0,
+        totalEarned: Number(wallet.totalEarned) || 0,
+        totalWithdrawn: Number(wallet.totalWithdrawn) || 0,
+        totalTokensBought: wallet.totalTokensBought || 0,
+        totalTokensSpent: wallet.totalTokensSpent || 0,
+        currency: wallet.currency || 'USD',
+        isActive: wallet.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Wallet error:', error);
+    res.status(500).json({ error: 'Failed to get wallet' });
+  }
+});
+
+// GET /api/wallet/summary — alias
+router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const wallet = await getOrCreateWallet(req.user!.id);
+    res.json({
+      wallet: {
+        balance: Number(wallet.balance) || 0,
+        tokens: wallet.tokens || 0,
+        totalEarned: Number(wallet.totalEarned) || 0,
+        totalWithdrawn: Number(wallet.totalWithdrawn) || 0,
+        currency: wallet.currency || 'USD'
+      }
+    });
+  } catch (error) {
+    console.error('Wallet summary error:', error);
+    res.status(500).json({ error: 'Failed to get wallet summary' });
+  }
+});
+
+// GET /api/wallet/balance — balance breakdown
+router.get('/balance', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const wallet = await getOrCreateWallet(req.user!.id);
+    const withdrawable = Math.max(0, Number(wallet.balance) - Number(wallet.totalWithdrawn));
+    res.json({
+      total_earnings: Number(wallet.totalEarned) || 0,
+      balance: Number(wallet.balance) || 0,
+      total_withdrawn: Number(wallet.totalWithdrawn) || 0,
+      withdrawable_balance: withdrawable,
+      tokens: wallet.tokens || 0,
+      currency: wallet.currency || 'USD'
+    });
+  } catch (error) {
+    console.error('Balance error:', error);
+    res.status(500).json({ error: 'Failed to get balance' });
+  }
+});
+
+// GET /api/wallet/transactions — transaction history
+router.get('/transactions', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const transactions: any[] = await prisma.$queryRawUnsafe(
+      `SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      req.user!.id
+    );
+    res.json({ transactions: transactions || [] });
+  } catch (error) {
+    console.error('Get transactions error:', error);
+    res.json({ transactions: [] });
+  }
+});
+
+// GET /api/wallet/withdrawals — withdrawal history
+router.get('/withdrawals', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const wallet = await getOrCreateWallet(req.user!.id);
+    const withdrawals: any[] = await prisma.$queryRawUnsafe(
+      `SELECT * FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      req.user!.id
+    );
+    res.json({
+      withdrawals: withdrawals || [],
+      withdrawable_balance: Number(wallet.balance) || 0,
+      total_balance: Number(wallet.totalEarned) || 0
+    });
+  } catch (error) {
+    console.error('Get withdrawals error:', error);
+    res.json({ withdrawals: [], withdrawable_balance: 0, total_balance: 0 });
+  }
+});
+
+// POST /api/wallet/withdraw — request withdrawal
+router.post('/withdraw', [
+  authMiddleware,
+  body('amount').isFloat({ min: 10 }).withMessage('Minimum withdrawal is $10'),
+  body('method').isString().withMessage('Withdrawal method required'),
+  body('recipientInfo').isObject().withMessage('Recipient info required')
+], async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { amount, method, recipientInfo } = req.body;
+    const wallet = await getOrCreateWallet(req.user!.id);
+
+    if (Number(wallet.balance) < amount) {
+      return res.status(400).json({
+        error: 'Insufficient balance',
+        balance: Number(wallet.balance)
+      });
+    }
+
+    const withdrawalId = `wd-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create withdrawal record
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO withdrawals (id, "walletId", "userId", amount, method, "recipientInfo", status, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())`,
+      withdrawalId, wallet.id, req.user!.id, amount, method, JSON.stringify(recipientInfo)
+    );
+
+    // Deduct from wallet balance atomically
+    await prisma.$queryRawUnsafe(
+      `UPDATE wallets SET balance = balance - $1, "totalWithdrawn" = "totalWithdrawn" + $1, "updatedAt" = NOW()
+       WHERE id = $2 AND balance >= $1`,
+      amount, wallet.id
+    );
+
+    // Log transaction
+    const txId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO transactions (id, "walletId", "userId", type, amount, description, reference, status, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, 'withdrawal', $4, $5, $6, 'pending', NOW(), NOW())`,
+      txId, wallet.id, req.user!.id, amount, `Withdrawal via ${method}`, withdrawalId
+    );
+
+    res.json({
+      message: 'Withdrawal request submitted successfully',
+      withdrawal: {
+        id: withdrawalId,
+        amount,
+        method,
+        status: 'pending',
+        estimated_processing: '1-3 business days'
+      }
+    });
+  } catch (error) {
+    console.error('Withdrawal error:', error);
+    res.status(500).json({ error: 'Failed to process withdrawal request' });
+  }
+});
+
+export default router;

@@ -1,0 +1,52 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/ai/**/*",
+    "src/modules/ads/**/*",
+    "src/jobs/**/*",
+    "src/scripts/**/*",
+    "src/routes/admin.ts",
+    "src/routes/ads.ts",
+    "src/routes/automobiles.ts",
+    "src/routes/billing.ts",
+    "src/routes/campaigns.ts",
+    "src/routes/click.ts",
+    "src/routes/commissions.ts",
+    "src/routes/landRegistry.ts",
+    "src/routes/leads.ts",
+    "src/routes/listings.ts",
+    "src/routes/networks.ts",
+    "src/routes/products.ts",
+    "src/routes/realEstateAnalytics.ts",
+    "src/routes/revenue.ts",
+    "src/routes/social.ts",
+    "src/routes/subscriptions.ts",
+    "src/routes/track.ts",
+    "src/routes/wallet.ts",
+    "src/routes/webhooks/**/*",
+    "src/controllers/affiliateWebhookController.ts",
+    "src/services/affiliateHybridService.ts",
+    "src/services/affiliateManualService.ts",
+    "src/services/commissionEngine.ts",
+    "src/services/featureRegistry.ts",
+    "src/services/fraudDetection.ts",
+    "src/services/gpsVerification.ts",
+    "src/services/growthEngine.ts",
+    "src/services/marketplaceEngine.ts",
+    "src/services/payoutEngine.ts",
+    "src/services/productLimits.ts",
+    "src/services/revenue.service.ts"
+  ]
+}

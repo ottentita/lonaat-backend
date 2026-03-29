@@ -1,0 +1,468 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String?
+  phone         String?
+  role          String    @default("user")
+  tokenBalance  Int       @default(0)
+  plan          String    @default("free")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  wallet        Wallet?
+  transactions  Transaction[]
+  deposits      Deposit[]
+  withdrawals   Withdrawal[]
+  automobiles   Automobile[]
+  properties    Property[]
+  products      Product[]
+  socialAccounts SocialAccount[]
+  tokenTransactions TokenTransaction[]
+
+  @@map("users")
+}
+
+model AffiliateClick {
+  id          String    @id @default(uuid())
+  productId   String
+  network     String
+  userId      String?
+  ip          String?
+  userAgent   String?
+  timestamp   DateTime  @default(now())
+  
+  @@map("affiliate_clicks")
+  @@index([productId])
+  @@index([network])
+  @@index([timestamp])
+}
+
+model Content {
+  id          String    @id @default(uuid())
+  userId      String
+  prompt      String    @db.Text
+  response    String?   @db.Text
+  platform    String    // "tiktok", "twitter", "instagram", "youtube"
+  status      String    @default("pending") // "pending", "published", "failed"
+  hashtags    String[]
+  createdAt   DateTime  @default(now())
+  
+  @@map("contents")
+  @@index([userId])
+  @@index([platform])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Schedule {
+  id            String    @id @default(uuid())
+  userId        String
+  prompt        String    @db.Text
+  platform      String    // "tiktok", "twitter", "instagram", "youtube"
+  status        String    @default("pending") // "pending", "published", "failed"
+  scheduledAt   DateTime  @default(now())
+  nextRun       DateTime  @default(now())
+  interval      String    @default("daily") // "daily", "weekly", "monthly"
+  isActive      Boolean   @default(true)
+  
+  @@map("schedules")
+  @@index([userId])
+  @@index([platform])
+  @@index([nextRun])
+}
+
+model Queue {
+  id          String    @id @default(uuid())
+  userId      String
+  contentId   String?
+  platform    String    // "tiktok", "twitter", "instagram", "youtube"
+  status      String    @default("pending") // "pending", "processing", "completed", "failed"
+  scheduledAt DateTime  @default(now())
+  
+  @@map("queue")
+  @@index([userId])
+  @@index([platform])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model Product {
+  id            String    @id @default(uuid())
+  userId        String
+  name          String
+  description   String    @db.Text
+  price         Float?
+  affiliateLink String    @db.Text
+  category      String
+  tags          String[]  @default([])
+  images        String[]  @default([])
+  isActive      Boolean   @default(true)
+  featured      Boolean   @default(false)
+  views         Int       @default(0)
+  clicks        Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user          User      @relation(fields: [userId], references: [id])
+  
+  @@map("products")
+  @@index([userId])
+  @@index([category])
+  @@index([isActive])
+  @@index([featured])
+  @@index([createdAt])
+  @@index([views])
+}
+
+model PostAnalytics {
+  id          String    @id @default(uuid())
+  userId      String
+  contentId   String?
+  platform    String    // "tiktok", "twitter", "instagram", "youtube"
+  status      String    @default("pending") // "pending", "published", "failed"
+  content     String    @db.Text
+  hashtags    String[]
+  publishedAt DateTime?
+  error       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  
+  @@map("post_analytics")
+  @@index([userId])
+  @@index([platform])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+model AffiliateProduct {
+  id          String    @id @default(uuid())
+  name        String
+  niche       String    // tech, fitness, beauty, business, education, etc
+  payout      Float
+  network     String    // "jvzoo", "warriorplus", "clickbank", etc
+  url         String
+  description String?   @db.Text
+  keywords    String[]  // for auto-matching
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("affiliate_products")
+  @@index([niche])
+  @@index([isActive])
+}
+
+model ConversionTracking {
+  id            String    @id @default(uuid())
+  userId        String
+  contentId     String?
+  productId     String?
+  hookType      String    // "cta", "link", "button"
+  ctaType       String    // "buy", "signup", "download"
+  platform      String    // "tiktok", "twitter", "instagram", "youtube"
+  conversionRate Float     // percentage
+  timestamp     DateTime  @default(now())
+  
+  @@map("conversion_tracking")
+  @@index([userId])
+  @@index([contentId])
+  @@index([productId])
+  @@index([hookType])
+  @@index([ctaType])
+  @@index([platform])
+  @@index([conversionRate])
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  userId        String
+  amount        Float
+  currency      String   @default("USD")
+  provider      String   // "coinbase", "stripe", "skrill"
+  transactionId String   @unique
+  status        String   @default("pending") // "pending", "completed", "failed"
+  metadata      String?  @db.Text // JSON string for plan, type, etc.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("payments")
+  @@index([userId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([provider])
+  @@index([createdAt])
+}
+
+model TokenPurchase {
+  id        String   @id @default(uuid())
+  userId    String
+  amount    Int      // number of tokens
+  price     Float    // price per token
+  total     Float    // total price
+  method    String   // "crypto", "momo", "card"
+  status    String   @default("pending") // "pending", "completed", "failed"
+  chargeId  String?  @unique // payment processor charge ID
+  createdAt DateTime @default(now())
+  
+  @@map("token_purchases")
+  @@index([userId])
+  @@index([status])
+  @@index([chargeId])
+}
+
+model Automobile {
+  id           String   @id @default(uuid())
+  userId       String
+  title        String
+  description  String?  @db.Text
+  brand        String
+  model        String
+  year         Int
+  price        Float
+  type         String   @default("sale") // "sale" or "rent"
+  rentPrice    Float?   // price per day for rentals
+  mileage      Int?
+  fuelType     String?
+  transmission String?
+  condition    String?
+  images       String[] @default([])
+  status       String   @default("available") // "available", "rented", "sold"
+  views        Int      @default(0)
+  clicks       Int      @default(0)
+  featured     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  user         User     @relation(fields: [userId], references: [id])
+  bookings     Booking[]
+  
+  @@map("automobiles")
+  @@index([userId])
+  @@index([status])
+  @@index([brand])
+  @@index([type])
+  @@index([featured])
+  @@index([createdAt])
+  @@index([views])
+}
+
+model Property {
+  id           String   @id @default(uuid())
+  userId       String
+  title        String
+  description  String?  @db.Text
+  propertyType String
+  price        Float
+  type         String   @default("sale") // "sale" or "rent"
+  rentPrice    Float?   // price per month for rentals
+  location     String
+  bedrooms     Int?
+  bathrooms    Int?
+  area         Float?
+  images       String[] @default([])
+  status       String   @default("available") // "available", "rented", "sold"
+  views        Int      @default(0)
+  clicks       Int      @default(0)
+  featured     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  user         User     @relation(fields: [userId], references: [id])
+  bookings     Booking[]
+  
+  @@map("properties")
+  @@index([userId])
+  @@index([status])
+  @@index([propertyType])
+  @@index([type])
+  @@index([location])
+  @@index([featured])
+  @@index([createdAt])
+  @@index([views])
+}
+
+model SocialAccount {
+  id          String   @id @default(uuid())
+  userId      String
+  platform    String   // "tiktok", "instagram", "twitter", "facebook"
+  username    String
+  profileUrl  String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@map("social_accounts")
+  @@index([userId])
+  @@index([platform])
+  @@unique([userId, platform])
+}
+
+model Wallet {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  balance       Float    @default(0)
+  tokens        Int      @default(0)
+  totalEarned   Float    @default(0)
+  totalWithdrawn Float   @default(0)
+  totalTokensBought Int   @default(0)
+  totalTokensSpent Int    @default(0)
+  currency      String   @default("XAF")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User     @relation(fields: [userId], references: [id])
+  transactions  Transaction[]
+  tokenTransactions TokenTransaction[]
+  withdrawals   Withdrawal[]
+  
+  @@map("wallets")
+  @@index([userId])
+  @@index([isActive])
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  walletId      String
+  userId        String
+  type          String   // "earning", "payment", "withdrawal", "refund", "commission"
+  amount        Float
+  description   String?  @db.Text
+  reference     String?  // Reference to related entity (booking_id, product_id, etc.)
+  status        String   @default("completed") // "pending", "completed", "failed", "cancelled"
+  metadata      Json?    // Additional data
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  wallet        Wallet   @relation(fields: [walletId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  
+  @@map("transactions")
+  @@index([walletId])
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TokenTransaction {
+  id            String   @id @default(uuid())
+  walletId      String
+  userId        String
+  type          String   // "buy", "spend"
+  tokens        Int
+  amount        Float    // Money value (for buy transactions)
+  description   String?  @db.Text
+  reference     String?  // Reference to related entity (ai_generation_id, promotion_id, etc.)
+  status        String   @default("completed") // "pending", "completed", "failed", "cancelled"
+  metadata      Json?    // Additional data
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  wallet        Wallet   @relation(fields: [walletId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  
+  @@map("token_transactions")
+  @@index([walletId])
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Withdrawal {
+  id            String   @id @default(uuid())
+  walletId      String
+  userId        String
+  amount        Float
+  method        String   // "mobile_money", "crypto", "bank_transfer"
+  recipientInfo  Json?    // Phone number, wallet address, bank details
+  status        String   @default("pending") // "pending", "approved", "rejected", "completed", "failed"
+  adminNote     String?  @db.Text
+  processedBy   String?  // Admin user ID who processed
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  wallet        Wallet   @relation(fields: [walletId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  
+  @@map("withdrawals")
+  @@index([walletId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CommissionRate {
+  id            String   @id @default(uuid())
+  entityType    String   // "booking", "product", "service"
+  entityTypeValue String? // Specific type like "property", "automobile", "electronics"
+  rate          Float    // Percentage (e.g., 5.0 for 5%)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("commission_rates")
+  @@index([entityType])
+  @@index([isActive])
+}
+
+model Booking {
+  id           String   @id @default(uuid())
+  userId       String
+  propertyId   String?
+  automobileId String?
+  itemType     String   // "property" or "automobile"
+  startDate    DateTime
+  endDate      DateTime
+  totalPrice   Float
+  status       String   @default("pending") // "pending", "confirmed", "cancelled", "completed"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  property     Property?    @relation(fields: [propertyId], references: [id])
+  automobile   Automobile?  @relation(fields: [automobileId], references: [id])
+  
+  @@map("bookings")
+  @@index([userId])
+  @@index([propertyId])
+  @@index([automobileId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model Deposit {
+  id        String   @id @default(uuid())
+  userId    String
+  amount    Float
+  method    String   // crypto, momo
+  proof     String?  @db.Text // image URL or transaction proof
+  status    String   @default("pending") // pending, confirmed, rejected
+  adminNote String?  @db.Text
+  processedBy String?
+  processedAt DateTime?
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("deposits")
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}

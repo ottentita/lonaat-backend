@@ -1,0 +1,2 @@
+CREATE ROLE test WITH LOGIN PASSWORD 'test';
+CREATE DATABASE affiliate_test OWNER test;

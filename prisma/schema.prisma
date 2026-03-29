@@ -1,0 +1,770 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       Int                        @id @default(autoincrement())
+  name                     String?
+  email                    String                     @unique
+  password                 String
+  role                     String                     @default("user")
+  isActive                 Boolean                    @default(true)
+  balance                  Decimal                    @default(0)
+  withdrawable_balance     Decimal                    @default(0)
+  pending_earnings         Decimal                    @default(0)
+  country                  String?
+  phone                    String?
+  paymentMethod            String?
+  paymentAccount           String?
+  preferredLanguage        String?                    @default("en")
+  profilePicture           String?
+  createdAt                DateTime                   @default(now())
+  plan                     String                     @default("free")
+  resetToken               String?                    @unique
+  resetTokenExpiry         DateTime?
+  tokens                   Int                        @default(10)
+  planId                   Int?
+  tokenBalance             Int                        @default(0)
+  subscriptionEndsAt       DateTime?
+  trialEndsAt              DateTime?
+  AdCampaign               AdCampaign[]
+  AdTokenWallet            AdTokenWallet?
+  Commission               Commission[]               @relation("UserCommissions")
+  Subscription             Subscription[]
+  TokenAccount             TokenAccount?
+  TokenTransaction         TokenTransaction[]
+  Transaction              Transaction[]              @relation("UserTransactions")
+  TransactionLedger        TransactionLedger[]
+  Wallet                   Wallet?                    @relation("UserWallet")
+  affiliate_events         affiliate_events[]
+  ai_usage                 ai_usage[]
+  clicks                   clicks[]
+  commissions              commissions[]
+  content_drafts           content_drafts[]
+  credit_wallets           credit_wallets?
+  marketplace_items        marketplace_items[]
+  offers                   offers[]
+  payments                 payments[]
+  products                 products[]
+  real_estate_properties   real_estate_properties[]
+  token_purchases          token_purchases[]
+  user_network_credentials user_network_credentials[]
+  Plan                     Plan?                      @relation(fields: [planId], references: [id])
+  wallet                   wallet?
+  withdrawals              Withdrawals[]
+
+  @@map("users")
+}
+
+model payments {
+  id            Int      @id @default(autoincrement())
+  userId        Int?
+  amount        Decimal  @default(0)
+  currency      String   @default("USD")
+  status        String   @default("pending")
+  provider      String   @default("skrill")
+  transactionId String   @unique
+  createdAt     DateTime @default(now())
+  txHash        String?
+  users         User?    @relation(fields: [userId], references: [id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products {
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  description         String?
+  price               Decimal?
+  imageUrl            String?               @map("image_url")
+  affiliateLink       String?               @map("affiliate_link")
+  network             String?
+  category            String?
+  aiGeneratedAd       String?               @map("ai_generated_ad")
+  extraData           String?               @map("extra_data")
+  userId              Int?                  @map("user_id")
+  isActive            Boolean               @default(true) @map("is_active")
+  isApproved          Boolean               @default(false) @map("is_approved")
+  commission          Float?                @default(0)
+  isValidLink         Boolean               @default(true) @map("is_valid_link")
+  lastCheckedAt       DateTime?             @map("last_checked_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  externalId          String?               @unique @map("external_id")
+  clicks              Int?                  @default(0)
+  views               Int?                  @default(0)
+  user                User?                 @relation(fields: [userId], references: [id])
+  product_clicks      product_clicks[]
+  product_conversions product_conversions[]
+}
+
+model token_purchases {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Int
+  chargeId  String?  @unique
+  createdAt DateTime @default(now())
+  users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Withdrawals {
+  id                        Int                         @id @default(autoincrement())
+  user_id                   Int
+  amount                    Float
+  status                    String                      @default("pending")
+  method                    String
+  account_details           String?
+  reference                 String?
+  created_at                DateTime                    @default(now())
+  updated_at                DateTime
+  idempotencyKey            String?                     @unique
+  externalStatus            String?
+  externalReference         String?
+  provider                  String?
+  expiresAt                 DateTime?
+  withdrawal_status_history withdrawal_status_history[]
+  users                     User                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([expiresAt])
+  @@index([externalReference])
+  @@index([externalStatus])
+  @@index([provider])
+  @@index([user_id])
+  @@index([user_id, status])
+  @@map("withdrawals")
+}
+
+model commissions {
+  id               Int       @id @default(autoincrement())
+  user_id          Int
+  click_id         Int?      @unique
+  network          String?
+  product_id       Int?
+  amount           Decimal   @default(0)
+  status           String    @default("pending")
+  external_ref     String?
+  webhook_data     String?
+  created_at       DateTime  @default(now())
+  paid_at          DateTime?
+  campaign_id      Int?
+  rejection_reason String?
+  approved_at      DateTime?
+  approved_by      Int?
+  clicks           clicks?   @relation(fields: [click_id], references: [id])
+  users            User      @relation(fields: [user_id], references: [id])
+}
+
+model AdCampaign {
+  id                Int                 @id @default(autoincrement())
+  userId            Int
+  productId         Int?
+  offerId           Int?
+  dailyBudget       Int
+  status            String              @default("active")
+  totalSpent        Int                 @default(0)
+  clicks            Int                 @default(0)
+  impressions       Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  users             User                @relation(fields: [userId], references: [id])
+  TransactionLedger TransactionLedger[]
+
+  @@index([userId])
+}
+
+model AdTokenWallet {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  balance   Int      @default(0)
+  updatedAt DateTime
+  users     User     @relation(fields: [userId], references: [id])
+}
+
+model PaymentEvent {
+  id          String   @id
+  provider    String
+  providerRef String   @unique
+  userId      String
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Plan {
+  id            Int            @id @default(autoincrement())
+  name          String
+  price         Decimal
+  monthlyTokens Int
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  Subscription  Subscription[]
+  users         User[]
+}
+
+model Subscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  planId    Int
+  status    String   @default("active")
+  startedAt DateTime @default(now())
+  expiresAt DateTime
+  Plan      Plan     @relation(fields: [planId], references: [id])
+  users     User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model TokenAccount {
+  id              String        @id
+  userId          Int           @unique
+  balance         Int           @default(0)
+  reservedBalance Int           @default(0)
+  planType        String
+  rolloverCap     Int
+  overdraftLimit  Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime
+  users           User          @relation(fields: [userId], references: [id])
+  TokenLedger     TokenLedger[]
+}
+
+model TokenLedger {
+  id           String       @id
+  userId       Int
+  type         String
+  amount       Int
+  feature      String?
+  referenceId  String?
+  status       String
+  createdAt    DateTime     @default(now())
+  TokenAccount TokenAccount @relation(fields: [userId], references: [userId])
+}
+
+model TokenTransaction {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Int
+  type      String
+  reason    String
+  createdAt DateTime @default(now())
+  users     User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model TransactionLedger {
+  id         Int         @id @default(autoincrement())
+  userId     Int
+  campaignId Int?
+  amount     Int
+  type       String
+  reason     String?
+  createdAt  DateTime    @default(now())
+  AdCampaign AdCampaign? @relation(fields: [campaignId], references: [id])
+  users      User        @relation(fields: [userId], references: [id])
+
+  @@index([campaignId])
+  @@index([userId])
+}
+
+model affiliate_events {
+  id          Int      @id @default(autoincrement())
+  network     String
+  eventId     String   @unique
+  payloadHash String
+  status      String   @default("processed")
+  userId      Int?
+  amount      Decimal?
+  processedAt DateTime @default(now())
+  users       User?    @relation(fields: [userId], references: [id])
+
+  @@index([eventId])
+}
+
+model affiliate_networks {
+  id                       Int                        @id @default(autoincrement())
+  name                     String
+  baseApiUrl               String
+  webhookSecret            String?
+  documentationUrl         String?
+  isActive                 Boolean                    @default(true)
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime
+  offers                   offers[]
+  user_network_credentials user_network_credentials[]
+}
+
+model ai_usage {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  tokensUsed Int
+  createdAt  DateTime @default(now())
+  users      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model categories {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  icon      String?
+  createdAt DateTime @default(now())
+  offers    offers[]
+}
+
+model clicks {
+  id            Int          @id @default(autoincrement())
+  network       String
+  offerId       Int
+  adId          Int
+  userId        Int
+  timeBucket    Int
+  clickId       String
+  clickToken    String       @unique
+  ip            String
+  ipAddress     String?
+  userAgent     String
+  revenue       Decimal      @default(0)
+  converted     Boolean      @default(false)
+  user_id       Int?
+  createdAt     DateTime     @default(now())
+  externalSubId String?
+  offers        offers       @relation(fields: [offerId], references: [id])
+  users         User         @relation(fields: [userId], references: [id])
+  commissions   commissions?
+  conversions   conversions?
+
+  @@index([externalSubId])
+  @@index([offerId])
+  @@index([userId])
+  @@index([userId, offerId])
+}
+
+model content_drafts {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  offerId   Int
+  hooks     String?
+  script    String?
+  caption   String?
+  hashtags  String?
+  status    String   @default("generated")
+  createdAt DateTime @default(now())
+  users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([userId])
+}
+
+model conversions {
+  id         Int      @id @default(autoincrement())
+  offerId    Int
+  clickId    String?
+  clickToken String?  @unique
+  revenue    Int?
+  amount     Decimal  @default(0)
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  clicks     clicks?  @relation(fields: [clickToken], references: [clickToken])
+  offers     offers   @relation(fields: [offerId], references: [id])
+
+  @@index([offerId])
+}
+
+model credit_packages {
+  id            Int      @id @default(autoincrement())
+  name          String
+  credits       Int
+  price         Decimal
+  bonus_credits Int      @default(0)
+  is_active     Boolean  @default(true)
+  display_order Int?
+  created_at    DateTime @default(now())
+}
+
+model credit_wallets {
+  id              Int      @id @default(autoincrement())
+  user_id         Int      @unique
+  credits         Int      @default(0)
+  total_purchased Int      @default(0)
+  total_spent     Int      @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime
+  users           User     @relation(fields: [user_id], references: [id])
+}
+
+model land_audit_logs {
+  id          Int      @id @default(autoincrement())
+  land_id     Int
+  action      String
+  actor_id    Int?
+  actor_name  String?
+  actor_role  String?
+  old_data    String?
+  new_data    String?
+  description String?
+  created_at  DateTime @default(now())
+  lands       lands    @relation(fields: [land_id], references: [id])
+}
+
+model land_ownerships {
+  id              Int      @id @default(autoincrement())
+  land_id         Int
+  owner_name      String
+  owner_id_type   String?
+  owner_id_number String?
+  user_id         Int?
+  ownership_type  String?  @default("full")
+  status          String?  @default("active")
+  acquired_date   DateTime @default(now())
+  acquired_price  Decimal?
+  currency        String?
+  seller_name     String?
+  seller_id       String?
+  documents       String?
+  verification    String?  @default("pending")
+  created_at      DateTime @default(now())
+  lands           lands    @relation(fields: [land_id], references: [id])
+}
+
+model lands {
+  id                  Int               @id @default(autoincrement())
+  title_number        String            @unique
+  land_name           String?
+  current_owner       String
+  owner_id            Int?
+  owner_id_type       String?
+  owner_id_number     String?
+  region              String?
+  city                String?
+  town                String?
+  neighborhood        String?
+  area_sqm            Decimal?
+  polygon_coords      String?
+  polygon_wkt         String?
+  center_lat          Decimal?
+  center_lng          Decimal?
+  land_use            String?
+  status              String?           @default("active")
+  verification_status String?           @default("submitted")
+  is_locked           Boolean           @default(false)
+  land_hash           String?
+  purchase_date       DateTime?
+  purchase_price      Decimal?
+  currency            String?
+  seller_name         String?
+  documents           String?
+  notes               String?
+  created_at          DateTime          @default(now())
+  updated_at          DateTime
+  land_audit_logs     land_audit_logs[]
+  land_ownerships     land_ownerships[]
+}
+
+model marketplace_items {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  offerId         Int?
+  manualProductId Int?
+  customTitle     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  offers          offers?  @relation(fields: [offerId], references: [id])
+  users           User     @relation(fields: [userId], references: [id])
+}
+
+model offers {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  title              String
+  slug               String              @unique
+  description        String?
+  url                String
+  network            String?
+  externalOfferId    String?             @unique
+  networkName        String?
+  trackingUrl        String?
+  isActive           Boolean             @default(true)
+  sellerId           Int?
+  payout             Decimal?
+  categoryId         Int?
+  images             String?
+  location           String?
+  status             String              @default("active")
+  createdAt          DateTime            @default(now())
+  affiliateNetworkId Int?
+  clicks             clicks[]
+  conversions        conversions[]
+  marketplace_items  marketplace_items[]
+  affiliate_networks affiliate_networks? @relation(fields: [affiliateNetworkId], references: [id])
+  categories         categories?         @relation(fields: [categoryId], references: [id])
+  users              User?               @relation(fields: [sellerId], references: [id])
+}
+
+model platform_revenues {
+  id            Int      @id @default(autoincrement())
+  conversionId  Int?
+  offerId       Int?
+  userId        Int?
+  amount        Decimal?
+  platformShare Decimal?
+  userShare     Decimal?
+  createdAt     DateTime @default(now())
+}
+
+model product_clicks {
+  id           Int                   @id @default(autoincrement())
+  product_id   Int
+  user_id      Int?
+  ip_address   String?
+  user_agent   String?
+  referrer     String?
+  fingerprint  String
+  time_bucket  BigInt                // 5-minute bucket for replay prevention
+  unique_click Boolean               @default(true)
+  created_at   DateTime              @default(now())
+  product      products              @relation(fields: [product_id], references: [id])
+  conversion   product_conversions?
+
+  @@unique([product_id, fingerprint, time_bucket])
+  @@index([product_id])
+  @@index([user_id])
+  @@index([fingerprint])
+  @@index([created_at])
+  @@index([ip_address])
+  @@index([time_bucket])
+  @@map("product_clicks")
+}
+
+model product_conversions {
+  id             Int             @id @default(autoincrement())
+  product_id     Int
+  user_id        Int?
+  click_id       Int?            @unique
+  amount         Decimal
+  commission     Decimal?
+  revenue        Decimal?
+  network        String?
+  transaction_id String?
+  source         String?
+  ip_address     String?
+  created_at     DateTime        @default(now())
+  product        products        @relation(fields: [product_id], references: [id])
+  click          product_clicks? @relation(fields: [click_id], references: [id])
+
+  @@index([product_id])
+  @@index([user_id])
+  @@index([click_id])
+  @@index([transaction_id])
+  @@index([created_at])
+  @@map("product_conversions")
+}
+
+model product_insertion_log {
+  id             Int       @id @default(autoincrement())
+  product_id     Int?
+  product_name   String?
+  affiliate_link String?
+  network        String?
+  price          Decimal?  @db.Decimal
+  admin_email    String?
+  ip_address     String?
+  user_agent     String?
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model real_estate_properties {
+  id               Int      @id @default(autoincrement())
+  title            String
+  description      String?
+  property_type    String?
+  transaction_type String?
+  price            Decimal?
+  currency         String?  @default("USD")
+  location         String?
+  region           String?
+  city             String?
+  address          String?
+  bedrooms         Int?     @default(0)
+  bathrooms        Int?     @default(0)
+  area_sqft        Int?
+  images           String?
+  image_url        String?
+  is_featured      Boolean  @default(false)
+  is_active        Boolean  @default(true)
+  status           String   @default("pending")
+  views            Int?     @default(0)
+  inquiries        Int?     @default(0)
+  created_at       DateTime @default(now())
+  updated_at       DateTime
+  user_id          Int?
+  users            User?    @relation(fields: [user_id], references: [id])
+}
+
+model token_packs {
+  id          String   @id
+  name        String
+  tokenAmount Int
+  priceUSD    Float
+  createdAt   DateTime @default(now())
+}
+
+model user_network_credentials {
+  id                 Int                @id @default(autoincrement())
+  userId             Int
+  networkId          Int
+  apiKeyEncrypted    String?
+  apiKeyIv           String?
+  apiKeyTag          String?
+  apiSecretEncrypted String?
+  apiSecretIv        String?
+  apiSecretTag       String?
+  extraConfig        String?
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  affiliate_networks affiliate_networks @relation(fields: [networkId], references: [id])
+  users              User               @relation(fields: [userId], references: [id])
+
+  @@unique([userId, networkId])
+}
+
+model wallet {
+  id                String   @id
+  userId            Int      @unique
+  balance           Float    @default(0)
+  tokens            Int      @default(0)
+  totalEarned       Float    @default(0)
+  totalWithdrawn    Float    @default(0)
+  totalTokensBought Int      @default(0)
+  totalTokensSpent  Int      @default(0)
+  currency          String   @default("XAF")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+  locked_balance    Float    @default(0)
+  users             User     @relation(fields: [userId], references: [id])
+}
+
+model withdrawal_status_history {
+  id           Int         @id @default(autoincrement())
+  withdrawalId Int
+  fromStatus   String?
+  toStatus     String
+  changedBy    Int?
+  reason       String?
+  createdAt    DateTime    @default(now())
+  withdrawals  Withdrawals @relation(fields: [withdrawalId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([createdAt])
+  @@index([withdrawalId])
+}
+
+model Wallet {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+  user      User     @relation("UserWallet", fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Transaction {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  amount         Float
+  type           String
+  source         String
+  referenceId    Int?
+  createdAt      DateTime @default(now())
+  idempotencyKey String?  @unique
+  user           User     @relation("UserTransactions", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([source])
+  @@index([referenceId])
+  @@index([idempotencyKey])
+}
+
+model Commission {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  amount    Float
+  status    String
+  createdAt DateTime @default(now())
+  user      User     @relation("UserCommissions", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+}
+
+model Conversion {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  productId  Int
+  amount     Float
+  commission Float
+  status     String   @default("pending")
+  reference  String   @unique
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+  @@index([reference])
+}
+
+model ai_memory {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key       String   @unique
+  value     Json
+  scope     String?
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([key])
+  @@index([scope])
+  @@map("ai_memory")
+}
+
+model ai_logs {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type      String
+  message   String
+  context   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type])
+  @@index([createdAt])
+  @@map("ai_logs")
+}
+
+model ai_rules {
+  id     String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name   String  @unique
+  rule   String
+  active Boolean @default(true)
+
+  @@index([active])
+  @@map("ai_rules")
+}
+
+model ai_pipeline_runs {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipeline  String
+  status    String
+  result    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([pipeline])
+  @@map("ai_pipeline_runs")
+}
